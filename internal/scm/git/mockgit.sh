@@ -167,6 +167,22 @@ case "$cmd" in
         fi
         exit 0
         ;;
+
+    init)
+        if [ "${MOCK_GIT_INIT_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "init failed" 1>&2
+            exit "${MOCK_GIT_INIT_EXIT}"
+        fi
+        exit 0
+        ;;
+
+    clone)
+        if [ "${MOCK_GIT_CLONE_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "clone failed" 1>&2
+            exit "${MOCK_GIT_CLONE_EXIT}"
+        fi
+        exit 0
+        ;;
 esac
 
 printf '%s\n' "unsupported mock git command: $cmd" 1>&2

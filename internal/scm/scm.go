@@ -45,6 +45,8 @@ const (
 // operations needed by the UI.
 type Client interface {
 	RepoStatusString(ctx context.Context, dir string) (string, error)
+	InitRepo(ctx context.Context, dstDir string) error
+	CloneRepo(ctx context.Context, srcRepoURL string, dstDir string) error
 	DiffTool(ctx context.Context, dir string, scope DiffScope) error
 	Commit(ctx context.Context, dir string, opts CommitOptions) (*UntrackedFiles, error)
 }
