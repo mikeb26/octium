@@ -21,7 +21,7 @@ func TestClient_runWithTimeout_UsesTimeoutWhenNoDeadline(t *testing.T) {
 
 	c := NewClient()
 	c.Timeout = 20 * time.Millisecond
-	_, _, err := c.runWithTimeout(context.Background(), "rev-parse", "--is-inside-work-tree")
+	_, _, err := c.runWithTimeout(context.Background(), nil, "rev-parse", "--is-inside-work-tree")
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
@@ -42,7 +42,7 @@ func TestClient_runWithTimeout_RespectsExistingDeadline(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
-	out, _, err := c.runWithTimeout(ctx, "rev-parse", "--is-inside-work-tree")
+	out, _, err := c.runWithTimeout(ctx, nil, "rev-parse", "--is-inside-work-tree")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}

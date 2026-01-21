@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 )
 
 // InitRepo initializes a new git repository at dir.
@@ -21,11 +20,8 @@ func (c *Client) InitRepo(ctx context.Context, dir string) error {
 		return fmt.Errorf("mkdir %v: %w", dir, err)
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "-C", dir, "init")
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	_, _, err := c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}, "-C", dir, "init")
+	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 	}
 	return nil
@@ -40,11 +36,8 @@ func (c *Client) CloneRepo(ctx context.Context, repoURL string, dir string) erro
 		return fmt.Errorf("mkdir %v: %w", dir, err)
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "clone", repoURL, dir)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	_, _, err := c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}, "clone", repoURL, dir)
+	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 	}
 	return nil

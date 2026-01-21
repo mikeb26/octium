@@ -8,7 +8,9 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"time"
 )
@@ -32,31 +34,62 @@ type Client struct {
 	Timeout time.Duration
 }
 
+// RunOptions customizes how git is executed.
+//
+// By default, stdout/stderr are captured and returned.
+// If Stdout/Stderr are set, output will be written there instead
+type RunOptions struct {
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
 func NewClient() *Client {
 	return &Client{Timeout: 750 * time.Millisecond}
 }
 
-func (c *Client) runWithTimeout(ctx context.Context, args ...string) (string, string, error) {
+func (c *Client) runWithTimeout(ctx context.Context, opts *RunOptions, args ...string) (string, string, error) {
 	if _, ok := ctx.Deadline(); !ok && c.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.Timeout)
 		defer cancel()
 	}
 
-	return c.run(ctx, args...)
+	return c.run(ctx, opts, args...)
 }
 
-func (c *Client) run(ctx context.Context, args ...string) (string, string, error) {
+func (c *Client) run(ctx context.Context, opts *RunOptions, args ...string) (string, string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
+
 	var out bytes.Buffer
 	var errBuf bytes.Buffer
+
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
-
-	err := cmd.Run()
-	if err != nil {
-		return out.String(), errBuf.String(),
-			fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
+	if opts != nil {
+		cmd.Stderr = opts.Stderr
+		cmd.Stdout = opts.Stdout
+		cmd.Stdin = opts.Stdin
 	}
-	return out.String(), errBuf.String(), nil
+
+	outStr := ""
+	errStr := ""
+	err := cmd.Run()
+	if opts == nil {
+		outStr = out.String()
+		errStr = errBuf.String()
+	}
+	if err != nil {
+		return outStr, errStr, fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
+	}
+
+	return outStr, errStr, nil
+}
+
+func isGitExitCode(err error, code int) bool {
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) {
+		return false
+	}
+	return ee.ExitCode() == code
 }

@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/mikeb26/gptcli/internal/scm"
@@ -47,7 +46,7 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 	}
 
 	// Stage tracked changes.
-	if _, _, err := c.run(ctx, buildGitArgs(dir, "add", "-u")...); err != nil {
+	if _, _, err := c.run(ctx, nil, buildGitArgs(dir, "add", "-u")...); err != nil {
 		return nil, err
 	}
 
@@ -55,7 +54,7 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 	if len(untracked.Filename) > 0 {
 		for _, f := range untracked.Filename {
 			if opts.IncludeUntracked[f] {
-				if _, _, err := c.run(ctx, buildGitArgs(dir, "add", "--", f)...); err != nil {
+				if _, _, err := c.run(ctx, nil, buildGitArgs(dir, "add", "--", f)...); err != nil {
 					return nil, err
 				}
 			}
@@ -66,7 +65,7 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 	// interactive `git commit` to do (it would just exit with "nothing to
 	// commit"). Return a sentinel error so callers can handle this case
 	// explicitly.
-	staged, _, err := c.run(ctx, buildGitArgs(dir, "diff", "--cached", "--name-only")...)
+	staged, _, err := c.run(ctx, nil, buildGitArgs(dir, "diff", "--cached", "--name-only")...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +77,8 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 	//
 	// We wire stdio through so that terminal-based editors work, and so that git
 	// can prompt/confirm as needed.
-	cmd := exec.CommandContext(ctx, "git", buildGitArgs(dir, "commit")...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	_, _, err = c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}, buildGitArgs(dir, "commit")...)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 	}
 	return nil, nil
@@ -93,7 +89,7 @@ func (c *Client) untrackedFiles(ctx context.Context, dir string) (*scm.Untracked
 		Filename: make([]string, 0),
 	}
 
-	out, _, err := c.run(ctx, buildGitArgs(dir, "ls-files", "--others", "--exclude-standard")...)
+	out, _, err := c.run(ctx, nil, buildGitArgs(dir, "ls-files", "--others", "--exclude-standard")...)
 	if err != nil {
 		return ret, err
 	}

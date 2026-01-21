@@ -37,7 +37,7 @@ type ps1Env struct {
 func (c *Client) RepoStatusString(ctx context.Context, dir string) (string, error) {
 	env := getUserPs1Prefs()
 
-	inside, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "rev-parse", "--is-inside-work-tree")...)
+	inside, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "rev-parse", "--is-inside-work-tree")...)
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +47,7 @@ func (c *Client) RepoStatusString(ctx context.Context, dir string) (string, erro
 
 	if env.HideIfPwdIgnored {
 		// best-effort: hide if ignored
-		_, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "check-ignore", "-q", ".")...)
+		_, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "check-ignore", "-q", ".")...)
 		if err == nil {
 			return "", fmt.Errorf("%w: %v", ErrNotGitRepo, dir)
 		}
@@ -59,7 +59,7 @@ func (c *Client) RepoStatusString(ctx context.Context, dir string) (string, erro
 		return "", ErrFailedToDetermineBranch
 	}
 
-	statusOut, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "status", "--porcelain=v2", "--branch")...)
+	statusOut, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "status", "--porcelain=v2", "--branch")...)
 	if err != nil {
 		// fallback: show at least branch
 		if repoName != "" {
@@ -81,7 +81,7 @@ func (c *Client) RepoStatusString(ctx context.Context, dir string) (string, erro
 
 	stashFlag := ""
 	if env.ShowStashState {
-		_, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "rev-parse", "--verify", "--quiet", "refs/stash")...)
+		_, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "rev-parse", "--verify", "--quiet", "refs/stash")...)
 		if err == nil {
 			stashFlag = "$"
 		}
@@ -109,7 +109,7 @@ func (c *Client) RepoStatusString(ctx context.Context, dir string) (string, erro
 
 	conflict := ""
 	if env.ShowConflictState == "yes" {
-		out, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "ls-files", "--unmerged")...)
+		out, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "ls-files", "--unmerged")...)
 		if err == nil && strings.TrimSpace(out) != "" {
 			conflict = "|CONFLICT"
 		}
@@ -193,7 +193,7 @@ func buildGitArgs(dir string, args ...string) []string {
 }
 
 func (c *Client) repoName(ctx context.Context, dir string) string {
-	top, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "rev-parse", "--show-toplevel")...)
+	top, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "rev-parse", "--show-toplevel")...)
 	if err != nil {
 		return ""
 	}
@@ -205,7 +205,7 @@ func (c *Client) repoName(ctx context.Context, dir string) string {
 }
 
 func (c *Client) currentBranchOrDetached(ctx context.Context, env ps1Env, dir string) string {
-	out, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "symbolic-ref", "--quiet", "--short", "HEAD")...)
+	out, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "symbolic-ref", "--quiet", "--short", "HEAD")...)
 	if err == nil {
 		b := strings.TrimSpace(out)
 		if b != "" {
@@ -230,7 +230,7 @@ func (c *Client) currentBranchOrDetached(ctx context.Context, env ps1Env, dir st
 		args = []string{"describe", "--tags", "--exact-match", "HEAD"}
 	}
 
-	desc, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, args...)...)
+	desc, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, args...)...)
 	if err == nil {
 		d := strings.TrimSpace(desc)
 		if d != "" {
@@ -238,7 +238,7 @@ func (c *Client) currentBranchOrDetached(ctx context.Context, env ps1Env, dir st
 		}
 	}
 
-	sha, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "rev-parse", "--short", "HEAD")...)
+	sha, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "rev-parse", "--short", "HEAD")...)
 	if err != nil {
 		return ""
 	}
@@ -250,7 +250,7 @@ func (c *Client) currentBranchOrDetached(ctx context.Context, env ps1Env, dir st
 }
 
 func (c *Client) trueGitConfig(ctx context.Context, dir string, key string) bool {
-	out, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "config", "--bool", key)...)
+	out, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "config", "--bool", key)...)
 	if err != nil {
 		return false
 	}
@@ -258,7 +258,7 @@ func (c *Client) trueGitConfig(ctx context.Context, dir string, key string) bool
 }
 
 func (c *Client) inProgressOperation(ctx context.Context, dir string) string {
-	gitDir, _, err := c.runWithTimeout(ctx, buildGitArgs(dir, "rev-parse", "--absolute-git-dir")...)
+	gitDir, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "rev-parse", "--absolute-git-dir")...)
 	if err != nil {
 		return ""
 	}

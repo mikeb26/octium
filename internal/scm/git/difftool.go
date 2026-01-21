@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/mikeb26/gptcli/internal/scm"
@@ -51,12 +50,8 @@ func (c *Client) DiffTool(ctx context.Context, dir string, scope scm.DiffScope) 
 }
 
 func (c *Client) runGitDiffTool(ctx context.Context, dir string, gitArgs ...string) error {
-	cmd := exec.CommandContext(ctx, "git", buildGitArgs(dir, gitArgs...)...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	_, _, err := c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}, buildGitArgs(dir, gitArgs...)...)
+	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 	}
 	return nil
@@ -91,10 +86,9 @@ func (c *Client) gitConfigGet(ctx context.Context, dir string, key string) (stri
 		ctx = context.Background()
 	}
 
-	cmd := exec.CommandContext(ctx, "git", buildGitArgs(dir, "config", "--get", key)...)
-	out, err := cmd.Output()
+	out, _, err := c.run(ctx, nil, buildGitArgs(dir, "config", "--get", key)...)
 	if err == nil {
-		v := strings.TrimSpace(string(out))
+		v := strings.TrimSpace(out)
 		if v == "" {
 			return "", false, nil
 		}
@@ -102,10 +96,8 @@ func (c *Client) gitConfigGet(ctx context.Context, dir string, key string) (stri
 	}
 
 	// Exit code 1 indicates the key was not found.
-	if ee, ok := err.(*exec.ExitError); ok {
-		if ee.ExitCode() == 1 {
-			return "", false, nil
-		}
+	if isGitExitCode(err, 1) {
+		return "", false, nil
 	}
 	return "", false, fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 }
