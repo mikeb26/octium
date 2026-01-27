@@ -35,7 +35,9 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 
 	set := NewThreadGroupSet(setDir, nil)
 	grp := newThreadGroup(set, "", grpDir)
+	set.mu.Lock()
 	assert.NoError(t, grp.NewThread("t1"))
+	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
 		return
@@ -115,7 +117,9 @@ func TestChatOnceAsyncRequiresSystemMessage(t *testing.T) {
 
 	set := NewThreadGroupSet(setDir, nil)
 	grp := newThreadGroup(set, "", grpDir)
+	set.mu.Lock()
 	assert.NoError(t, grp.NewThread("t1"))
+	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
 		return
@@ -137,7 +141,9 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 
 	set := NewThreadGroupSet(setDir, nil)
 	grp := newThreadGroup(set, "", grpDir)
+	set.mu.Lock()
 	assert.NoError(t, grp.NewThread("t1"))
+	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
 		return
@@ -193,7 +199,9 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 
 	set := NewThreadGroupSet(setDir, nil)
 	grp := newThreadGroup(set, "", grpDir)
+	set.mu.Lock()
 	assert.NoError(t, grp.NewThread("t1"))
+	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
 		return

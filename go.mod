@@ -8,18 +8,18 @@ replace github.com/rthornton128/goncurses => github.com/mikeb26/rthornton128-gon
 
 require (
 	github.com/chromedp/chromedp v0.14.2
-	github.com/cloudwego/eino v0.7.21
+	github.com/cloudwego/eino v0.7.25
 	github.com/cloudwego/eino-ext/components/model/claude v0.1.14
 	github.com/cloudwego/eino-ext/components/model/gemini v0.1.28
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.8
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.13
 	github.com/famz/SetLocale v0.0.0-20140414113655-0457ad1065dd
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.6.0
+	github.com/negrel/assert v0.5.0
 	github.com/rthornton128/goncurses v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/term v0.39.0
-	google.golang.org/genai v1.42.0
+	google.golang.org/genai v1.43.0
 )
 
 require (
@@ -64,6 +64,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

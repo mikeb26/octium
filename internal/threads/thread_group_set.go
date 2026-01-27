@@ -14,6 +14,8 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+
+	"github.com/negrel/assert"
 )
 
 const (
@@ -99,6 +101,9 @@ func (tgs *ThreadGroupSet) MoveThread(thr Thread, srcThrGrpName, dstThrGrpName s
 // newThreadId generated a new, monotonically increasing, persistent thread id.
 // callers should already hold a write lock on the thread group set's mutex
 func (tgs *ThreadGroupSet) newThreadId() (string, error) {
+	assert.Locked(&tgs.mu, "attempt to add thread without holding thread group set %v mutex",
+		tgs.dir)
+
 	tgs.persisted.ThreadNum++
 	err := tgs.save()
 	if err != nil {
@@ -177,6 +182,9 @@ func (tgs *ThreadGroupSet) Load() error {
 // save persists the thread group set fields to disk; callers should already
 // hold a write lock on the thread group set's mutex.
 func (tgs *ThreadGroupSet) save() error {
+	assert.Locked(&tgs.mu, "attempt to persist thread group set %v without holding mutex",
+		tgs.dir)
+
 	content, err := json.Marshal(&tgs.persisted)
 	if err != nil {
 		return fmt.Errorf("failed to marshal thread group set: %w", err)
@@ -194,6 +202,9 @@ func (tgs *ThreadGroupSet) save() error {
 // loadThreadGroups loads threads for each thread group in the set. callers
 // should already hold a write lock on the thread group set's mutex.
 func (tgs *ThreadGroupSet) loadThreadGroups() error {
+	assert.Locked(&tgs.mu, "attempt to load thread groups holding thread group set %v mutex",
+		tgs.dir)
+
 	for _, tg := range tgs.threadGrps {
 		if err := tg.LoadThreads(); err != nil {
 			return err

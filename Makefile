@@ -1,11 +1,21 @@
 export GO111MODULE=on
 export GOFLAGS=-mod=vendor
 
+# Build/test tags. Defaults to enabling github.com/negrel/assert assertions.
+# Override with e.g.:
+#   make TAGS=
+#   make TAGS="assert,other"
+TAGS ?= assert
+GO_TAG_FLAGS :=
+ifneq ($(strip $(TAGS)),)
+GO_TAG_FLAGS := -tags $(TAGS)
+endif
+
 .PHONY: build
 build: cmd/gptcli
 
 cmd/gptcli: vendor FORCE
-	go build -o gptcli cmd/gptcli/*.go
+	go build $(GO_TAG_FLAGS) -o gptcli cmd/gptcli/*.go
 
 vendor: go.mod
 	go mod download
@@ -31,10 +41,10 @@ endif
 
 .PHONY: test
 test: mocks
-	go test $(TESTFLAGS) $(TESTPKGS)
+	go test $(GO_TAG_FLAGS) $(TESTFLAGS) $(TESTPKGS)
 
 unit-tests.xml: mocks FORCE
-	gotestsum --junitfile unit-tests.xml -- $(TESTFLAGS) $(TESTPKGS)
+	gotestsum --junitfile unit-tests.xml -- $(GO_TAG_FLAGS) $(TESTFLAGS) $(TESTPKGS)
 
 .PHONY: lint
 lint:

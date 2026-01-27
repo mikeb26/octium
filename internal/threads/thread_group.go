@@ -114,7 +114,11 @@ func (thrGrp *ThreadGroup) LoadThreads() error {
 
 	for _, dEnt := range dEntries {
 		curThread := &thread{parent: thrGrp}
-		if err := curThread.load(thrGrp.dir, dEnt.Name()); err != nil {
+		curThread.mu.Lock()
+		err := curThread.load(thrGrp.dir, dEnt.Name())
+		curThread.mu.Unlock()
+
+		if err != nil {
 			return err
 		}
 		thrGrp.addThread(curThread)

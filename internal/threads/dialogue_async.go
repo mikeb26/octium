@@ -15,6 +15,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/mikeb26/gptcli/internal/llmclient"
 	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/negrel/assert"
 )
 
 // RunningThreadResult is sent once, when the request has completed (success or
@@ -238,9 +239,9 @@ func runChatOnceAsync(
 }
 
 func closeStreamOnCancel(ctx context.Context, stream *schema.StreamReader[*types.ThreadMessage]) {
-	if ctx == nil || stream == nil {
-		return
-	}
+	assert.NotNil(ctx, "nil ctx when closing stream")
+	assert.NotNil(stream, "nil stream when closing stream")
+
 	<-ctx.Done()
 	stream.Close()
 }

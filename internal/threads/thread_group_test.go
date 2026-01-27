@@ -24,7 +24,9 @@ func TestNewThreadInitializesAndRegistersThread(t *testing.T) {
 
 	set := NewThreadGroupSet(setDir, nil)
 	grp := newThreadGroup(set, "T", grpDir)
+	set.mu.Lock()
 	err := grp.NewThread("first-thread")
+	set.mu.Unlock()
 	assert.NoError(t, err)
 
 	// Thread is registered in-memory.
@@ -71,7 +73,9 @@ func TestActivateThreadUpdatesAccessTimeAndPersists(t *testing.T) {
 	thr.dirName = genUniqDirName(thr.persisted.Name, thr.persisted.CreateTime)
 	thr.parentDir = grpDir
 	// Persist initial state so ActivateThread can overwrite it.
+	thr.mu.Lock()
 	assert.NoError(t, thr.save())
+	thr.mu.Unlock()
 
 	grp.addThread(thr)
 	oldAccess := thr.persisted.AccessTime
@@ -179,7 +183,9 @@ func TestMoveThreadMovesFileAndReloadsSourceGroup(t *testing.T) {
 	thr.state = ThreadStateIdle
 	thr.dirName = genUniqDirName(thr.persisted.Name, thr.persisted.CreateTime)
 	thr.parentDir = srcDir
+	thr.mu.Lock()
 	assert.NoError(t, thr.save())
+	thr.mu.Unlock()
 
 	srcGrp.addThread(thr)
 	assert.Equal(t, 1, srcGrp.Count())

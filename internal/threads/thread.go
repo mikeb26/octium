@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/negrel/assert"
 )
 
 const (
@@ -93,6 +94,9 @@ type thread struct {
 // It also normalizes legacy/stale filenames by renaming the persisted
 // thread file to match the current genUniqFileName scheme.
 func (t *thread) load(parentDir string, dirName string) error {
+	assert.Locked(&t.mu, "attempt to load thread %v/%v without holding thread mutex",
+		parentDir, dirName)
+
 	fullpath := filepath.Join(parentDir, dirName, ThreadFileName)
 	threadFileText, err := os.ReadFile(fullpath)
 	if err != nil {
@@ -192,6 +196,9 @@ func (t *thread) save() error {
 	return t.saveWithDir(t.parentDir)
 }
 func (t *thread) saveWithDir(parentDir string) error {
+	assert.Locked(&t.mu, "attempt to persist thread %v without holding thread mutex",
+		t.persisted.Id)
+
 	if t.state != ThreadStateIdle {
 		return fmt.Errorf("cannot save non-idle thread state:%v", t.state)
 	}
@@ -225,6 +232,9 @@ func (t *thread) remove() error {
 	return t.removeWithDir(t.parentDir)
 }
 func (t *thread) removeWithDir(parentDir string) error {
+	assert.Locked(&t.mu, "attempt to delete thread %v without holding thread mutex",
+		t.persisted.Id)
+
 	if t.state != ThreadStateIdle {
 		return fmt.Errorf("cannot remove non-idle thread state:%v",
 			t.state)
