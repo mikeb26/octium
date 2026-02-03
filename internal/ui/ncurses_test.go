@@ -36,6 +36,31 @@ func TestTruncateRunes_ZeroMax(t *testing.T) {
 	}
 }
 
+func TestExpandTabs(t *testing.T) {
+	got := ExpandTabs("a\tb", 8)
+	// 'a' at col 0, tab advances to col 8 => 7 spaces.
+	expected := "a       b"
+	if got != expected {
+		t.Fatalf("expected %q, got %q", expected, got)
+	}
+
+	got2 := ExpandTabs("1234567\tX", 8)
+	// 7 chars => col 7, tab advances by 1 space to col 8.
+	expected2 := "1234567 X"
+	if got2 != expected2 {
+		t.Fatalf("expected %q, got %q", expected2, got2)
+	}
+}
+
+func TestTruncateRunes_ExpandsTabs(t *testing.T) {
+	// With tab expansion, max=2 should include 'a' plus one space.
+	got := TruncateRunes("a\tb", 2)
+	expected := "a "
+	if got != expected {
+		t.Fatalf("expected %q, got %q", expected, got)
+	}
+}
+
 func TestWrapRunesWithContinuation_Empty(t *testing.T) {
 	segments, wrapped := WrapRunesWithContinuation([]rune{}, 5)
 	if len(segments) != 1 || len(wrapped) != 1 {

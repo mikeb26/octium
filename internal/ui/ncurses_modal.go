@@ -174,7 +174,7 @@ func (n *NcursesUI) readLineModalFrame(userPrompt string) (string, error) {
 	// Width is based on the longest prompt line.
 	maxRunes := 0
 	for _, line := range promptLines {
-		if l := len([]rune(line)); l > maxRunes {
+		if l := DisplayWidth(line); l > maxRunes {
 			maxRunes = l
 		}
 	}
@@ -238,7 +238,7 @@ func (n *NcursesUI) readLineModalFrame(userPrompt string) (string, error) {
 
 		// Place the terminal cursor at the end of the currently rendered
 		// input buffer.
-		cursorCol := len([]rune(text))
+		cursorCol := DisplayWidth(text)
 		if cursorCol < 0 {
 			cursorCol = 0
 		}
@@ -311,12 +311,12 @@ func (n *NcursesUI) selectFromListModalFrame(userPrompt string, items []string, 
 
 	maxRunes := 0
 	for _, line := range promptLines {
-		if l := len([]rune(line)); l > maxRunes {
+		if l := DisplayWidth(line); l > maxRunes {
 			maxRunes = l
 		}
 	}
 	for _, it := range items {
-		if l := len([]rune(it)); l > maxRunes {
+		if l := DisplayWidth(it); l > maxRunes {
 			maxRunes = l
 		}
 	}

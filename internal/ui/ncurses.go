@@ -13,6 +13,14 @@ import (
 	gc "github.com/rthornton128/goncurses"
 )
 
+// DefaultTabWidth is the display width (in columns) used when expanding
+// '\t' characters for ncurses rendering.
+//
+// Terminals commonly use 8-column tab stops, and ncurses will advance the
+// cursor to the next tab stop when printing a tab. For our sizing/truncation
+// logic we normalize this by expanding tabs to spaces.
+const DefaultTabWidth = 8
+
 // NcursesUI implements the UI interface using a goncurses Window.
 //
 // It is designed to be used from code that has already initialized
@@ -65,11 +73,66 @@ func TruncateRunes(s string, max int) string {
 	if max <= 0 {
 		return ""
 	}
+	// Expand tabs so that truncation happens by display columns, not by
+	// literal rune count.
+	s = ExpandTabs(s, DefaultTabWidth)
 	r := []rune(s)
 	if len(r) <= max {
 		return s
 	}
 	return string(r[:max])
+}
+
+// ExpandTabs replaces '\t' characters with spaces so that display width
+// computations and truncation reflect typical terminal tab stops.
+//
+// tabWidth is clamped to at least 1.
+func ExpandTabs(s string, tabWidth int) string {
+	if tabWidth < 1 {
+		tabWidth = 1
+	}
+
+	// Fast path: avoid allocations if there are no tabs.
+	if !strings.ContainsRune(s, '\t') {
+		return s
+	}
+
+	var b strings.Builder
+	// Conservative: expanded text can be larger than input.
+	b.Grow(len(s))
+
+	col := 0
+	for _, r := range s {
+		if r != '\t' {
+			b.WriteRune(r)
+			col++
+			continue
+		}
+
+		spaces := tabWidth - (col % tabWidth)
+		if spaces < 1 {
+			spaces = 1
+		}
+		for i := 0; i < spaces; i++ {
+			b.WriteByte(' ')
+		}
+		col += spaces
+	}
+
+	return b.String()
+}
+
+// ExpandTabsRunes is the rune-slice equivalent of ExpandTabs.
+func ExpandTabsRunes(content []rune, tabWidth int) []rune {
+	return []rune(ExpandTabs(string(content), tabWidth))
+}
+
+// DisplayWidth returns the display width (in columns) of s, treating tabs
+// as expanding to spaces at DefaultTabWidth boundaries.
+//
+// NOTE: This still assumes each non-tab rune occupies one column.
+func DisplayWidth(s string) int {
+	return len([]rune(ExpandTabs(s, DefaultTabWidth)))
 }
 
 // SelectOption presents a list of options to the user in a centered
@@ -137,7 +200,7 @@ func (n *NcursesUI) SelectBool(userPrompt string,
 			}
 			lines := strings.Split(strings.TrimRight(prompt, "\n"), "\n")
 			for _, line := range lines {
-				if len([]rune(line)) > contentTextWidth {
+				if DisplayWidth(line) > contentTextWidth {
 					useScrollable = true
 					break
 				}
@@ -207,11 +270,11 @@ func (n *NcursesUI) Confirm(userPrompt string) error {
 
 	maxRunes := 0
 	for _, line := range promptLines {
-		if l := len([]rune(line)); l > maxRunes {
+		if l := DisplayWidth(line); l > maxRunes {
 			maxRunes = l
 		}
 	}
-	if okLen := len([]rune("OK")); okLen > maxRunes {
+	if okLen := DisplayWidth("OK"); okLen > maxRunes {
 		maxRunes = okLen
 	}
 

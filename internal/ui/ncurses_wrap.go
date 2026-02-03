@@ -21,6 +21,7 @@ func WrapTextHard(lines []string, width int) []string {
 
 	out := make([]string, 0, len(lines))
 	for _, line := range lines {
+		line = ExpandTabs(line, DefaultTabWidth)
 		r := []rune(line)
 		if len(r) == 0 {
 			out = append(out, "")
@@ -54,6 +55,8 @@ func WrapRunesWithContinuation(content []rune, width int) (segments [][]rune, wr
 	if width < 1 {
 		width = 1
 	}
+
+	content = ExpandTabsRunes(content, DefaultTabWidth)
 
 	// Always return at least one segment so that empty logical lines still
 	// occupy one display row.

@@ -27,6 +27,9 @@ func WrapTextWithPrefix(prefix, text string, width int, attr gc.Char) []FrameLin
 		attr = gc.A_NORMAL
 	}
 
+	// Expand tabs in the prefix so that indentation aligns with how the
+	// prefix will actually render in a terminal.
+	prefix = ExpandTabs(prefix, DefaultTabWidth)
 	prefixRunes := []rune(prefix)
 	indentRunes := make([]rune, len(prefixRunes))
 	for i := range indentRunes {
