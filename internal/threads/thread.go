@@ -20,6 +20,7 @@ import (
 const (
 	ThreadNoExistErrFmt = "Thread %v does not exist. To list threads try 'ls'.\n"
 	ThreadFileName      = "thread.json"
+	ThreadScratchDir    = "scratch"
 )
 
 type ThreadState int
@@ -68,6 +69,7 @@ type Thread interface {
 	Dialogue() []*types.ThreadMessage
 	RenderBlocks() []RenderBlock
 	Access() error
+	ScratchDir() string
 	ChatOnceAsync(context.Context, types.InternalContext, string,
 		bool, string) (*RunningThreadState, error)
 }
@@ -210,7 +212,8 @@ func (t *thread) saveWithDir(parentDir string) error {
 	}
 
 	threadDir := filepath.Join(parentDir, t.dirName)
-	err = os.MkdirAll(threadDir, 0700)
+	threadWorkDir := filepath.Join(threadDir, ThreadScratchDir)
+	err = os.MkdirAll(threadWorkDir, 0700)
 	if err != nil {
 		return fmt.Errorf("Failed to save thread %v: %w", t.persisted.Name,
 			err)
@@ -224,6 +227,10 @@ func (t *thread) saveWithDir(parentDir string) error {
 	}
 
 	return nil
+}
+
+func (t *thread) ScratchDir() string {
+	return filepath.Join(t.parentDir, t.dirName, ThreadScratchDir)
 }
 
 // remove deletes the thread's persisted dialogue; callers should already hold
