@@ -143,6 +143,7 @@ func TestRepoSyncStatus_ParsesUpstreamAndDirtyAndOp(t *testing.T) {
 			"# branch.upstream origin/main\n" +
 			"# branch.ab +2 -3\n" +
 			"? untracked.txt\n",
+		"MOCK_GIT_BRANCH":      "main",
 		"MOCK_GIT_ABS_GIT_DIR": absGitDir,
 	})
 	t.Cleanup(cleanup)
@@ -155,6 +156,9 @@ func TestRepoSyncStatus_ParsesUpstreamAndDirtyAndOp(t *testing.T) {
 	}
 	if st.UpstreamRemote != "origin" || st.UpstreamBranch != "main" {
 		t.Fatalf("unexpected upstream: %#v", st)
+	}
+	if st.LocalBranch != "main" {
+		t.Fatalf("unexpected local branch: %#v", st)
 	}
 	if st.Ahead != 2 || st.Behind != 3 {
 		t.Fatalf("unexpected ahead/behind: %#v", st)

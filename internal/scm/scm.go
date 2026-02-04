@@ -50,6 +50,12 @@ func (o RepoOperation) String() string {
 // RepoSyncStatus provides SCM-agnostic repository status required for
 // non-interactive syncing.
 type RepoSyncStatus struct {
+	// LocalBranch is the currently checked-out local branch.
+	//
+	// When the repo is in a detached HEAD state or the underlying SCM does not
+	// expose a concept of a local branch, this may be empty.
+	LocalBranch string
+
 	// UpstreamRemote and UpstreamBranch represent the configured upstream
 	// of the current branch.
 	//

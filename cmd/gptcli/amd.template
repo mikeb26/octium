@@ -1,0 +1,171 @@
+# AGENTS.md
+
+> This file is for **AI coding agents** (and humans) working in this repository.
+> Think of it as a *README for agents*: it contains the project-specific context and rules an agent should follow.
+>
+> Keep this document **up to date**. If you (the agent) change build steps, dependencies, code layout, conventions,
+> tests, CI, scripts, or security posture, you **must update AGENTS.md** in the same PR/commit.
+
+## Quick start (agent checklist)
+
+Before making changes:
+
+1. **Clarify intent**
+   - If requirements are ambiguous, ask questions *before* coding.
+   - Confirm expected behavior, scope, and acceptance criteria.
+
+2. **Inspect the repo**
+   - Read: `README.md`, `AGENTS.md`, `LICENSE`, `CONTRIBUTING.md` (if present), and `.github/workflows/*`.
+   - Identify language/toolchain and existing structure.
+
+3. **Safety & minimalism**
+   - Prefer small, focused changes.
+   - Avoid deleting files or rewriting large sections unless requested.
+   - Don’t commit secrets; don’t paste tokens into files.
+
+4. **Prove changes work**
+   - Run formatting/linting/tests when available.
+   - Update or add tests for changed behavior.
+
+5. **Document and summarize**
+   - Update `AGENTS.md` if your changes alter any agent-relevant guidance.
+   - Provide a brief change summary and how to verify.
+
+## Project overview
+
+- **Purpose:** <fill in>
+- **Primary users:** <fill in>
+- **Key functionality:** <fill in>
+
+### Architecture (high level)
+
+- **Entry points:** <fill in>
+- **Core modules/packages:** <fill in>
+- **Data storage:** <fill in>
+- **External integrations:** <fill in>
+
+## Repository layout
+
+Describe the repository organization so an agent can navigate quickly.
+
+- `src/` – <fill in>
+- `cmd/` – <fill in>
+- `internal/` – <fill in>
+- `docs/` – <fill in>
+- `.github/workflows/` – CI pipelines
+
+(Replace the above with the actual layout once the repo exists.)
+
+## Setup commands
+
+> Update this section whenever setup steps change.
+
+### Requirements
+
+- Language/toolchain: <e.g., Go 1.22+, Node 20+, Python 3.11+>
+- Package manager: <e.g., go mod, pnpm, npm, uv, poetry>
+
+### Install
+
+- `<command to install deps>`
+
+### Run (development)
+
+- `<command to run locally>`
+
+### Build
+
+- `<command to build>`
+
+### Test
+
+- `<command to run unit tests>`
+- `<command to run integration tests>` (if any)
+
+### Lint / format
+
+- `<command to lint>`
+- `<command to format>`
+
+## Code style & conventions
+
+> Prefer existing conventions in the repo over personal preference.
+
+- Formatting: <fill in>
+- Naming: <fill in>
+- Error handling: <fill in>
+- Logging: <fill in>
+- API design: <fill in>
+
+### Suggested defaults (if the repo is new)
+
+If the user hasn’t specified preferences yet, start with these sane defaults:
+
+- Keep code changes small and readable.
+- Prefer composition over inheritance.
+- Avoid cleverness; optimize for maintainability.
+- Add tests for non-trivial logic.
+
+## Testing guidelines
+
+- Keep tests deterministic (avoid timing/network flakiness).
+- Prefer unit tests for core logic; add integration tests when needed.
+- When fixing a bug, add a regression test.
+
+## Security & privacy
+
+- Do not add secrets to the repository.
+- Prefer environment variables or secret managers for credentials.
+- Validate and sanitize external input.
+- Avoid risky dependencies; pin versions when appropriate.
+
+## Tooling & CI
+
+- CI location: `.github/workflows/<fill in>`
+- Required checks: <fill in>
+- Release process: <fill in>
+
+## Change management rules (for agents)
+
+### Keep AGENTS.md current
+
+When you (the agent) make changes that affect how future work should be done, **update this file**. Examples:
+
+- You add/modify build steps, scripts, or Makefile targets
+- You introduce a new language toolchain or version requirement
+- You change directory structure or module boundaries
+- You add a linter/formatter or change formatting rules
+- You add/modify CI workflows or required checks
+- You add a new testing strategy (e.g., integration tests, snapshots)
+- You add any repo-specific safety constraints (e.g., “never write to prod DB”)
+
+### Prefer repository-local guidance
+
+- If `README.md` conflicts with `AGENTS.md`, follow the user’s instruction first, then align docs.
+- If a subdirectory contains another `AGENTS.md`, the closest one to the edited files should be treated as authoritative.
+
+### Avoid unrequested scope creep
+
+- Don’t refactor unrelated files.
+- Don’t rename public APIs unless requested.
+- Don’t change dependency versions unless necessary; explain why.
+
+## PR / commit guidance
+
+- Make commits logically grouped; keep messages descriptive.
+- Include:
+  - what changed
+  - why it changed
+  - how to verify
+- If you updated behavior, update docs and tests.
+
+## Notes for the human owner
+
+Fill in these fields to make agents dramatically more effective:
+
+- Preferred stack (language/framework): <fill in>
+- Preferred test runner: <fill in>
+- Preferred formatter/linter: <fill in>
+- Target platforms (OS/arch): <fill in>
+- Performance constraints: <fill in>
+- Deployment target (if any): <fill in>

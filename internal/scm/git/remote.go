@@ -79,11 +79,18 @@ func (c *Client) RepoSyncStatus(ctx context.Context, dir string) (scm.RepoSyncSt
 		return scm.RepoSyncStatus{}, err
 	}
 
+	// Determine the currently checked-out branch best-effort.
+	//
+	// RepoSyncStatus should be resilient even when the repo is in a detached
+	// HEAD state.
+	localBranch, _ := c.currentBranch(ctx, dir)
+
 	op := c.inProgressOperation(ctx, dir)
 	operation := mapOperation(op)
 
 	remote, branch := splitUpstream(meta.upstream)
 	return scm.RepoSyncStatus{
+		LocalBranch:           localBranch,
 		UpstreamRemote:        remote,
 		UpstreamBranch:        branch,
 		Ahead:                 meta.ahead,
@@ -108,6 +115,20 @@ func (c *Client) Merge(ctx context.Context, dir string, remoteName string,
 		return fmt.Errorf("repository has an in-progress operation; refusing to merge")
 	}
 
+	// When a remote name is specified but the branch is not, interpret this as
+	// merging the remote branch with the same name as the currently checked out
+	// local branch.
+	//
+	// This supports workflows like merging a workspace sandbox (added as a
+	// temporary remote) into the origin repo's current branch.
+	if strings.TrimSpace(remoteName) != "" && strings.TrimSpace(branch) == "" {
+		b, err := c.currentBranch(ctx, dir)
+		if err != nil {
+			return err
+		}
+		branch = b
+	}
+
 	target, err := c.resolveMergeTarget(remoteName, branch, meta)
 	if err != nil {
 		return err
@@ -124,6 +145,18 @@ func (c *Client) Merge(ctx context.Context, dir string, remoteName string,
 	}
 
 	return nil
+}
+
+func (c *Client) currentBranch(ctx context.Context, dir string) (string, error) {
+	out, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "symbolic-ref", "--quiet", "--short", "HEAD")...)
+	if err != nil {
+		return "", ErrFailedToDetermineBranch
+	}
+	b := strings.TrimSpace(out)
+	if b == "" {
+		return "", ErrFailedToDetermineBranch
+	}
+	return b, nil
 }
 
 func splitUpstream(upstream string) (remote string, branch string) {

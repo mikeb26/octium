@@ -14,16 +14,14 @@ import (
 
 // drawThreadHeader renders a single-line header for the thread view.
 func (tvUI *threadViewUI) drawThreadHeader(ctx context.Context) {
+	_ = tvUI.ws.SyncSandbox(ctx, false) // best effort
+
 	_, maxX := tvUI.cliCtx.rootWin.MaxYX()
 	header := fmt.Sprintf("Thread: %s", tvUI.thread.Name())
-	repoStatus := "<none>"
-	if tvUI.workDir != "" {
-		repoStatus2, err := tvUI.cliCtx.scmClient.RepoStatusString(ctx, tvUI.workDir)
-		if err == nil {
-			repoStatus = repoStatus2
-		}
+	wsStatus := tvUI.ws.String(ctx)
+	if wsStatus != "" {
+		header = fmt.Sprintf("%s | workspace: %s", header, wsStatus)
 	}
-	header = fmt.Sprintf("%s | Repo: %s", header, repoStatus)
 
 	if len([]rune(header)) > maxX {
 		header = string([]rune(header)[:maxX])
@@ -79,10 +77,8 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool) {
 	}
 	if focus == focusHistory {
 		segments = append(segments, []statusSegment{
-			{text: " Commit:", bold: false},
-			{text: "c", bold: true},
-			{text: " Diff:", bold: false},
-			{text: "d", bold: true},
+			{text: " Workspace:", bold: false},
+			{text: "w", bold: true},
 		}...)
 	}
 	segments = append(segments, []statusSegment{

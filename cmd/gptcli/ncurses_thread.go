@@ -19,6 +19,7 @@ import (
 	"github.com/mikeb26/gptcli/internal/threads"
 	"github.com/mikeb26/gptcli/internal/types"
 	"github.com/mikeb26/gptcli/internal/ui"
+	"github.com/mikeb26/gptcli/internal/workspace"
 	gc "github.com/rthornton128/goncurses"
 )
 
@@ -41,6 +42,8 @@ const (
 	focusInput
 )
 
+const AgentsMD = "AGENTS.md"
+
 type threadViewUI struct {
 	cliCtx       *CliContext
 	thread       threads.Thread
@@ -50,18 +53,18 @@ type threadViewUI struct {
 	inputFrame   *ui.Frame
 	historyFrame *ui.Frame
 	focusedFrame *ui.Frame
-	workDir      string
+	ws           *workspace.Workspace
 }
 
 // automatically add AGENTS.md to the system prompt when present in the user's
 // repository
 func (tvUI *threadViewUI) getSystemPrompt() string {
-	if tvUI.workDir == "" {
+	if tvUI.ws.Origin() == "" {
 		return prompts.SystemMsg
 	}
 
 	// best effort
-	content, err := os.ReadFile(filepath.Join(tvUI.workDir, "AGENTS.md"))
+	content, err := os.ReadFile(filepath.Join(tvUI.ws.Origin(), AgentsMD))
 	if err != nil {
 		return prompts.SystemMsg
 	}
@@ -81,14 +84,10 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 		cliCtx:     cliCtx,
 		thread:     thread,
 		isArchived: isArchivedIn,
+		ws:         workspace.New(thread.ScratchDir(), cliCtx.scmClient),
 	}
 	tvUI.clearRunningState()
 	cliCtx.threadViews[tid] = tvUI
-	wd, _ := os.Getwd()
-	_, err := cliCtx.scmClient.RepoStatusString(ctx, wd)
-	if err == nil {
-		tvUI.workDir = wd
-	}
 
 	return tvUI
 }
@@ -289,7 +288,11 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		if isHistory {
 			return false, tvUI.launchDiffToolFromThreadView(ctx)
 		} // else do not return; inputFrame needs to process 'd' as
-		// input
+	case 'w':
+		if isHistory {
+			_ = tvUI.launchWorkspaceModalFromThreadView(ctx)
+			return false, true
+		} // else do not return; inputFrame needs to process 'w' as input
 	case 'd' - 'a' + 1: // Ctrl-D sends the input buffer
 		if tvUI.isArchived {
 			return false, false
@@ -339,17 +342,15 @@ func (tvUI *threadViewUI) processThreadViewKey(
 }
 
 func (tvUI *threadViewUI) launchDiffToolFromThreadView(ctx context.Context) (needRedraw bool) {
-	if tvUI.workDir == "" {
+	if tvUI.ws.Sandbox() == "" {
 		return false
 	}
 
 	// Suspend curses so the difftool can use the terminal.
-	gc.DefProgMode()
-	gc.End()
-	err := tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.workDir, scm.DiffScopeUncommitted)
-	gc.ResetProgMode()
-	gc.UpdatePanels()
-	gc.StdScr().Refresh()
+	suspendNCurses()
+	// @todo need to diff sandbox against origin, not uncommitted
+	err := tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.ws.Sandbox(), scm.DiffScopeUncommitted)
+	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
 	}
@@ -358,7 +359,7 @@ func (tvUI *threadViewUI) launchDiffToolFromThreadView(ctx context.Context) (nee
 }
 
 func (tvUI *threadViewUI) launchCommitFromThreadView(ctx context.Context) (needRedraw bool) {
-	if tvUI.workDir == "" {
+	if tvUI.ws.Sandbox() == "" {
 		return false
 	}
 
@@ -367,12 +368,9 @@ func (tvUI *threadViewUI) launchCommitFromThreadView(ctx context.Context) (needR
 	for {
 		// This uses the user's configured git editor (git commit without -m).
 		// Suspend curses so the editor can use the terminal.
-		gc.DefProgMode()
-		gc.End()
-		untracked, err := tvUI.cliCtx.scmClient.Commit(ctx, tvUI.workDir, opts)
-		gc.ResetProgMode()
-		gc.UpdatePanels()
-		gc.StdScr().Refresh()
+		suspendNCurses()
+		untracked, err := tvUI.cliCtx.scmClient.Commit(ctx, tvUI.ws.Sandbox(), opts)
+		restoreNCurses()
 
 		if err == nil {
 			return true
@@ -457,7 +455,8 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	// We still process async events immediately afterwards; this just ensures the
 	// user sees the thread view first.
 	tvUI.redrawThreadView(ctx)
-	needRedraw := false
+	_ = tvUI.setupWorkspace(ctx, false)
+	needRedraw := true
 
 	for {
 		if runningNeedRedraw := tvUI.processAsyncChat(); runningNeedRedraw {

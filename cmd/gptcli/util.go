@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mikeb26/gptcli/internal/threads"
+	gc "github.com/rthornton128/goncurses"
 )
 
 const (
@@ -167,13 +168,14 @@ func (cliCtx *CliContext) migrateOneOldThreadFormat(dEntry os.DirEntry,
 	oldThreadFile := filepath.Join(oldDir, dEntry.Name())
 	newThreadDir := strings.TrimSuffix(dEntry.Name(), path.Ext(dEntry.Name()))
 	newThreadDir = filepath.Join(thrGrpDir, thrGrpName, newThreadDir)
+	newThreadWorkDir := filepath.Join(newThreadDir, threads.ThreadScratchDir)
 	newThreadFile := filepath.Join(newThreadDir, threads.ThreadFileName)
 
 	content, err := os.ReadFile(oldThreadFile)
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(newThreadDir, 0700)
+	err = os.MkdirAll(newThreadWorkDir, 0700)
 	if err != nil {
 		return err
 	}
@@ -183,4 +185,15 @@ func (cliCtx *CliContext) migrateOneOldThreadFormat(dEntry os.DirEntry,
 	}
 
 	return nil
+}
+
+func suspendNCurses() {
+	gc.DefProgMode()
+	gc.End()
+}
+
+func restoreNCurses() {
+	gc.ResetProgMode()
+	gc.UpdatePanels()
+	gc.StdScr().Refresh()
 }
