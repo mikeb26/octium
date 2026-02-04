@@ -73,11 +73,17 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 		return nil, scm.ErrNothingToCommit
 	}
 
-	// Run an interactive commit so git can invoke the user's configured editor.
-	//
-	// We wire stdio through so that terminal-based editors work, and so that git
-	// can prompt/confirm as needed.
-	_, _, err = c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}, buildGitArgs(dir, "commit")...)
+	if opts.Message == "" {
+		// Run an interactive commit so git can invoke the user's configured editor.
+		//
+		// We wire stdio through so that terminal-based editors work, and so that git
+		// can prompt/confirm as needed.
+		_, _, err = c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout,
+			Stderr: os.Stderr}, buildGitArgs(dir, "commit")...)
+	} else {
+		_, _, err = c.run(ctx, nil, buildGitArgs(dir, "commit", "--no-edit",
+			"-m", opts.Message)...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 	}

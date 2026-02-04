@@ -12,19 +12,17 @@ import (
 )
 
 // InitRepo initializes a new git repository at dir.
-//
-// This method is intended for interactive/UI-triggered use. It does not apply
-// Client.Timeout when ctx has no deadline.
 func (c *Client) InitRepo(ctx context.Context, dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("mkdir %v: %w", dir, err)
 	}
 
-	_, _, err := c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}, "-C", dir, "init")
+	stdOut, stdErr, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "init")...)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
+		return fmt.Errorf("%w: %w (stdout:%v stderr:%v)", ErrFailedToInitRepo,
+			err, stdOut, stdErr)
 	}
-	return nil
+	return err
 }
 
 // CloneRepo clones repoURL into dir.

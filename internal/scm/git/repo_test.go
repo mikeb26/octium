@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mikeb26/gptcli/internal/scm"
 )
@@ -52,6 +53,24 @@ func TestInitRepo_WrapsGitError(t *testing.T) {
 	err := c.InitRepo(context.Background(), t.TempDir())
 	if err == nil {
 		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, ErrFailedToExecuteGit) {
+		t.Fatalf("expected ErrFailedToExecuteGit wrapper, got %v", err)
+	}
+}
+
+func TestInitRepo_UsesTimeoutWhenNoDeadline(t *testing.T) {
+	_, cleanup := setupMockGit(t, map[string]string{
+		"MOCK_GIT_SLEEP_SECS": "0.25",
+	})
+	t.Cleanup(cleanup)
+
+	c := NewClient()
+	c.Timeout = 20 * time.Millisecond
+
+	err := c.InitRepo(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatalf("expected timeout error")
 	}
 	if !errors.Is(err, ErrFailedToExecuteGit) {
 		t.Fatalf("expected ErrFailedToExecuteGit wrapper, got %v", err)

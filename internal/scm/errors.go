@@ -12,4 +12,5 @@ import (
 var (
 	ErrUntrackedFiles  = errors.New("untracked files are present")
 	ErrNothingToCommit = errors.New("there is nothing to commit")
+	ErrMergeConflicts  = errors.New("merge would result in conflicts")
 )

@@ -14,4 +14,5 @@ var (
 	ErrFailedToDetermineBranch = errors.New("failed to determine current git branch")
 	ErrDiffToolUnconfigured    = errors.New("no difftool configured; please run git config --global diff.tool to configure")
 	ErrNotGitRepo              = errors.New("not a git repo")
+	ErrFailedToInitRepo        = errors.New("failed to initialize git repo")
 )

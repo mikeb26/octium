@@ -58,7 +58,18 @@ case "$cmd" in
                 fi
                 exit 1
                 ;;
+            HEAD)
+                # rev-parse HEAD
+                printf '%s\n' "${MOCK_GIT_HEAD:-head123}"
+                exit 0
+                ;;
         esac
+
+        # rev-parse <ref>
+        if [ "${1:-}" != "" ]; then
+            printf '%s\n' "${MOCK_GIT_REV_PARSE_DEFAULT:-ref123}"
+            exit 0
+        fi
         ;;
 
     check-ignore)
@@ -93,6 +104,12 @@ case "$cmd" in
             exit "${MOCK_GIT_STATUS_EXIT}"
         fi
         printf '%s' "${MOCK_GIT_STATUS_OUT:-}"
+        exit 0
+        ;;
+
+    rev-list)
+        # rev-list is used by some helpers; provide a deterministic response.
+        printf '%s\n' "${MOCK_GIT_REV_LIST_OUT:-0\t0}"
         exit 0
         ;;
 
@@ -180,6 +197,54 @@ case "$cmd" in
         if [ "${MOCK_GIT_CLONE_EXIT:-0}" != "0" ]; then
             printf '%s\n' "clone failed" 1>&2
             exit "${MOCK_GIT_CLONE_EXIT}"
+        fi
+        exit 0
+        ;;
+
+    remote)
+        case "${1:-}" in
+            -v)
+                printf '%s' "${MOCK_GIT_REMOTE_V_OUT:-}"
+                exit 0
+                ;;
+        esac
+        ;;
+
+    fetch)
+        if [ "${MOCK_GIT_FETCH_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "fetch failed" 1>&2
+            exit "${MOCK_GIT_FETCH_EXIT}"
+        fi
+        exit 0
+        ;;
+
+    branch)
+        printf '%s' "${MOCK_GIT_BRANCH_LIST_OUT:-}"
+        exit 0
+        ;;
+
+    merge-base)
+        if [ "${MOCK_GIT_MERGE_BASE_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "merge-base failed" 1>&2
+            exit "${MOCK_GIT_MERGE_BASE_EXIT}"
+        fi
+        printf '%s\n' "${MOCK_GIT_MERGE_BASE:-base123}"
+        exit 0
+        ;;
+
+    merge-tree)
+        if [ "${MOCK_GIT_MERGE_TREE_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "merge-tree failed" 1>&2
+            exit "${MOCK_GIT_MERGE_TREE_EXIT}"
+        fi
+        printf '%s' "${MOCK_GIT_MERGE_TREE_OUT:-}"
+        exit 0
+        ;;
+
+    merge)
+        if [ "${MOCK_GIT_MERGE_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "merge failed" 1>&2
+            exit "${MOCK_GIT_MERGE_EXIT}"
         fi
         exit 0
         ;;

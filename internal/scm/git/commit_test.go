@@ -63,6 +63,26 @@ func TestCommit_StagesTrackedAndSelectedUntracked(t *testing.T) {
 	}
 }
 
+func TestCommit_NonInteractiveUsesMessageAndTimeoutPath(t *testing.T) {
+	logPath, cleanup := setupMockGit(t, map[string]string{
+		"MOCK_GIT_UNTRACKED":    "",
+		"MOCK_GIT_STAGED_FILES": "tracked.go\n",
+	})
+	t.Cleanup(cleanup)
+
+	c := NewClient()
+	_, err := c.Commit(context.Background(), "/tmp/repo", scm.CommitOptions{Message: "automated"})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	logs := readMockGitLog(t, logPath)
+	joined := strings.Join(logs, "\n")
+	if !strings.Contains(joined, "commit --no-edit -m automated") {
+		t.Fatalf("expected non-interactive commit args in logs: %#v", logs)
+	}
+}
+
 func TestCommit_ReturnsNothingToCommit(t *testing.T) {
 	_, cleanup := setupMockGit(t, map[string]string{
 		"MOCK_GIT_UNTRACKED":    "",
