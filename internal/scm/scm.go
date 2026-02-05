@@ -127,7 +127,25 @@ const (
 	// DiffScopeUncommitted shows all uncommitted changes (both staged and
 	// unstaged).
 	DiffScopeUncommitted DiffScope = iota
+
+	// DiffScopeBranchUpstream shows differences between a branch and its
+	// configured upstream.
+	//
+	// For Git, this is the equivalent of:
+	//   git difftool <upstream> <branch>
+	DiffScopeBranchUpstream
 )
+
+// DiffSpec specifies which changes should be presented by DiffTool.
+type DiffSpec struct {
+	Scope DiffScope
+
+	// Branch selects which branch to diff for branch-based scopes.
+	//
+	// When empty, implementations should interpret this as the currently
+	// checked-out branch.
+	Branch string
+}
 
 // Client is a VCS-agnostic client for the small set of source-control
 // operations needed by the UI.
@@ -161,6 +179,6 @@ type Client interface {
 	// When remoteName is non-empty, only branches in that remote are returned.
 	ListBranches(ctx context.Context, dir string, remoteName string) ([]string, error)
 
-	DiffTool(ctx context.Context, dir string, scope DiffScope) error
+	DiffTool(ctx context.Context, dir string, spec DiffSpec) error
 	Commit(ctx context.Context, dir string, opts CommitOptions) (*UntrackedFiles, error)
 }

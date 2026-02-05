@@ -120,6 +120,10 @@ The `Makefile` defines `TESTPKGS` to include core packages (`cmd/gptcli`, `inter
 - Language: Go (modules with vendored dependencies).
 - General guidelines:
   - Follow existing package boundaries (`cmd/`, `internal/`, `vendor/`).
+  - **Error handling / sentinels:** when introducing new error cases in a Go package, first check whether the package already has an `errors.go`.
+    - If it does, add new reusable/sentinel errors there.
+    - If it does not, create an `errors.go` for that package and define the sentinel errors there.
+    - Always return/wrap sentinel errors using `%w` so callers can use `errors.Is()` / `errors.As()`; do not rely on parsing error strings.
   - Keep agent/tool behavior centralized in `internal/llmclient` and `internal/tools`.
   - Aim for small, focused tools; reuse `ToolApprovalUI` and approval policies instead of duplicating approval logic.
   - Avoid excessive defensive `nil` and empty-string checks when the value is deterministic.

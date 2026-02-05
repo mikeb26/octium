@@ -37,7 +37,7 @@ func TestDiffTool_Unconfigured(t *testing.T) {
 	_, cleanup := setupMockGit(t, map[string]string{})
 	t.Cleanup(cleanup)
 	c := NewClient()
-	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffScopeUncommitted)
+	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffSpec{Scope: scm.DiffScopeUncommitted})
 	if err == nil || !errors.Is(err, ErrDiffToolUnconfigured) {
 		t.Fatalf("expected ErrDiffToolUnconfigured, got %v", err)
 	}
@@ -50,7 +50,7 @@ func TestDiffTool_UncommittedInvokesTwice(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	c := NewClient()
-	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffScopeUncommitted)
+	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffSpec{Scope: scm.DiffScopeUncommitted})
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -66,6 +66,48 @@ func TestDiffTool_UncommittedInvokesTwice(t *testing.T) {
 	}
 	if !strings.Contains(joined, "difftool --no-prompt") {
 		t.Fatalf("expected non-cached difftool invocation, logs: %#v", logs)
+	}
+}
+
+func TestDiffTool_BranchUpstream(t *testing.T) {
+	logPath, cleanup := setupMockGit(t, map[string]string{
+		"MOCK_GIT_CONFIG_GET_diff_tool":         "meld",
+		"MOCK_GIT_CONFIG_GET_branch_main_remote": "origin",
+		"MOCK_GIT_CONFIG_GET_branch_main_merge":  "refs/heads/main",
+		"MOCK_GIT_BRANCH":                       "main",
+	})
+	t.Cleanup(cleanup)
+
+	c := NewClient()
+	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffSpec{Scope: scm.DiffScopeBranchUpstream})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	logs := readMockGitLog(t, logPath)
+	joined := strings.Join(logs, "\n")
+	if strings.Count(joined, "difftool") != 1 {
+		t.Fatalf("expected 1 difftool invocation, logs: %#v", logs)
+	}
+	if !strings.Contains(joined, "difftool --no-prompt origin/main main") {
+		t.Fatalf("expected upstream difftool invocation, logs: %#v", logs)
+	}
+}
+
+func TestDiffTool_BranchUpstream_NoUpstreamErrors(t *testing.T) {
+	_, cleanup := setupMockGit(t, map[string]string{
+		"MOCK_GIT_CONFIG_GET_diff_tool": "meld",
+		"MOCK_GIT_BRANCH":              "main",
+	})
+	t.Cleanup(cleanup)
+
+	c := NewClient()
+	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffSpec{Scope: scm.DiffScopeBranchUpstream})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "no upstream") {
+		t.Fatalf("expected upstream error, got %v", err)
 	}
 }
 

@@ -349,7 +349,7 @@ func (tvUI *threadViewUI) launchDiffToolFromThreadView(ctx context.Context) (nee
 	// Suspend curses so the difftool can use the terminal.
 	suspendNCurses()
 	// @todo need to diff sandbox against origin, not uncommitted
-	err := tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.ws.Sandbox(), scm.DiffScopeUncommitted)
+	err := tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.ws.Sandbox(), scm.DiffSpec{Scope: scm.DiffScopeUncommitted})
 	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
