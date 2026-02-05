@@ -264,6 +264,14 @@ case "$cmd" in
         fi
         exit 0
         ;;
+
+    push)
+        if [ "${MOCK_GIT_PUSH_EXIT:-0}" != "0" ]; then
+            printf '%s\n' "push failed" 1>&2
+            exit "${MOCK_GIT_PUSH_EXIT}"
+        fi
+        exit 0
+        ;;
 esac
 
 printf '%s\n' "unsupported mock git command: $cmd" 1>&2

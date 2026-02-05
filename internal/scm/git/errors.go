@@ -20,4 +20,5 @@ var (
 	ErrNoUpstreamConfigured    = errors.New("no upstream configured")
 	ErrNotGitRepo              = errors.New("not a git repo")
 	ErrFailedToInitRepo        = errors.New("failed to initialize git repo")
+	ErrRemoteAndBranchRequired = errors.New("remote name and branch must both be specified")
 )

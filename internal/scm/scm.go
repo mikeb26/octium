@@ -177,6 +177,14 @@ type Client interface {
 	Merge(ctx context.Context, dir string, remoteName string,
 		branch string) error
 
+	// Push pushes the current branch to the named remote/branch.
+	//
+	// If branch is empty, it pushes to the current branch's configured upstream
+	// (when available). Similarly when both remoteName and branch are empty.
+	//
+	// Implementations should avoid interactive prompting.
+	Push(ctx context.Context, dir string, remoteName string, branch string) error
+
 	// ListBranches lists branches.
 	//
 	// When remoteName is empty, only local branches are returned.
