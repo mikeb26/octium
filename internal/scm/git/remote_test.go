@@ -59,6 +59,14 @@ func TestFetchRemoteRepo_InvokesGitFetch(t *testing.T) {
 	}
 }
 
+func TestFetchRemoteRepo_ReturnsErrRemoteNameRequired(t *testing.T) {
+	c := NewClient()
+	err := c.FetchRemoteRepo(context.Background(), t.TempDir(), "")
+	if !errors.Is(err, ErrRemoteNameRequired) {
+		t.Fatalf("expected ErrRemoteNameRequired, got %v", err)
+	}
+}
+
 func TestListBranches_Local(t *testing.T) {
 	_, cleanup := setupMockGit(t, map[string]string{
 		"MOCK_GIT_BRANCH_LIST_OUT": "" +

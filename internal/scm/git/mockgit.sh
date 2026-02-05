@@ -207,6 +207,14 @@ case "$cmd" in
                 printf '%s' "${MOCK_GIT_REMOTE_V_OUT:-}"
                 exit 0
                 ;;
+            add)
+                # remote add <name> <url>
+                if [ "${MOCK_GIT_REMOTE_ADD_EXIT:-0}" != "0" ]; then
+                    printf '%s\n' "remote add failed" 1>&2
+                    exit "${MOCK_GIT_REMOTE_ADD_EXIT}"
+                fi
+                exit 0
+                ;;
         esac
         ;;
 

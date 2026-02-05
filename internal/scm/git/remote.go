@@ -32,11 +32,31 @@ func (c *Client) ListRemoteRepos(ctx context.Context, dir string) ([]scm.RemoteR
 	return remotes, nil
 }
 
+// AddRemoteRepo adds a new remote to the repository.
+//
+// It is equivalent to `git remote add <remoteName> <remoteURL>`.
+func (c *Client) AddRemoteRepo(ctx context.Context, dir string, remoteName string, remoteURL string) error {
+	remoteName = strings.TrimSpace(remoteName)
+	if remoteName == "" {
+		return ErrRemoteNameRequired
+	}
+	remoteURL = strings.TrimSpace(remoteURL)
+	if remoteURL == "" {
+		return ErrRemoteURLRequired
+	}
+
+	_, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "remote", "add", remoteName, remoteURL)...)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
+	}
+	return nil
+}
+
 // FetchRemoteRepo fetches updates from a configured remote.
 func (c *Client) FetchRemoteRepo(ctx context.Context, dir string, remoteName string) error {
 	remoteName = strings.TrimSpace(remoteName)
 	if remoteName == "" {
-		return fmt.Errorf("remote name is required")
+		return ErrRemoteNameRequired
 	}
 
 	_, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "fetch", remoteName)...)
