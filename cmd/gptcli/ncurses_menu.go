@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/famz/SetLocale"
+	"github.com/mikeb26/gptcli/internal/threads"
 	"github.com/mikeb26/gptcli/internal/types"
 	iui "github.com/mikeb26/gptcli/internal/ui"
 	gc "github.com/rthornton128/goncurses"
@@ -450,38 +451,120 @@ func showMenu(ctx context.Context, cliCtx *CliContext) error {
 				continue
 			}
 			cliCtx.menu.doSearch(q)
-		case 'a':
-			fallthrough
-		case 'u':
-			entry := cliCtx.menu.selectedEntry()
-			if entry == nil {
-				continue
-			}
-			if ch == 'a' && entry.isArchived {
-				continue
-			}
-			if ch == 'u' && !entry.isArchived {
-				continue
-			}
-
-			dstThreadGroup := ArchiveThreadGroupName
-			srcThreadGroup := MainThreadGroupName
-			if entry.isArchived {
-				dstThreadGroup = MainThreadGroupName
-				srcThreadGroup = ArchiveThreadGroupName
-			}
-			needErase = true
-			needRefresh = true
-			err := cliCtx.threadGroupSet.MoveThread(entry.thread,
-				srcThreadGroup, dstThreadGroup)
+		case 'a', 'u':
+			didMove, err := handleMenuArchiveUnarchive(ctx, cliCtx, ch)
 			if err != nil {
-				return fmt.Errorf("%w: %w", ErrFailedToArchiveThread, err)
+				return err
 			}
-			entry.isArchived = !entry.isArchived
+			if didMove {
+				needErase = true
+				needRefresh = true
+			}
 		case gc.KEY_RESIZE:
 			resizeScreen(cliCtx.rootWin)
 			needErase = true
 			continue
 		}
 	}
+}
+
+func handleMenuArchiveUnarchive(ctx context.Context, cliCtx *CliContext, ch gc.Key) (bool, error) {
+	entry := cliCtx.menu.selectedEntry()
+	if entry == nil {
+		return false, nil
+	}
+	if ch == 'a' && entry.isArchived {
+		return false, nil
+	}
+	if ch == 'u' && !entry.isArchived {
+		return false, nil
+	}
+
+	ok, err := confirmDiscardThreadWorkspaceIfDirtyOrAhead(ctx, cliCtx, entry.thread, entry.isArchived)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, nil
+	}
+
+	dstThreadGroup := ArchiveThreadGroupName
+	srcThreadGroup := MainThreadGroupName
+	if entry.isArchived {
+		dstThreadGroup = MainThreadGroupName
+		srcThreadGroup = ArchiveThreadGroupName
+	}
+
+	err = cliCtx.threadGroupSet.MoveThread(entry.thread, srcThreadGroup, dstThreadGroup)
+	if err != nil {
+		return false, fmt.Errorf("%w: %w", ErrFailedToArchiveThread, err)
+	}
+
+	entry.isArchived = !entry.isArchived
+	return true, nil
+}
+
+func confirmDiscardThreadWorkspaceIfDirtyOrAhead(
+	ctx context.Context,
+	cliCtx *CliContext,
+	thread threads.Thread,
+	isArchived bool,
+) (bool, error) {
+
+	// Moving a thread between groups rewrites its persisted directory, which
+	// does not preserve the thread's scratch contents (including any workspace
+	// sandbox). If there is work in the sandbox, warn before proceeding.
+	tvUI := lookupThreadViewUI(cliCtx, thread)
+	if isArchived || tvUI == nil || tvUI.ws.Sandbox() == "" {
+		return true, nil
+	}
+
+	st, err := tvUI.ws.SandboxSyncStatus(ctx)
+	if err != nil {
+		defaultNo := false
+		prompt := fmt.Sprintf(
+			"Could not determine workspace sandbox status (%v).\n\nArchiving may discard the thread's workspace sandbox. Continue anyway?",
+			err,
+		)
+		return cliCtx.ui.SelectBool(
+			prompt,
+			types.UIOption{Key: "y", Label: "Yes, continue (discard workspace)"},
+			types.UIOption{Key: "n", Label: "No, cancel"},
+			&defaultNo,
+		)
+	}
+
+	unsafe := st.HasUncommittedChanges || st.Ahead > 0
+	if !unsafe {
+		return true, nil
+	}
+
+	var reasons []string
+	if st.HasUncommittedChanges {
+		reasons = append(reasons, "- Sandbox has uncommitted changes")
+	}
+	if st.Ahead > 0 {
+		up := "(no upstream configured)"
+		if strings.TrimSpace(st.UpstreamRemote) != "" && strings.TrimSpace(st.UpstreamBranch) != "" {
+			up = fmt.Sprintf("%v/%v", st.UpstreamRemote, st.UpstreamBranch)
+		}
+		reasons = append(reasons, fmt.Sprintf("- Sandbox is ahead of upstream %v by %d commit(s)", up, st.Ahead))
+	}
+
+	defaultNo := false
+	prompt := fmt.Sprintf(
+		"This thread's workspace sandbox appears to contain work that will be discarded by archiving/unarchiving:\n\n%v\n\nThrow away this work and continue?",
+		strings.Join(reasons, "\n"),
+	)
+	ok, selErr := cliCtx.ui.SelectBool(
+		prompt,
+		types.UIOption{Key: "y", Label: "Yes, discard and continue"},
+		types.UIOption{Key: "n", Label: "No, cancel"},
+		&defaultNo,
+	)
+	if selErr != nil {
+		return false, selErr
+	}
+
+	return ok, nil
 }

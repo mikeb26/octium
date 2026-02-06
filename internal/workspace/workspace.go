@@ -137,3 +137,14 @@ func (ws *Workspace) AddOriginAndSandbox(ctx context.Context,
 
 	return nil
 }
+
+// SandboxSyncStatus returns a RepoSyncStatus for the workspace sandbox.
+//
+// This is a small convenience wrapper so callers don't need to use the SCM
+// client directly when the operation is conceptually "workspace"-scoped.
+func (ws *Workspace) SandboxSyncStatus(ctx context.Context) (scm.RepoSyncStatus, error) {
+	if ws.persisted.SboxRepo == "" {
+		return scm.RepoSyncStatus{}, fmt.Errorf("%w", ErrWorkspaceNoSandboxSet)
+	}
+	return ws.scmClient.RepoSyncStatus(ctx, ws.persisted.SboxRepo)
+}

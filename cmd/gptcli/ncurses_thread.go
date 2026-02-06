@@ -99,14 +99,27 @@ func (tvUI *threadViewUI) getSystemPrompt() string {
 		prompts.SystemMsg, string(content))
 }
 
-func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
-	thread threads.Thread, isArchivedIn bool) *threadViewUI {
+func lookupThreadViewUI(cliCtx *CliContext,
+	thread threads.Thread) *threadViewUI {
 
 	tid := thread.Id()
 	if existing, ok := cliCtx.threadViews[tid]; ok && existing != nil {
 		return existing
 	}
-	tvUI := &threadViewUI{
+
+	return nil
+}
+
+func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
+	thread threads.Thread, isArchivedIn bool) *threadViewUI {
+
+	tvUI := lookupThreadViewUI(cliCtx, thread)
+	if tvUI != nil {
+		return tvUI
+	}
+
+	tid := thread.Id()
+	tvUI = &threadViewUI{
 		cliCtx:     cliCtx,
 		thread:     thread,
 		isArchived: isArchivedIn,
