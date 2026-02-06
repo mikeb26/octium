@@ -215,6 +215,14 @@ case "$cmd" in
                 fi
                 exit 0
                 ;;
+            remove)
+                # remote remove <name>
+                if [ "${MOCK_GIT_REMOTE_REMOVE_EXIT:-0}" != "0" ]; then
+                    printf '%s\n' "remote remove failed" 1>&2
+                    exit "${MOCK_GIT_REMOTE_REMOVE_EXIT}"
+                fi
+                exit 0
+                ;;
         esac
         ;;
 

@@ -52,6 +52,22 @@ func (c *Client) AddRemoteRepo(ctx context.Context, dir string, remoteName strin
 	return nil
 }
 
+// DeleteRemoteRepo deletes a configured remote from the repository.
+//
+// It is equivalent to `git remote remove <remoteName>`.
+func (c *Client) DeleteRemoteRepo(ctx context.Context, dir string, remoteName string) error {
+	remoteName = strings.TrimSpace(remoteName)
+	if remoteName == "" {
+		return ErrRemoteNameRequired
+	}
+
+	_, _, err := c.runWithTimeout(ctx, nil, buildGitArgs(dir, "remote", "remove", remoteName)...)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
+	}
+	return nil
+}
+
 // FetchRemoteRepo fetches updates from a configured remote.
 func (c *Client) FetchRemoteRepo(ctx context.Context, dir string, remoteName string) error {
 	remoteName = strings.TrimSpace(remoteName)

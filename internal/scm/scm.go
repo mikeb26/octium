@@ -162,6 +162,8 @@ type Client interface {
 	ListRemoteRepos(ctx context.Context, dir string) ([]RemoteRepo, error)
 	// AddRemoteRepo adds a new remote to the repository.
 	AddRemoteRepo(ctx context.Context, dir string, remoteName string, remoteURL string) error
+	// DeleteRemoteRepo deletes a configured remote from the repository.
+	DeleteRemoteRepo(ctx context.Context, dir string, remoteName string) error
 	// FetchRemoteRepo fetches updates from a configured remote.
 	FetchRemoteRepo(ctx context.Context, dir string, remoteName string) error
 	// Merge merges the named branch from the remote into the current
