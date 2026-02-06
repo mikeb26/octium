@@ -69,12 +69,32 @@ func TestDiffTool_UncommittedInvokesTwice(t *testing.T) {
 	}
 }
 
+func TestDiffTool_UncommittedIncludesUntrackedViaNoIndex(t *testing.T) {
+	logPath, cleanup := setupMockGit(t, map[string]string{
+		"MOCK_GIT_CONFIG_GET_diff_tool": "meld",
+		"MOCK_GIT_UNTRACKED":            "new.txt\n",
+	})
+	t.Cleanup(cleanup)
+
+	c := NewClient()
+	err := c.DiffTool(context.Background(), "/tmp/repo", scm.DiffSpec{Scope: scm.DiffScopeUncommitted})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	logs := readMockGitLog(t, logPath)
+	joined := strings.Join(logs, "\n")
+	if !strings.Contains(joined, "difftool --no-index --no-prompt -- /dev/null new.txt") {
+		t.Fatalf("expected no-index difftool invocation for untracked file, logs: %#v", logs)
+	}
+}
+
 func TestDiffTool_BranchUpstream(t *testing.T) {
 	logPath, cleanup := setupMockGit(t, map[string]string{
-		"MOCK_GIT_CONFIG_GET_diff_tool":         "meld",
+		"MOCK_GIT_CONFIG_GET_diff_tool":          "meld",
 		"MOCK_GIT_CONFIG_GET_branch_main_remote": "origin",
 		"MOCK_GIT_CONFIG_GET_branch_main_merge":  "refs/heads/main",
-		"MOCK_GIT_BRANCH":                       "main",
+		"MOCK_GIT_BRANCH":                        "main",
 	})
 	t.Cleanup(cleanup)
 
@@ -97,7 +117,7 @@ func TestDiffTool_BranchUpstream(t *testing.T) {
 func TestDiffTool_BranchUpstream_NoUpstreamErrors(t *testing.T) {
 	_, cleanup := setupMockGit(t, map[string]string{
 		"MOCK_GIT_CONFIG_GET_diff_tool": "meld",
-		"MOCK_GIT_BRANCH":              "main",
+		"MOCK_GIT_BRANCH":               "main",
 	})
 	t.Cleanup(cleanup)
 

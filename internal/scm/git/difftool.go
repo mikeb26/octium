@@ -37,11 +37,28 @@ func (c *Client) DiffTool(ctx context.Context, dir string, spec scm.DiffSpec) er
 	case scm.DiffScopeUncommitted:
 		// Show both staged and unstaged changes. git-difftool doesn't have a
 		// single flag for this, so invoke it twice.
+		//
+		// Note: git-difftool does not include untracked files. We treat untracked
+		// files as part of "uncommitted", so we additionally invoke difftool in
+		// --no-index mode against os.DevNull for each untracked file.
 		if err := c.runGitDiffTool(ctx, dir, append(gitArgs, "--cached", "--no-prompt")...); err != nil {
 			return err
 		}
 		if err := c.runGitDiffTool(ctx, dir, append(gitArgs, "--no-prompt")...); err != nil {
 			return err
+		}
+
+		untracked, err := c.untrackedFiles(ctx, dir)
+		if err != nil {
+			return err
+		}
+		for _, f := range untracked.Filename {
+			// Compare to os.DevNull so additions show up as diffs.
+			if err := c.runGitDiffTool(ctx, dir,
+				append(gitArgs, "--no-index", "--no-prompt", "--", os.DevNull, f)...,
+			); err != nil {
+				return err
+			}
 		}
 	case scm.DiffScopeBranchUpstream:
 		upstream, branch, err := c.resolveBranchUpstreamDiffTargets(ctx, dir, spec.Branch)

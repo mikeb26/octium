@@ -23,6 +23,32 @@ import (
 	gc "github.com/rthornton128/goncurses"
 )
 
+type threadViewDiffMode int
+
+const (
+	threadViewDiffModeNone threadViewDiffMode = iota
+	threadViewDiffModeUncommitted
+	threadViewDiffModeSandboxOrigin
+)
+
+type threadViewDiffOptions struct {
+	hasUncommitted       bool
+	hasSandboxOriginDiff bool
+}
+
+func threadViewDiffOptionsFromStatus(st scm.RepoSyncStatus) threadViewDiffOptions {
+	// Today, we treat "repo vs sandbox" as "sandbox local branch vs its upstream".
+	// This approximates "origin vs sandbox" without needing a no-index directory
+	// diff across the two checkouts.
+	//
+	// hasSandboxOriginDiff: any ahead/behind implies different commits.
+	// hasUncommitted: includes staged/unstaged/untracked.
+	return threadViewDiffOptions{
+		hasUncommitted:       st.HasUncommittedChanges,
+		hasSandboxOriginDiff: st.Ahead != 0 || st.Behind != 0,
+	}
+}
+
 const (
 	// Additional color pairs for the thread view. These are initialized
 	// alongside the menu colors in initUI so they can be reused by any
@@ -346,10 +372,97 @@ func (tvUI *threadViewUI) launchDiffToolFromThreadView(ctx context.Context) (nee
 		return false
 	}
 
+	st, err := tvUI.cliCtx.scmClient.RepoSyncStatus(ctx, tvUI.ws.Sandbox())
+	if err != nil {
+		_ = tvUI.cliCtx.ui.Confirm(err.Error())
+		return true
+	}
+
+	opts := threadViewDiffOptionsFromStatus(st)
+	if !opts.hasUncommitted && !opts.hasSandboxOriginDiff {
+		_ = tvUI.cliCtx.ui.Confirm("No differences found:\n\n- Sandbox has no uncommitted changes\n- Sandbox has no committed differences vs its upstream (origin)")
+		return true
+	}
+
+	mode := threadViewDiffModeNone
+	if opts.hasUncommitted && opts.hasSandboxOriginDiff {
+		if tvUI.ws.Origin() == "" {
+			// Uncommitted diffs are still useful even when origin isn't configured.
+			mode = threadViewDiffModeUncommitted
+		} else {
+			sel, selErr := tvUI.cliCtx.ui.SelectOption(
+				"Diff what?",
+				[]types.UIOption{
+					{Key: "u", Label: "Sandbox: uncommitted changes vs most recent commit"},
+					{Key: "r", Label: "Repo vs sandbox: committed differences between sandbox and its upstream (origin)"},
+				},
+			)
+			if selErr != nil {
+				_ = tvUI.cliCtx.ui.Confirm(selErr.Error())
+				return true
+			}
+			switch sel.Key {
+			case "u":
+				mode = threadViewDiffModeUncommitted
+			case "r":
+				mode = threadViewDiffModeSandboxOrigin
+			default:
+				_ = tvUI.cliCtx.ui.Confirm("Invalid selection")
+				return true
+			}
+		}
+	} else if opts.hasUncommitted {
+		defaultNo := false
+		ok, selErr := tvUI.cliCtx.ui.SelectBool(
+			"Sandbox has uncommitted changes. Open difftool vs most recent commit?",
+			types.UIOption{Key: "y", Label: "Yes, diff uncommitted changes"},
+			types.UIOption{Key: "n", Label: "No"},
+			&defaultNo,
+		)
+		if selErr != nil {
+			_ = tvUI.cliCtx.ui.Confirm(selErr.Error())
+			return true
+		}
+		if !ok {
+			return true
+		}
+		mode = threadViewDiffModeUncommitted
+	} else if opts.hasSandboxOriginDiff {
+		if tvUI.ws.Origin() == "" {
+			_ = tvUI.cliCtx.ui.Confirm("Workspace origin repo is not configured for this thread.\n\nCannot diff sandbox vs origin without an origin repo configured.")
+			return true
+		}
+
+		defaultNo := false
+		ok, selErr := tvUI.cliCtx.ui.SelectBool(
+			"Sandbox differs from your repo (origin). Open difftool?",
+			types.UIOption{Key: "y", Label: "Yes, diff repo vs sandbox"},
+			types.UIOption{Key: "n", Label: "No"},
+			&defaultNo,
+		)
+		if selErr != nil {
+			_ = tvUI.cliCtx.ui.Confirm(selErr.Error())
+			return true
+		}
+		if !ok {
+			return true
+		}
+		mode = threadViewDiffModeSandboxOrigin
+	}
+
+	var spec scm.DiffSpec
+	switch mode {
+	case threadViewDiffModeUncommitted:
+		spec = scm.DiffSpec{Scope: scm.DiffScopeUncommitted}
+	case threadViewDiffModeSandboxOrigin:
+		spec = scm.DiffSpec{Scope: scm.DiffScopeBranchUpstream}
+	default:
+		return false
+	}
+
 	// Suspend curses so the difftool can use the terminal.
 	suspendNCurses()
-	// @todo need to diff sandbox against origin, not uncommitted
-	err := tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.ws.Sandbox(), scm.DiffSpec{Scope: scm.DiffScopeUncommitted})
+	err = tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.ws.Sandbox(), spec)
 	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
