@@ -231,3 +231,52 @@ func TestMoveThreadInvalidIndex(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist")
 }
+
+func TestMoveThreadNonIdleThreadReturnsErrorAndDoesNotMove(t *testing.T) {
+	root := t.TempDir()
+	setDir := root + "/set"
+	srcDir := root + "/src"
+	dstDir := root + "/dst"
+	assert.NoError(t, os.MkdirAll(setDir, 0o700))
+	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
+	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
+
+	set := NewThreadGroupSet(setDir, nil)
+	srcGrp := newThreadGroup(set, "S", srcDir)
+	dstGrp := newThreadGroup(set, "D", dstDir)
+
+	base := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+	thr := &thread{persisted: persistedThread{
+		Name:       "move-me",
+		CreateTime: base,
+		AccessTime: base,
+		ModTime:    base,
+		Dialogue:   []*types.ThreadMessage{},
+		Id:         "3",
+	}}
+	thr.state = ThreadStateRunning
+	thr.dirName = genUniqDirName(thr.persisted.Name, thr.persisted.CreateTime)
+	thr.parentDir = srcDir
+	thr.mu.Lock()
+	thr.state = ThreadStateIdle
+	assert.NoError(t, thr.saveWithDir(srcDir))
+	thr.state = ThreadStateRunning
+	thr.mu.Unlock()
+
+	srcGrp.addThread(thr)
+	assert.Equal(t, 1, srcGrp.Count())
+	assert.Equal(t, 0, dstGrp.Count())
+
+	err := srcGrp.MoveThread(thr, dstGrp)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrThreadNotIdle)
+
+	// Ensure it was not moved.
+	assert.Equal(t, 1, srcGrp.Count())
+	assert.Equal(t, 0, dstGrp.Count())
+	_, err = os.Stat(filepath.Join(srcDir, thr.dirName, ThreadFileName))
+	assert.NoError(t, err)
+	_, err = os.Stat(filepath.Join(dstDir, thr.dirName, ThreadFileName))
+	assert.Error(t, err)
+	assert.True(t, os.IsNotExist(err))
+}

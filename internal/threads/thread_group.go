@@ -232,9 +232,14 @@ func (srcThrGrp *ThreadGroup) MoveThread(thr Thread, dstThrGrp *ThreadGroup) err
 	}
 
 	thread := srcThrGrp.threads[thrId]
-
 	thread.mu.Lock()
 	defer thread.mu.Unlock()
+
+	if thread.state != ThreadStateIdle {
+		// Avoid calling thread.State() while holding thread.mu.
+		return fmt.Errorf("cannot move non-idle thread %q (state: %v): %w",
+			thrId, thread.state, ErrThreadNotIdle)
+	}
 
 	err := thread.saveWithDir(dstThrGrp.dir)
 	if err != nil {
