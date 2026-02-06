@@ -1,0 +1,221 @@
+/* Copyright © 2026 Mike Brown. All Rights Reserved.
+ *
+ * See LICENSE file at the root of this package for license terms
+ */
+package tools
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/mikeb26/gptcli/internal/am"
+)
+
+func collectChoiceKeys(req am.ApprovalRequest) map[string]am.ApprovalChoice {
+	m := make(map[string]am.ApprovalChoice, len(req.Choices))
+	for _, c := range req.Choices {
+		m[c.Key] = c
+	}
+	return m
+}
+
+func requireChoiceKey(t *testing.T, keys map[string]am.ApprovalChoice, key string) am.ApprovalChoice {
+	t.Helper()
+	c, ok := keys[key]
+	if !ok {
+		// Provide useful debug output.
+		present := make([]string, 0, len(keys))
+		for k := range keys {
+			present = append(present, k)
+		}
+		t.Fatalf("expected choice key %q; present keys=%v", key, present)
+	}
+	return c
+}
+
+func Test_ReadFileTool_BuildApprovalRequest_NormalizesRelativePathsAndIncludesReadChoices(t *testing.T) {
+	tmp := t.TempDir()
+
+	oldwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldwd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	reqPath := "foo.txt" // relative
+	tool := ReadFileTool{}
+	ar := tool.BuildApprovalRequest(&ReadFileReq{Filename: reqPath})
+	if ar.Prompt == "" {
+		t.Fatalf("expected non-empty prompt")
+	}
+
+	keys := collectChoiceKeys(ar)
+	requireChoiceKey(t, keys, "y")
+	requireChoiceKey(t, keys, "n")
+	requireChoiceKey(t, keys, "fr")
+	requireChoiceKey(t, keys, "fw")
+	requireChoiceKey(t, keys, "dr")
+	requireChoiceKey(t, keys, "dw")
+
+	absFile, err := filepath.Abs(reqPath)
+	if err != nil {
+		t.Fatalf("Abs: %v", err)
+	}
+	absFile = filepath.Clean(absFile)
+	absDir := filepath.Dir(absFile)
+
+	fr := requireChoiceKey(t, keys, "fr")
+	if fr.PolicyID == "" || !strings.Contains(fr.PolicyID, absFile) {
+		t.Fatalf("expected fr PolicyID to mention abs file path %q; got %q", absFile, fr.PolicyID)
+	}
+
+	dr := requireChoiceKey(t, keys, "dr")
+	if dr.PolicyID == "" || !strings.Contains(dr.PolicyID, absDir) {
+		t.Fatalf("expected dr PolicyID to mention abs dir path %q; got %q", absDir, dr.PolicyID)
+	}
+}
+
+func Test_CreateFileTool_BuildApprovalRequest_DoesNotIncludeReadOnlyChoices(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "bar.txt")
+
+	tool := CreateFileTool{}
+	ar := tool.BuildApprovalRequest(&CreateFileReq{Filename: filename, Content: "x"})
+	keys := collectChoiceKeys(ar)
+
+	requireChoiceKey(t, keys, "y")
+	requireChoiceKey(t, keys, "n")
+	requireChoiceKey(t, keys, "fw")
+	requireChoiceKey(t, keys, "dw")
+	if _, ok := keys["fr"]; ok {
+		t.Fatalf("did not expect fr choice for create (write-required)")
+	}
+	if _, ok := keys["dr"]; ok {
+		t.Fatalf("did not expect dr choice for create (write-required)")
+	}
+}
+
+func Test_CreateFileTool_Invoke_DeniedApproval_DoesNotWriteFile(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "deny.txt")
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: false}}
+	tool := CreateFileTool{approver: fa}
+
+	resp, err := tool.Invoke(context.Background(), &CreateFileReq{Filename: filename, Content: "nope"})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error == "" {
+		t.Fatalf("expected resp.Error to be set when approval is denied")
+	}
+	if _, statErr := os.Stat(filename); statErr == nil {
+		t.Fatalf("expected file not to be created when approval is denied")
+	}
+}
+
+func Test_CreateFileTool_Invoke_AllowsApproval_WritesFile(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "ok.txt")
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
+	tool := CreateFileTool{approver: fa}
+
+	resp, err := tool.Invoke(context.Background(), &CreateFileReq{Filename: filename, Content: "hello"})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("expected resp.Error empty; got %q", resp.Error)
+	}
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(b) != "hello" {
+		t.Fatalf("unexpected file contents; want %q got %q", "hello", string(b))
+	}
+}
+
+func Test_AppendFileTool_Invoke_AppendsToExistingFile(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "append.txt")
+	if err := os.WriteFile(filename, []byte("a"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
+	tool := AppendFileTool{approver: fa}
+
+	resp, err := tool.Invoke(context.Background(), &AppendFileReq{Filename: filename, Content: "b"})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("expected resp.Error empty; got %q", resp.Error)
+	}
+
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(b) != "ab" {
+		t.Fatalf("unexpected file contents; want %q got %q", "ab", string(b))
+	}
+}
+
+func Test_DeleteFileTool_Invoke_DeletesFile(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "del.txt")
+	if err := os.WriteFile(filename, []byte("x"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
+	tool := DeleteFileTool{approver: fa}
+
+	resp, err := tool.Invoke(context.Background(), &DeleteFileReq{Filename: filename})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("expected resp.Error empty; got %q", resp.Error)
+	}
+	if _, statErr := os.Stat(filename); statErr == nil {
+		t.Fatalf("expected file to be deleted")
+	}
+}
+
+func Test_ReadFileTool_Invoke_ReadsContent_WithEOFError(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "read.txt")
+	if err := os.WriteFile(filename, []byte("hello"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
+	tool := ReadFileTool{approver: fa}
+
+	resp, err := tool.Invoke(context.Background(), &ReadFileReq{Filename: filename, StartOffset: 0, NumBytes: 100})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error == "" || !strings.Contains(strings.ToLower(resp.Error), "eof") {
+		t.Fatalf("expected EOF in resp.Error due to short file; got %q", resp.Error)
+	}
+	if resp.Content.Content != "hello" {
+		t.Fatalf("unexpected content; want %q got %q", "hello", resp.Content.Content)
+	}
+	if resp.Content.UntruncatedContentLen != len("hello") {
+		t.Fatalf("unexpected UntruncatedContentLen; want %d got %d", len("hello"), resp.Content.UntruncatedContentLen)
+	}
+	if resp.Content.WasTruncated {
+		t.Fatalf("did not expect truncation")
+	}
+}

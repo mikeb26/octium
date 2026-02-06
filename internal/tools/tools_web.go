@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -30,29 +30,28 @@ type RetrieveUrlRequestHeader struct {
 }
 
 type RetrieveUrlReq struct {
-	Url     string                     `json:"url" jsonschema:"description=The URL to send the request to"`
-	Headers []RetrieveUrlRequestHeader `json:"headers" jsonschema:"description=The HTTP headers to include with the request (optional)"`
-	Method  string                     `json:"method" jsonschema:"description=HTTP request method (e.g., GET, POST, etc.); defaults to GET if not set (optional)"`
-	Body    string                     `json:"body" jsonschema:"description=HTTP request body (optional)"`
+	Url          string                     `json:"url" jsonschema:"description=The URL to send the request to"`
+	Headers      []RetrieveUrlRequestHeader `json:"headers" jsonschema:"description=The HTTP headers to include with the request (optional)"`
+	Method       string                     `json:"method" jsonschema:"description=HTTP request method (e.g., GET, POST, etc.); defaults to GET if not set (optional)"`
+	Body         string                     `json:"body" jsonschema:"description=HTTP request body (optional)"`
+	TruncateSize int                        `json:"truncate_size" jsonschema:"description=The maximum size in bytes of the returned response body. Mutually exclusive with resp_body_filename. Use this to prevent context window explosion. Required unless resp_body_filename is set"`
 	// RespBodyFilename, when set, causes the retrieved (or rendered) result to be
 	// written to a local file instead of returned directly in the response body.
 	// This can be useful to avoid overloading the LLM context window.
-	RespBodyFilename string `json:"resp_body_filename,omitempty" jsonschema:"description=Filename to write the result to instead of returning it directly (optional)"`
+	// NOTE: resp_body_filename is mutually exclusive with truncate_size.
+	RespBodyFilename string `json:"resp_body_filename,omitempty" jsonschema:"description=Filename to write the result to instead of returning it directly. Mutually exclusive with truncate_size. Required unless truncate_size is set"`
 }
 
 type RetrieveUrlResp struct {
-	Error         string      `json:"error" jsonschema:"description=The error status of the retrieve_url call"`
-	Status        string      `json:"status" jsonschema:"description=The HTTP status of the response to the request"`
-	StatusCode    int         `json:"statuscode" jsonschema:"description=The integer HTTP status code of the response to the request"`
-	Header        http.Header `json:"header" jsonschema:"description=The header returned by the response to the request"`
-	Body          string      `json:"body,omitempty" jsonschema:"description=The body returned by the response to the request; empty if body_filename present and non-empty"`
-	ContentLength int64       `json:"contentlen" jsonschema:"description=The length of the content returned by the response to the request"`
+	Error         string        `json:"error" jsonschema:"description=The error status of the retrieve_url call"`
+	Status        string        `json:"status" jsonschema:"description=The HTTP status of the response to the request"`
+	StatusCode    int           `json:"statuscode" jsonschema:"description=The integer HTTP status code of the response to the request"`
+	Header        http.Header   `json:"header" jsonschema:"description=The header returned by the response to the request"`
+	Body          ContentOutput `json:"body" jsonschema:"description=The body returned by the response to the request; may be truncated according to truncate_size. When body_filename is present, body.content is empty"`
+	ContentLength int64         `json:"contentlen" jsonschema:"description=The length of the content returned by the response to the request"`
 	// Mode indicates whether Body (or the written file content) contains the raw
 	// HTTP response body, or the JavaScript-rendered page text.
 	Mode string `json:"mode" jsonschema:"description=Indicates whether the result is raw HTTP body ('raw') or JavaScript-rendered page text ('rendered')"`
-	// BodyLen is the length in bytes of the result that was returned (in
-	// Body) or written to OutputFilename.
-	BodyLen int `json:"body_len" jsonschema:"description=The byte length of the	returned or written result; may differ from contentlen when mode==rendered or returned content length header is incorrect"`
 	// BodyFilename echoes the requested output filename when present
 	BodyFilename string `json:"body_filename,omitempty"	jsonschema:"description=The output filename that the result body was written to (if any)"`
 }
@@ -142,6 +141,22 @@ func (t RetrieveUrlTool) Invoke(ctx context.Context,
 
 	ret := &RetrieveUrlResp{Mode: "raw"}
 
+	// Exactly one of truncate_size or resp_body_filename must be set.
+	// - truncate_size: return body (possibly truncated) in the tool result.
+	// - resp_body_filename: write the full body to disk and return no body.
+	if strings.TrimSpace(req.RespBodyFilename) == "" && req.TruncateSize == 0 {
+		ret.Error = "one of truncate_size or resp_body_filename must be set"
+		return ret, nil
+	}
+
+	// truncate_size and resp_body_filename both exist to protect the context
+	// window, but they can't be used together: one returns a (possibly truncated)
+	// body, while the other writes the full body to disk and returns no body.
+	if strings.TrimSpace(req.RespBodyFilename) != "" && req.TruncateSize != 0 {
+		ret.Error = "truncate_size is mutually exclusive with resp_body_filename"
+		return ret, nil
+	}
+
 	err := GetUserApproval(ctx, t.approver, t, req)
 	if err != nil {
 		ret.Error = err.Error()
@@ -184,34 +199,35 @@ func (t RetrieveUrlTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
+	bodyText := string(content)
+
 	ret.Status = httpResp.Status
 	ret.StatusCode = httpResp.StatusCode
 	ret.Header = httpResp.Header
-	ret.Body = string(content)
+	ret.Body = setContent(bodyText, req.TruncateSize)
 	ret.ContentLength = httpResp.ContentLength
-	ret.BodyLen = len(ret.Body)
 
-	if requestMethod == "GET" && shouldAutoRenderRetrievedBody(httpResp.Header, ret.Body) {
+	if requestMethod == "GET" && shouldAutoRenderRetrievedBody(httpResp.Header, bodyText) {
 		renderedText, rerr := renderVisibleText(ctx, req.Url)
 		if rerr != nil {
 			// Best-effort: if rendering fails, fall back to raw body.
 			ret.Error = fmt.Sprintf("auto-render failed: %v", rerr)
 		} else if strings.TrimSpace(renderedText) != "" {
 			ret.Mode = "rendered"
-			ret.Body = renderedText
-			ret.BodyLen = len(ret.Body)
+			bodyText = renderedText
+			ret.Body = setContent(bodyText, req.TruncateSize)
 		}
 	}
 
 	if strings.TrimSpace(req.RespBodyFilename) != "" {
-		werr := writeTextFile(req.RespBodyFilename, ret.Body)
+		werr := writeTextFile(req.RespBodyFilename, bodyText)
 		if werr != nil {
 			ret.Error = werr.Error()
 			return ret, nil
 		}
 		ret.BodyFilename = req.RespBodyFilename
 		// Avoid sending potentially large content back in the tool result.
-		ret.Body = ""
+		ret.Body = ContentOutput{UntruncatedContentLen: len(bodyText)}
 	}
 
 	return ret, nil

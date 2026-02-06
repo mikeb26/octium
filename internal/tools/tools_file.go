@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -187,12 +187,14 @@ type ReadFileTool struct {
 }
 
 type ReadFileReq struct {
-	Filename string `json:"filename" jsonschema:"description=The file to read"`
+	Filename    string `json:"filename" jsonschema:"description=The file to read"`
+	StartOffset int64  `json:"offset" jsonschema:"description=The starting offset within the file to read from"`
+	NumBytes    int    `json:"num_bytes" jsonschema:"description=The number of bytes to read"`
 }
 
 type ReadFileResp struct {
-	Error   string `json:"error" jsonschema:"description=The error status of the read call"`
-	Content string `json:"content" jsonschema:"description=The content of the file"`
+	Error   string        `json:"error" jsonschema:"description=The error status of the read call"`
+	Content ContentOutput `json:"content" jsonschema:"description=The content read"`
 }
 
 func (t ReadFileTool) GetOp() types.ToolCallOp {
@@ -377,12 +379,18 @@ func (t ReadFileTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	content, err := os.ReadFile(req.Filename)
-	if err == nil {
-		ret.Content = string(content)
-	} else {
+	f, err := os.Open(req.Filename)
+	if err != nil {
+		ret.Error = err.Error()
+		return ret, nil
+	}
+	defer f.Close()
+	buf := make([]byte, req.NumBytes)
+	numBytesRead, err := f.ReadAt(buf, req.StartOffset)
+	if err != nil {
 		ret.Error = err.Error()
 	}
+	ret.Content = setContent(string(buf[:numBytesRead]), req.NumBytes)
 
 	return ret, nil
 }

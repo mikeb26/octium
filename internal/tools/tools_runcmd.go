@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -23,14 +23,21 @@ type RunCommandTool struct {
 }
 
 type CmdRunReq struct {
-	Cmd     string   `json:"cmd" jsonschema:"description=The command to execute"`
-	CmdArgs []string `json:"cmdargs" jsonschema:"description=A list of arguments to include when executing the command."`
+	Cmd          string   `json:"cmd" jsonschema:"description=The command to execute"`
+	CmdArgs      []string `json:"cmdargs" jsonschema:"description=A list of arguments to include when executing the command."`
+	TruncateSize int      `json:"truncate_size" jsonschema:"description=The maximum size in bytes of each output stream (stdout and stderr) in the response; this limit should be used to prevent context window explosion"`
+}
+
+type ContentOutput struct {
+	Content               string `json:"content" jsonschema:"description=The (possibly truncated) content"`
+	UntruncatedContentLen int    `json:"untrunc_content_len" jsonschema:"description=The length of the untruncated content"`
+	WasTruncated          bool   `json:"was_trunc" jsonschema:"description=Set to true when the returned content was truncated; false otherwise"`
 }
 
 type CmdRunResp struct {
-	Error  string `json:"error" jsonschema:"description=The error status of the command"`
-	Stdout string `json:"stdout" jsonschema:"description=The standard output emitted by the command"`
-	Stderr string `json:"stderr" jsonschema:"description=The standard error emitted by the command"`
+	Error  string        `json:"error" jsonschema:"description=The error status of the command"`
+	Stdout ContentOutput `json:"stdout" jsonschema:"description=The standard output emitted by the command"`
+	Stderr ContentOutput `json:"stderr" jsonschema:"description=The standard error emitted by the command"`
 }
 
 func (t RunCommandTool) GetOp() types.ToolCallOp {
@@ -194,8 +201,22 @@ func (t RunCommandTool) Invoke(ctx context.Context,
 	if err != nil {
 		resp.Error = err.Error()
 	}
-	resp.Stderr = stderrSb.String()
-	resp.Stdout = stdoutSb.String()
+	resp.Stderr = setContent(stderrSb.String(), req.TruncateSize)
+	resp.Stdout = setContent(stdoutSb.String(), req.TruncateSize)
 
 	return resp, nil
+}
+
+func setContent(c string, maxLen int) ContentOutput {
+	ret := ContentOutput{
+		Content:               c,
+		UntruncatedContentLen: len(c),
+	}
+	// 0 indicates no truncation
+	if maxLen > 0 && ret.UntruncatedContentLen > maxLen {
+		ret.Content = ret.Content[:maxLen]
+		ret.WasTruncated = true
+	}
+
+	return ret
 }
