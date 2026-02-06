@@ -75,7 +75,7 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool) {
 			{text: "Ctrl-d", bold: true},
 		}...)
 	}
-	if focus == focusHistory {
+	if focus == focusHistory && !isArchived {
 		segments = append(segments, []statusSegment{
 			{text: " Workspace:", bold: false},
 			{text: "w", bold: true},

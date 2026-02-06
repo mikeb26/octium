@@ -401,7 +401,7 @@ func showMenu(ctx context.Context, cliCtx *CliContext) error {
 				continue
 			}
 
-			entry := cliCtx.menu.entries[cliCtx.menu.selected]
+			entry := cliCtx.menu.selectedEntry()
 			err := entry.thread.Access()
 			if err != nil {
 				// Propagate the error so the caller can handle it and

@@ -27,6 +27,10 @@ var agentsMdTmplText string
 // if it doesn't exist, create it
 func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	ignoreUnset bool) error {
+
+	if tvUI.isArchived {
+		return fmt.Errorf("thread is archived")
+	}
 	err := tvUI.ws.Load(ctx)
 	if errors.Is(err, workspace.ErrOriginRepoInvalid) {
 		// the user likely deleted the original repository, so we have

@@ -115,6 +115,12 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 
 	tvUI := lookupThreadViewUI(cliCtx, thread)
 	if tvUI != nil {
+		if tvUI.isArchived {
+			tvUI.clearRunningState()
+		} else if tvUI.running.state == nil && tvUI.statusText == "" {
+			tvUI.statusText = asyncStatusIdle
+		}
+
 		return tvUI
 	}
 
