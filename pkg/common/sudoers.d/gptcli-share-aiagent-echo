@@ -1,0 +1,11 @@
+# Allow users in group "gptcli-share" to run the hardened wrapper as root
+# without a password prompt.
+#
+# The wrapper uses systemd-run to execute a command as user "aiagent" in a
+# hardened transient unit.
+#
+# IMPORTANT:
+# - This file must be owned by root:root and have mode 0440.
+# - Packaging should ensure permissions are correct at install time.
+
+%gptcli-share ALL=(root) NOPASSWD: /usr/libexec/gptcli/run-as-aiagent

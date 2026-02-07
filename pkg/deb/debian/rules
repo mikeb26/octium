@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+export GO111MODULE=on
+export GOFLAGS=-mod=vendor
+# Allow the Go toolchain directive in go.mod to fetch the required toolchain
+# (go1.24.12+) when the host has a compatible bootstrap Go (1.21+).
+export GOTOOLCHAIN=auto
+
+TAGS ?= assert
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Build with uncompressed DWARF so debhelper's dh_dwz (if enabled) can
+	# operate reliably across distros/tooling versions.
+	go build -tags "$(TAGS)" -ldflags "-compressdwarf=false" -o gptcli ./cmd/gptcli
+
+override_dh_dwz:
+	# dwz frequently fails on Go binaries due to DWARF/compression details.
+	# It is an optional optimization step; skip for reliability.
+	:
+
+override_dh_auto_test:
+	# Tests are skipped in the Debian packaging build by default.
+	# (Some CI/buildds restrict network/toolchain downloads; enable locally if desired.)
+	:

@@ -1,0 +1,20 @@
+gptcli for Debian
+
+This package ships install-time artifacts for the aiagent execution boundary:
+
+- system user: aiagent
+- group: gptcli-share
+- /home/aiagent/shared (setgid) workspace root
+- sudoers wrapper for running a hardened command as aiagent
+
+User enrollment
+
+Add your user to the gptcli-share group and re-login:
+
+  sudo usermod -a -G gptcli-share <username>
+
+Go toolchain
+
+This repository uses a Go toolchain directive (go1.24.12) in go.mod.
+If your distro's golang-go is older than the required version, you can install
+a newer Go from https://go.dev/dl/ (or use a compatible backport), then rebuild.

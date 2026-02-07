@@ -275,14 +275,32 @@ func gcInit() (*gc.Window, error) {
 	//
 	// This MUST be set before initializing ncurses via gc.Init().
 	_ = os.Setenv("ESCDELAY", "100")
-	// Enable UTF-8; must similarly be set before gc.Init()
-	SetLocale.SetLocale(SetLocale.LC_ALL, "en_US.UTF-8")
+	initLocaleForNCurses()
 	rootWin, err := gc.Init()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFailedToInitScreen, err)
 	}
 
 	return rootWin, nil
+}
+
+func initLocaleForNCurses() {
+	// Enable UTF-8; must be set before initializing ncurses via gc.Init().
+	//
+	// We prefer the process environment (""), but fall back to C.UTF-8
+	// because many minimal systems do not have en_US.UTF-8 generated.
+	//
+	// The vendored SetLocale wrapper returns "" if the locale isn't available.
+	if loc := SetLocale.SetLocale(SetLocale.LC_ALL, ""); strings.Contains(strings.ToUpper(loc), "UTF-8") {
+		return
+	}
+	if loc := SetLocale.SetLocale(SetLocale.LC_ALL, "C.UTF-8"); strings.Contains(strings.ToUpper(loc), "UTF-8") {
+		return
+	}
+	if loc := SetLocale.SetLocale(SetLocale.LC_ALL, "C.utf8"); strings.Contains(strings.ToUpper(loc), "UTF-8") {
+		return
+	}
+	_ = SetLocale.SetLocale(SetLocale.LC_ALL, "en_US.UTF-8")
 }
 
 func gcExit() {

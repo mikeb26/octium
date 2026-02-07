@@ -1,0 +1,231 @@
+#!/bin/sh
+set -eu
+
+# Root-run wrapper intended to be invoked via sudoers by members of the
+# gptcli-share group.
+#
+# It runs an arbitrary command as the dedicated sandbox user "aiagent" inside a
+# hardened transient systemd unit.
+#
+# Environment behavior:
+# - Start from an empty environment (env -i).
+# - Seed PATH with a filtered version of the invoker's PATH (best-effort).
+# - Invoke bash as a *login* shell so it can apply aiagent's profile scripts
+#   (e.g. ~/.bash_profile or ~/.profile), which may further modify PATH and other
+#   env for the final exec.
+
+PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH
+
+log() {
+	echo "gptcli: $*" >&2
+}
+
+require_root() {
+	if [ "$(id -u)" -ne 0 ]; then
+		log "must be run as root (expected via sudo)."
+		exit 1
+	fi
+}
+
+require_args() {
+	if [ "$#" -lt 1 ]; then
+		log "usage: run-as-aiagent <command> [args...]"
+		exit 2
+	fi
+}
+
+have_systemd_run() {
+	command -v systemd-run >/dev/null 2>&1
+}
+
+aiagent_home_dir() {
+	# Determine aiagent's home directory.
+	# Prefer getent when available; fall back to /home/aiagent.
+	if command -v getent >/dev/null 2>&1; then
+		home="$(getent passwd aiagent | cut -d: -f6 || true)"
+		if [ -n "${home:-}" ]; then
+			echo "$home"
+			return
+		fi
+	fi
+	echo "/home/aiagent"
+}
+
+ensure_aiagent_home() {
+	aihome="$1"
+
+	# systemd-run will fail with a systemd-specific exit status (e.g. 200/CHDIR)
+	# if WorkingDirectory doesn't exist. Be robust in case sysusers/tmpfiles
+	# haven't been applied yet.
+	if ! id aiagent >/dev/null 2>&1; then
+		log "user 'aiagent' does not exist."
+		log "ensure sysusers was applied (e.g. systemd-sysusers /usr/lib/sysusers.d/gptcli-aiagent.conf)."
+		exit 1
+	fi
+
+	if [ ! -d "$aihome" ]; then
+		mkdir -p "$aihome"
+		chown aiagent:aiagent "$aihome" || true
+		chmod 0750 "$aihome" || true
+	fi
+}
+
+invoker_path() {
+	# Best-effort attempt to recover the PATH from the first non-root ancestor
+	# process (typically the user's shell) instead of relying on sudo's sanitized
+	# environment.
+	#
+	# If anything looks off, return empty and let the caller choose a safe default.
+	pid="$$"
+	while [ -r "/proc/$pid/status" ]; do
+		uid="$(awk '/^Uid:/ {print $2; exit}' "/proc/$pid/status" 2>/dev/null || true)"
+		ppid="$(awk '/^PPid:/ {print $2; exit}' "/proc/$pid/status" 2>/dev/null || true)"
+		if [ -n "${uid:-}" ] && [ "$uid" -ne 0 ]; then
+			if [ -r "/proc/$pid/environ" ]; then
+				# NUL-separated env; extract PATH.
+				path_val="$(tr '\000' '\n' < "/proc/$pid/environ" | sed -n 's/^PATH=//p' | head -n 1 || true)"
+				if [ -n "${path_val:-}" ]; then
+					echo "$path_val"
+					return
+				fi
+			fi
+			return
+		fi
+		if [ -z "${ppid:-}" ] || [ "$ppid" -le 1 ]; then
+			return
+		fi
+		pid="$ppid"
+	done
+}
+
+filter_path() {
+	# Filter a PATH-like string down to a conservative allowlist of directories.
+	#
+	# Rules:
+	# - Only absolute paths.
+	# - Only strict subdirs of: /usr, /opt, /bin, /sbin.
+	# - Must exist as a directory.
+	# - Must not be writable by group/other (prevents trivial path hijacking).
+	#
+	# If the result is empty, the caller should fall back to a safe default.
+	in_path="$1"
+	out_path=""
+	old_ifs="$IFS"
+	IFS=:
+	for d in $in_path; do
+		case "$d" in
+			/*) ;;
+			*) continue ;;
+		esac
+		case "$d" in
+			/usr/*|/opt/*|/bin|/bin/*|/sbin|/sbin/*) ;;
+			*) continue ;;
+		esac
+		[ -d "$d" ] || continue
+
+		# Permissions check (Linux/GNU stat assumed on target distros)
+		# Require: not group-writable and not other-writable.
+		mode="$(stat -c %a "$d" 2>/dev/null || true)"
+		[ -n "${mode:-}" ] || continue
+		g_digit="$(echo "$mode" | awk '{print substr($0,length($0)-1,1)}')"
+		o_digit="$(echo "$mode" | awk '{print substr($0,length($0),1)}')"
+		case "$g_digit" in
+			0|1|2|3|4|5) ;;
+			*) continue ;;
+		esac
+		case "$o_digit" in
+			0|1|2|3|4|5) ;;
+			*) continue ;;
+		esac
+
+		if [ -z "$out_path" ]; then
+			out_path="$d"
+		else
+			out_path="$out_path:$d"
+		fi
+	done
+	IFS="$old_ifs"
+
+	echo "$out_path"
+}
+
+require_systemd_run() {
+	if have_systemd_run; then
+		return
+	fi
+	log "systemd-run is required but was not found in PATH."
+	log "Install systemd (and systemd-run) or adjust your packaging/configuration."
+	exit 1
+}
+
+run_via_systemd() {
+	# Use the system manager so we can apply hardening without needing extra
+	# polkit configuration.
+
+	aihome="$(aiagent_home_dir)"
+	ensure_aiagent_home "$aihome"
+	upath="$(invoker_path || true)"
+	fpath=""
+	if [ -n "${upath:-}" ]; then
+		fpath="$(filter_path "$upath" || true)"
+	fi
+	if [ -z "${fpath:-}" ]; then
+		fpath="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	fi
+
+	# Execute the user command via a bash *login* shell so that profile scripts can
+	# adjust PATH and other env before the final exec.
+	#
+	# NOTE: bash does not automatically read ~/.bashrc for non-interactive shells.
+	# If you need ~/.bashrc behavior here, ensure aiagent's ~/.bash_profile
+	# sources it.
+        #
+	# Use a tmpfs for /home (hides other users' homes) and then bind-mount
+	# aiagent's real home back in.
+	#
+	# NOTE: ProtectHome=yes makes /home inaccessible and causes CHDIR failures
+	# on some systems even when ReadWritePaths is set.
+        #
+        # for full network:
+        # add AF_INET AF_INET6 to addr families and delete PrivateNetwork=yes
+
+	systemd-run \
+		--wait \
+		--collect \
+		--pipe \
+		--uid=aiagent \
+		--property=NoNewPrivileges=yes \
+		--property=PrivateTmp=yes \
+		--property=PrivateDevices=yes \
+		--property=PrivateNetwork=yes \
+		--property=CapabilityBoundingSet= \
+		--property=AmbientCapabilities= \
+		--property=LockPersonality=yes \
+		--property=MemoryDenyWriteExecute=yes \
+		--property=RestrictNamespaces=yes \
+		--property=RestrictRealtime=yes \
+		--property=RestrictSUIDSGID=yes \
+		--property=RestrictAddressFamilies=AF_UNIX \
+		--property=ProtectSystem=strict \
+		--property=ProtectHome=tmpfs \
+		--property=BindPaths="$aihome:$aihome" \
+		--property=ReadWritePaths="$aihome" \
+		--property=ProtectKernelTunables=yes \
+		--property=ProtectKernelModules=yes \
+		--property=ProtectControlGroups=yes \
+		--property=UMask=0077 \
+		--property=WorkingDirectory="$aihome" \
+			-- /usr/bin/env -i HOME="$aihome" PATH="$fpath" USER=aiagent LOGNAME=aiagent \
+				/bin/bash --login -c 'exec "$@"' -- "$@"
+}
+
+main() {
+	require_root
+	require_systemd_run
+	require_args "$@"
+
+	run_via_systemd "$@"
+}
+
+main "$@"

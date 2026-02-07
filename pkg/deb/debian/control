@@ -1,0 +1,35 @@
+Source: gptcli
+Section: utils
+Priority: optional
+Maintainer: Mike Brown <debpkg@torvosoft.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ ca-certificates,
+ golang-go | golang-any,
+ pkg-config,
+ libncurses-dev,
+ ncurses-bin,
+ make,
+ build-essential,
+ git
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/mikeb26/gptcli
+Vcs-Git: https://github.com/mikeb26/gptcli.git
+Vcs-Browser: https://github.com/mikeb26/gptcli
+
+Package: gptcli
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ systemd,
+ git,
+ ripgrep,
+ locales,
+ libncursesw6,
+ sudo,
+ ncurses-bin
+Description: terminal-based agentic coding assistant (ncurses TUI)
+ gptcli is a terminal-based, agentic coding assistant with an ncurses UI.
+ It supports multiple LLM vendors and a curated, approval-gated toolset.

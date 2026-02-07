@@ -1,0 +1,7 @@
+gptcli usr/bin/
+
+pkg/common/sysusers.d/gptcli-aiagent.conf usr/lib/sysusers.d/
+pkg/common/tmpfiles.d/gptcli-aiagent.conf usr/lib/tmpfiles.d/
+pkg/common/sudoers.d/gptcli-share-aiagent-echo etc/sudoers.d/
+pkg/common/libexec/gptcli-postinstall-common.sh usr/libexec/gptcli/
+pkg/common/libexec/run-as-aiagent usr/libexec/gptcli/
