@@ -70,7 +70,7 @@ type Thread interface {
 	RenderBlocks() []RenderBlock
 	Access() error
 	ScratchDir() string
-	ChatOnceAsync(context.Context, types.InternalContext, string,
+	ChatOnceAsync(context.Context, *types.InternalContext, string,
 		bool, string) (*RunningThreadState, error)
 }
 

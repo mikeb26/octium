@@ -45,7 +45,7 @@ func newPromptRunTool(ctxIn context.Context, vendor string,
 	approver am.Approver, apiKey string, model string,
 	depthIn int) types.LlmTool {
 
-	ictx := types.InternalContext{
+	ictx := &types.InternalContext{
 		LlmVendor:       vendor,
 		LlmModel:        model,
 		LlmApiKey:       apiKey,

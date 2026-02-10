@@ -85,7 +85,7 @@ func (s *RunningThreadState) Stop() {
 // The worker goroutine fully manages the request lifecycle, including
 // finalizing and persisting the thread upon success.
 func (thread *thread) ChatOnceAsync(
-	ctx context.Context, ictx types.InternalContext, prompt string,
+	ctx context.Context, ictx *types.InternalContext, prompt string,
 	summarizePrior bool,
 	systemMsg string,
 ) (*RunningThreadState, error) {
@@ -110,6 +110,7 @@ func (thread *thread) ChatOnceAsync(
 
 	ctx, cancel := context.WithCancel(ctx)
 	ctx = WithThread(ctx, thread)
+	ctx = types.WithIctx(ctx, ictx)
 
 	progressCh := thread.llmClient.SubscribeProgress(invocationID)
 	resultCh := make(chan RunningThreadResult, 1)

@@ -69,7 +69,7 @@ func SetInvocationID(ctx context.Context, threadId string,
 	return ctx, invId
 }
 
-func NewEINOClient(ctx context.Context, ictx types.InternalContext,
+func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
 	approver am.Approver, depth int) types.AIClient {
 
 	vendor := ictx.LlmVendor

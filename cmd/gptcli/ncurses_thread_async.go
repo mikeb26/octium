@@ -59,7 +59,7 @@ func (tvUI *threadViewUI) beginAsyncChat(
 		return "", false
 	}
 
-	state, err := tvUI.thread.ChatOnceAsync(ctx, tvUI.cliCtx.ictx, prompt,
+	state, err := tvUI.thread.ChatOnceAsync(ctx, &tvUI.cliCtx.ictx, prompt,
 		tvUI.cliCtx.toggles.summary, tvUI.getSystemPrompt())
 	if err != nil {
 		_, _ = showErrorRetryModal(tvUI.cliCtx.ui, err.Error())

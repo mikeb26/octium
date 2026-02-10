@@ -188,9 +188,13 @@ func (t RunCommandTool) Invoke(ctx context.Context,
 		return resp, nil
 	}
 
+	proxyAddr := ""
+	ictx, ok := types.GetIctx(ctx)
+	if ok && ictx.HttpProxy != nil {
+		proxyAddr = ictx.HttpProxy.ProxyAddr()
+	}
 	cmd := exec.CommandContext(ctx, req.Cmd, req.CmdArgs...)
 	cmd.Env = os.Environ()
-	// @todo should this be t.input instead of os.Stdin?
 	cmd.Stdin = os.Stdin
 	var stdoutSb strings.Builder
 	var stderrSb strings.Builder

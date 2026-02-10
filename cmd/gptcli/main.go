@@ -16,6 +16,7 @@ import (
 
 	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/gptcli/internal/httpproxy"
 	"github.com/mikeb26/gptcli/internal/scm"
 	"github.com/mikeb26/gptcli/internal/scm/git"
 	"github.com/mikeb26/gptcli/internal/threads"
@@ -159,6 +160,11 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 	err = cliCtx.threadGroupSet.Load()
 	if err != nil {
 		return err
+	}
+	cliCtx.ictx.HttpProxy = httpproxy.New(cliCtx.ictx.LlmPolicyStore)
+	err = cliCtx.ictx.HttpProxy.ListenAndServe()
+	if err != nil {
+		return fmt.Errorf("%v: Failed to start http proxy: %w\n", CommandName, err)
 	}
 	cliCtx.toggles.needConfig = false
 

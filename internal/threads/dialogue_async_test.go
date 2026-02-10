@@ -77,7 +77,7 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
 	// Inject a mock client into the active thread so ChatOnceAsync uses it.
 	thrImpl.llmClient = mockClient
-	state, err := thrImpl.ChatOnceAsync(ctx, ictx, "hi", false, prompts.SystemMsg)
+	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
 	assert.NoError(t, err)
 	if assert.NotNil(t, state) {
 		assert.Equal(t, invocationID, state.InvocationID)
@@ -127,7 +127,7 @@ func TestChatOnceAsyncRequiresSystemMessage(t *testing.T) {
 	thrImpl := threads[0].(*thread)
 
 	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
-	state, err := thrImpl.ChatOnceAsync(context.Background(), ictx, "hi", false, "")
+	state, err := thrImpl.ChatOnceAsync(context.Background(), &ictx, "hi", false, "")
 	assert.Error(t, err)
 	assert.Nil(t, state)
 }
@@ -173,7 +173,7 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
 	// Inject a mock client into the active thread so ChatOnceAsync uses it.
 	thrImpl.llmClient = mockClient
-	state, err := thrImpl.ChatOnceAsync(ctx, ictx, "hi", false, prompts.SystemMsg)
+	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
 	assert.NoError(t, err)
 
 	// Wait until we have at least the partial content.
@@ -248,7 +248,7 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 
 	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
 	thrImpl.llmClient = mockClient
-	state, err := thrImpl.ChatOnceAsync(ctx, ictx, "hi", false, prompts.SystemMsg)
+	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
 	assert.NoError(t, err)
 	res := <-state.Result
 	assert.NoError(t, res.Err)

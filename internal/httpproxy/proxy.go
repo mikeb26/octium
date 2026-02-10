@@ -6,16 +6,17 @@ package httpproxy
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"crypto/tls"
 	"strings"
 	"time"
 
 	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/negrel/assert"
 )
 
 type HttpProxy struct {
@@ -38,6 +39,8 @@ const (
 )
 
 func New(policyStoreIn am.ApprovalPolicyStore) *HttpProxy {
+	assert.NotNil(policyStoreIn, "policyStore must not be nil")
+
 	ret := &HttpProxy{
 		policyStore: policyStoreIn,
 		host:        localhost,

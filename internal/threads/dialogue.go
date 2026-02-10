@@ -20,7 +20,7 @@ import (
 // NOTE: Callers that need a stable reference for the lifetime of a request
 // should call this once and hold on to the returned pointer
 func (thr *thread) setRunning(ctx context.Context,
-	ictx types.InternalContext) (*thread, error) {
+	ictx *types.InternalContext) (*thread, error) {
 	thr.mu.Lock()
 	defer thr.mu.Unlock()
 
