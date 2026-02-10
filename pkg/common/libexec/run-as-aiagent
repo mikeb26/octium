@@ -17,6 +17,8 @@ set -eu
 PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export PATH
 
+DEFAULT_PROXY_ADDR="127.0.0.1:8080"
+
 log() {
 	echo "gptcli: $*" >&2
 }
@@ -30,9 +32,59 @@ require_root() {
 
 require_args() {
 	if [ "$#" -lt 1 ]; then
-		log "usage: run-as-aiagent <command> [args...]"
+		log "usage: run-as-aiagent [--proxy-addr <host:port>] <command> [args...]"
 		exit 2
 	fi
+}
+
+validate_proxy_port() {
+	proxy_port="$1"
+	# Validate proxy port (fixed/explicit only; do not allow 0).
+	case "$proxy_port" in
+		''|*[!0-9]*)
+			log "invalid proxy-port: $proxy_port"
+			exit 2
+			;;
+	esac
+	if [ "$proxy_port" -lt 1 ] || [ "$proxy_port" -gt 65535 ]; then
+		log "invalid proxy-port: $proxy_port"
+		exit 2
+	fi
+}
+
+validate_proxy_addr() {
+	proxy_addr="$1"
+	if [ -z "${proxy_addr:-}" ]; then
+		log "invalid --proxy-addr: empty"
+		exit 2
+	fi
+
+	# Expect host:port (matching internal/httpproxy/proxy.go:ProxyAddr()).
+	# We intentionally restrict the host to loopback for safety.
+	case "$proxy_addr" in
+		*:*:*)
+			log "invalid --proxy-addr (IPv6 or multiple colons not supported): $proxy_addr"
+			exit 2
+			;;
+		*:*)
+			;;
+		*)
+			log "invalid --proxy-addr (expected host:port): $proxy_addr"
+			exit 2
+			;;
+	esac
+
+	host="${proxy_addr%:*}"
+	port="${proxy_addr##*:}"
+	case "$host" in
+		127.0.0.1|localhost)
+			;;
+		*)
+			log "invalid --proxy-addr host (must be 127.0.0.1 or localhost): $host"
+			exit 2
+			;;
+	esac
+	validate_proxy_port "$port"
 }
 
 have_systemd_run() {
@@ -186,9 +238,19 @@ run_via_systemd() {
 	#
 	# NOTE: ProtectHome=yes makes /home inaccessible and causes CHDIR failures
 	# on some systems even when ReadWritePaths is set.
-        #
-        # for full network:
-        # add AF_INET AF_INET6 to addr families and delete PrivateNetwork=yes
+	#
+	# Networking model:
+	# - Allow loopback TCP/IPv4+IPv6 (for httpproxy on 127.0.0.1/::1).
+	# - Deny all other IP ranges (best-effort, systemd feature-dependent).
+	#
+	# IMPORTANT: This is NOT a cryptographic/airtight guarantee that the process
+	# can only reach the proxy port. systemd can restrict destination IP ranges,
+	# but typically cannot enforce destination ports. A process may still be able
+	# to speak directly to 127.0.0.1 on other ports.
+	#
+	# Additionally, restricting protocol families blocks raw sockets/packet
+	# sockets (ICMP etc), but cannot prevent a process from using TCP to any
+	# allowed destination IP/port.
 
 	systemd-run \
 		--wait \
@@ -198,7 +260,7 @@ run_via_systemd() {
 		--property=NoNewPrivileges=yes \
 		--property=PrivateTmp=yes \
 		--property=PrivateDevices=yes \
-		--property=PrivateNetwork=yes \
+		--property=PrivateNetwork=no \
 		--property=CapabilityBoundingSet= \
 		--property=AmbientCapabilities= \
 		--property=LockPersonality=yes \
@@ -206,7 +268,10 @@ run_via_systemd() {
 		--property=RestrictNamespaces=yes \
 		--property=RestrictRealtime=yes \
 		--property=RestrictSUIDSGID=yes \
-		--property=RestrictAddressFamilies=AF_UNIX \
+		--property=RestrictAddressFamilies="AF_UNIX AF_INET AF_INET6" \
+		--property=IPAddressAllow=127.0.0.1/32 \
+		--property=IPAddressAllow=::1/128 \
+		--property=IPAddressDeny=any \
 		--property=ProtectSystem=strict \
 		--property=ProtectHome=tmpfs \
 		--property=BindPaths="$aihome:$aihome" \
@@ -217,12 +282,52 @@ run_via_systemd() {
 		--property=UMask=0077 \
 		--property=WorkingDirectory="$aihome" \
 			-- /usr/bin/env -i HOME="$aihome" PATH="$fpath" USER=aiagent LOGNAME=aiagent \
+				http_proxy="http://$PROXY_ADDR" \
+				https_proxy="http://$PROXY_ADDR" \
+				HTTP_PROXY="http://$PROXY_ADDR" \
+				HTTPS_PROXY="http://$PROXY_ADDR" \
+				no_proxy="localhost,127.0.0.1,::1" \
+				NO_PROXY="localhost,127.0.0.1,::1" \
 				/bin/bash --login -c 'exec "$@"' -- "$@"
 }
 
 main() {
 	require_root
 	require_systemd_run
+
+	PROXY_ADDR="$DEFAULT_PROXY_ADDR"
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+			--proxy-addr)
+				shift
+				if [ "$#" -lt 1 ]; then
+					log "--proxy-addr requires a value"
+					exit 2
+				fi
+				validate_proxy_addr "$1"
+				PROXY_ADDR="$1"
+				shift
+				;;
+			--proxy-addr=*)
+				p="${1#--proxy-addr=}"
+				validate_proxy_addr "$p"
+				PROXY_ADDR="$p"
+				shift
+				;;
+			--)
+				shift
+				break
+				;;
+			-*)
+				log "unknown flag: $1"
+				exit 2
+				;;
+			*)
+				break
+				;;
+		esac
+	done
+
 	require_args "$@"
 
 	run_via_systemd "$@"
