@@ -55,7 +55,6 @@ type ApprovalTarget string
 const (
 	ApprovalTargetFile   ApprovalTarget = "file"
 	ApprovalTargetDir    ApprovalTarget = "directory"
-	ApprovalTargetUrl    ApprovalTarget = "url"
 	ApprovalTargetDomain ApprovalTarget = "domain"
 	// ApprovalTargetCommand represents a specific executable or
 	// command name used by cmd_run.
