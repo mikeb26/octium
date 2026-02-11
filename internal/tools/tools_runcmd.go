@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
@@ -192,9 +193,21 @@ func (t RunCommandTool) Invoke(ctx context.Context,
 	proxyAddr := ""
 	ictx, ok := types.GetIctx(ctx)
 	if ok && ictx.HttpProxy != nil {
-		proxyAddr = ictx.HttpProxy.ProxyAddr()
+		proxyAddr = strings.TrimSpace(ictx.HttpProxy.ProxyAddr())
 	}
-	cmd := exec.CommandContext(ctx, req.Cmd, req.CmdArgs...)
+	if proxyAddr == "" {
+		resp.Error = ErrProxyNotConfigured.Error()
+		return resp, nil
+	}
+
+	// see pkg/common/libexec/run-as-aiagent.in
+	runAsPath := filepath.Join(internal.CliLibexecDir, internal.CliToolName,
+		fmt.Sprintf("run-as-%s", internal.CliSandboxUsername))
+
+	args := []string{runAsPath, "--proxy-addr", proxyAddr, "--", req.Cmd}
+	args = append(args, req.CmdArgs...)
+
+	cmd := exec.CommandContext(ctx, "sudo", args...)
 	cmd.Env = os.Environ()
 	cmd.Stdin = os.Stdin
 	var stdoutSb strings.Builder

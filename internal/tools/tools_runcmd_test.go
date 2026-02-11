@@ -12,7 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/gptcli/internal/httpproxy"
+	"github.com/mikeb26/gptcli/internal/types"
 )
 
 type fakeApprover struct {
@@ -163,9 +166,33 @@ func Test_RunCommandTool_Invoke_ExecutesCommand_CapturesOutputAndExitError(t *te
 	ta := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RunCommandTool{approver: ta}
 
+	// Configure a proxy in context and point the privileged wrapper to a fake
+	// helper that just execs the requested command.
+	proxy := httpproxy.New(am.NewMemoryApprovalPolicyStore())
+	if err := proxy.ListenAndServe(); err != nil {
+		t.Fatalf("proxy.ListenAndServe: %v", err)
+	}
+	ctx := types.WithIctx(context.Background(), &types.InternalContext{HttpProxy: proxy})
+
+	internal.CliLibexecDir = t.TempDir()
+	runAsPath := internal.CliLibexecDir + "/" + internal.CliToolName + "/run-as-" + internal.CliSandboxUsername
+	if err := os.MkdirAll(internal.CliLibexecDir+"/"+internal.CliToolName, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(runAsPath, []byte("#!/bin/sh\n\n# Ignore proxy args; just exec the requested command.\nif [ \"$1\" = \"--proxy-addr\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--\" ]; then\n  shift\nfi\nexec \"$@\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(runAs): %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", internal.CliLibexecDir+"/"+internal.CliToolName+":"+oldPath)
+	sudoPath := internal.CliLibexecDir + "/" + internal.CliToolName + "/sudo"
+	if err := os.WriteFile(sudoPath, []byte("#!/bin/sh\n\n# In tests, avoid real sudo; just exec the command.\nexec \"$@\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(sudo): %v", err)
+	}
+
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
-	resp, err := tool.Invoke(context.Background(), &CmdRunReq{
+	resp, err := tool.Invoke(ctx, &CmdRunReq{
 		Cmd:          os.Args[0],
 		CmdArgs:      []string{"-test.run=TestHelperProcess", "--", "stdout", "stderr", "2"},
 		TruncateSize: 10,
@@ -189,9 +216,31 @@ func Test_RunCommandTool_Invoke_TruncatesStdoutAndStderr(t *testing.T) {
 	ta := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RunCommandTool{approver: ta}
 
+	proxy := httpproxy.New(am.NewMemoryApprovalPolicyStore())
+	if err := proxy.ListenAndServe(); err != nil {
+		t.Fatalf("proxy.ListenAndServe: %v", err)
+	}
+	ctx := types.WithIctx(context.Background(), &types.InternalContext{HttpProxy: proxy})
+
+	internal.CliLibexecDir = t.TempDir()
+	runAsPath := internal.CliLibexecDir + "/" + internal.CliToolName + "/run-as-" + internal.CliSandboxUsername
+	if err := os.MkdirAll(internal.CliLibexecDir+"/"+internal.CliToolName, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(runAsPath, []byte("#!/bin/sh\n\nif [ \"$1\" = \"--proxy-addr\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--\" ]; then\n  shift\nfi\nexec \"$@\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(runAs): %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", internal.CliLibexecDir+"/"+internal.CliToolName+":"+oldPath)
+	sudoPath := internal.CliLibexecDir + "/" + internal.CliToolName + "/sudo"
+	if err := os.WriteFile(sudoPath, []byte("#!/bin/sh\n\nexec \"$@\"\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile(sudo): %v", err)
+	}
+
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
-	resp, err := tool.Invoke(context.Background(), &CmdRunReq{
+	resp, err := tool.Invoke(ctx, &CmdRunReq{
 		Cmd:          os.Args[0],
 		CmdArgs:      []string{"-test.run=TestHelperProcess", "--", "0123456789", "abcdefghij", "0"},
 		TruncateSize: 6,
@@ -208,6 +257,19 @@ func Test_RunCommandTool_Invoke_TruncatesStdoutAndStderr(t *testing.T) {
 	}
 	if !resp.Stderr.WasTruncated || resp.Stderr.Content != "abcdef" {
 		t.Fatalf("unexpected stderr truncation; trunc=%v content=%q", resp.Stderr.WasTruncated, resp.Stderr.Content)
+	}
+}
+
+func Test_RunCommandTool_Invoke_ProxyNotConfigured_ReturnsErrorAndSkipsExecution(t *testing.T) {
+	ta := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
+	tool := RunCommandTool{approver: ta}
+
+	resp, err := tool.Invoke(context.Background(), &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess"}})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error == "" || !strings.Contains(resp.Error, "no proxy") {
+		t.Fatalf("expected proxy error; got %q", resp.Error)
 	}
 }
 
