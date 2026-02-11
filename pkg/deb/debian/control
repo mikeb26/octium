@@ -29,7 +29,10 @@ Depends:
  locales,
  libncursesw6,
  sudo,
- ncurses-bin
+ ncurses-bin,
+ ca-certificates,
+ fonts-liberation,
+ chromium
 Description: terminal-based agentic coding assistant (ncurses TUI)
  gptcli is a terminal-based, agentic coding assistant with an ncurses UI.
  It supports multiple LLM vendors and a curated, approval-gated toolset.
