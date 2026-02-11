@@ -5,3 +5,16 @@
 package internal
 
 const MaxDepth = 3
+
+// The following variables are intended to be set at build-time via:
+//
+//   go build -ldflags "-X github.com/mikeb26/gptcli/internal.CliToolName=..."
+//
+// (typically wired through the top-level Makefile).
+//
+// They must be vars (not consts) for -ldflags=-X to work.
+var (
+	CliToolName          = "gptcli"
+	CliSandboxUsername   = "aiagent"
+	CliSandboxGroupname  = "gptcli-share"
+)

@@ -90,7 +90,7 @@ func (t PromptRunTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	fmt.Printf("gptcli: subtask depth %v processing...\n", t.depth)
+	fmt.Printf("%s: subtask depth %v processing...\n", internal.CliToolName, t.depth)
 
 	// Always use the per-invocation context so that cancellation, deadlines,
 	// and correlation IDs propagate correctly into nested LLM calls.

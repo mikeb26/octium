@@ -16,6 +16,7 @@ import (
 
 	"github.com/chromedp/chromedp"
 	"github.com/cloudwego/eino/components/tool/utils"
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -96,7 +97,7 @@ func buildWebApprovalRequestWithFileOutput(t types.Tool, arg any, rawURL, method
 	}
 
 	promptBuilder := &strings.Builder{}
-	promptBuilder.WriteString(fmt.Sprintf("gptcli would like to %v(%v): %v\n", t.GetOp(), m, rawURL))
+	promptBuilder.WriteString(fmt.Sprintf("%s would like to %v(%v): %v\n", internal.CliToolName, t.GetOp(), m, rawURL))
 	promptBuilder.WriteString(fmt.Sprintf("It will also write the result to: %v\n", outputFilename))
 	promptBuilder.WriteString("Allow?")
 

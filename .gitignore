@@ -2,4 +2,14 @@
 /vendor
 /gptcli
 /unit-tests.xml
-
+/pkg/README.md
+/pkg/common/libexec/gptcli-postinstall-common.sh
+/pkg/common/libexec/run-as-aiagent
+/pkg/common/sudoers.d/gptcli-share-aiagent-echo
+/pkg/common/sysusers.d/gptcli-aiagent.conf
+/pkg/common/tmpfiles.d/gptcli-aiagent.conf
+/pkg/deb/README.md
+/pkg/deb/debian/README.Debian
+/pkg/deb/debian/gptcli.install
+/pkg/deb/debian/gptcli.postinst
+/pkg/deb/debian/rules

@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
@@ -320,7 +321,7 @@ func newAuditCallbacksHandler(logfile string) (callbacks.Handler, error) {
 
 	// Include a trailing space in the prefix so entries are easier to scan,
 	// e.g. "gptcli 2025/01/02 15:04:05 [..." instead of "gptcli2025/...".
-	logger := log.New(f, "gptcli ", log.LstdFlags)
+	logger := log.New(f, internal.CliToolName+" ", log.LstdFlags)
 
 	helper := ub.NewHandlerHelper().
 		ChatModel(newAuditModelHandler(logger)).

@@ -1,0 +1,49 @@
+# pkg/
+
+Install-time artifacts intended for packaging on modern systemd-based distros (Debian 13+, Ubuntu 24.04+, RHEL 10+, CentOS Stream 10+, etc.).
+
+## What’s included (common)
+
+### sysusers.d
+- `pkg/common/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
+  - Creates:
+    - system group `@CLI_SANDBOX_GROUPNAME@`
+    - system user `@CLI_SANDBOX_USERNAME@` (home: `/home/@CLI_SANDBOX_USERNAME@`, shell defaults to `/usr/sbin/nologin`)
+  - Adds `@CLI_SANDBOX_USERNAME@` to `@CLI_SANDBOX_GROUPNAME@`
+
+**Package install target:** `/usr/lib/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
+
+### tmpfiles.d
+- `pkg/common/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
+  - Creates directories:
+    - `/home/@CLI_SANDBOX_USERNAME@` (0750 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
+    - `/home/@CLI_SANDBOX_USERNAME@/shared` (2770 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_GROUPNAME@, setgid)
+    - `/home/@CLI_SANDBOX_USERNAME@/tmp` (0700 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
+
+**Package install target:** `/usr/lib/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
+
+### sudoers drop-in
+- `pkg/common/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo`
+  - Allows members of `@CLI_SANDBOX_GROUPNAME@` to run `/usr/libexec/@CLI_TOOL_NAME@/run-as-@CLI_SANDBOX_USERNAME@` as root without a password.
+  - The wrapper executes an arbitrary command as user `@CLI_SANDBOX_USERNAME@` inside a hardened transient systemd unit.
+
+**Package install target:** `/etc/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo`
+
+## Admin: enrolling end-users
+
+End-users must be added to `@CLI_SANDBOX_GROUPNAME@` to:
+- access `/home/@CLI_SANDBOX_USERNAME@/shared/...` workspaces
+- run the packaged sudoers-authorized wrapper command(s)
+
+Example:
+
+```bash
+sudo usermod -a -G @CLI_SANDBOX_GROUPNAME@ <username>
+# log out/in for group membership to take effect
+```
+
+## Notes
+
+- `/usr/lib/...` is used for vendor-supplied sysusers/tmpfiles/systemd units. `/etc/...` is reserved for admin overrides.
+- Packaging should ensure `/etc/sudoers.d/*` drop-ins are `root:root` and `0440`.
+- Wrapper scripts under `/usr/libexec/@CLI_TOOL_NAME@/` should be `root:root` and executable.

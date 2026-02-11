@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/cloudwego/eino/components/tool/utils"
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -193,7 +194,7 @@ func (t EnvGetTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 	varPolicyID := am.ApprovalPolicyID(am.ApprovalSubsysTools,
 		am.ApprovalGroupEnv, am.ApprovalTargetEnvVar, varName)
 
-	prompt := fmt.Sprintf("gptcli would like to read environment variable %q. Allow?", varName)
+	prompt := fmt.Sprintf("%s would like to read environment variable %q. Allow?", internal.CliToolName, varName)
 
 	choices := []am.ApprovalChoice{
 		{
@@ -289,7 +290,7 @@ func (t EnvSetTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 	varPolicyID := am.ApprovalPolicyID(am.ApprovalSubsysTools,
 		am.ApprovalGroupEnv, am.ApprovalTargetEnvVar, varName)
 
-	prompt := fmt.Sprintf("gptcli would like to set environment variable %q. Allow?", varName)
+	prompt := fmt.Sprintf("%s would like to set environment variable %q. Allow?", internal.CliToolName, varName)
 
 	choices := []am.ApprovalChoice{
 		{

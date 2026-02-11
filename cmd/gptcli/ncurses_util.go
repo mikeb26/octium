@@ -12,6 +12,7 @@ import (
 	gc "github.com/rthornton128/goncurses"
 	"golang.org/x/term"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/types"
 	"github.com/mikeb26/gptcli/internal/ui"
 )
@@ -75,7 +76,7 @@ func drawStatusSegments(scr *gc.Window, y, maxX int, segments []statusSegment, u
 	if x < maxX {
 		ii := 0
 		atLeastOnceSpace := false
-		progAndVer := CommandName + "-" + versionText
+		progAndVer := internal.CliToolName + "-" + versionText
 		progStartX := maxX - len(progAndVer)
 		_ = scr.AttrSet(baseAttr)
 		for ; x < maxX; x++ {

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/scm"
 	"github.com/negrel/assert"
 )
@@ -308,5 +309,5 @@ func randRemoteName() (string, error) {
 		return "", err
 	}
 	// 4 bytes => 8 hex characters.
-	return "gptcli_" + hex.EncodeToString(b[:]), nil
+	return internal.CliToolName + "_" + hex.EncodeToString(b[:]), nil
 }

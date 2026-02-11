@@ -1,0 +1,7 @@
+@CLI_TOOL_NAME@ usr/bin/
+
+pkg/common/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf usr/lib/sysusers.d/
+pkg/common/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf usr/lib/tmpfiles.d/
+pkg/common/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo etc/sudoers.d/
+pkg/common/libexec/@CLI_TOOL_NAME@-postinstall-common.sh usr/libexec/@CLI_TOOL_NAME@/
+pkg/common/libexec/run-as-@CLI_SANDBOX_USERNAME@ usr/libexec/@CLI_TOOL_NAME@/

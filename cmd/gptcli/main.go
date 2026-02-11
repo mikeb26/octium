@@ -26,7 +26,6 @@ import (
 )
 
 const (
-	CommandName            = "gptcli"
 	KeyFileFmt             = ".%v.key"
 	PrefsFile              = "prefs.json"
 	ApprovePolicyFile      = "approvals.json"
@@ -166,7 +165,7 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 	cliCtx.ictx.HttpProxy = httpproxy.New(cliCtx.ictx.LlmPolicyStore)
 	err = cliCtx.ictx.HttpProxy.ListenAndServe()
 	if err != nil {
-		return fmt.Errorf("%v: Failed to start http proxy: %w\n", CommandName, err)
+		return fmt.Errorf("%v: Failed to start http proxy: %w\n", internal.CliToolName, err)
 	}
 	cliCtx.toggles.needConfig = false
 
@@ -177,7 +176,7 @@ func main() {
 	ctx := context.Background()
 	cliCtx, err := NewCliContext(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v: Failed to initialize UI: %v\n", CommandName,
+		fmt.Fprintf(os.Stderr, "%v: Failed to initialize UI: %v\n", internal.CliToolName,
 			err)
 		os.Exit(1)
 	}
@@ -185,14 +184,14 @@ func main() {
 	err = cliCtx.migrateOldThreadGroupFomatIfNeeded()
 	if err != nil {
 		gcExit()
-		fmt.Fprintf(os.Stderr, "%v: Failed to migrate existing threads to new format: %v\n", CommandName, err)
+		fmt.Fprintf(os.Stderr, "%v: Failed to migrate existing threads to new format: %v\n", internal.CliToolName, err)
 		os.Exit(1)
 	}
 
 	err = cliCtx.load(ctx)
 	if err != nil && !cliCtx.toggles.needConfig {
 		gcExit()
-		fmt.Fprintf(os.Stderr, "%v: Failed to load: %v\n", CommandName, err)
+		fmt.Fprintf(os.Stderr, "%v: Failed to load: %v\n", internal.CliToolName, err)
 		os.Exit(1)
 	}
 

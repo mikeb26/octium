@@ -215,7 +215,7 @@ func getConfigDir() (string, error) {
 		return "", fmt.Errorf("%w: %w", ErrCouldNotFindConfigDir, err)
 	}
 
-	return filepath.Join(configDir, CommandName), nil
+	return filepath.Join(configDir, internal.CliToolName), nil
 }
 
 func getKeyPath(vendor string) (string, error) {
@@ -290,7 +290,7 @@ func loadKey(vendor string) (string, error) {
 	data, err := os.ReadFile(keyPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("%w (%v): run `%v config` to configure", ErrAPIKeyNotConfigured, vendor, CommandName)
+			return "", fmt.Errorf("%w (%v): run `%v config` to configure", ErrAPIKeyNotConfigured, vendor, internal.CliToolName)
 		}
 		return "", fmt.Errorf("%w (%v): %w", ErrCouldNotLoadAPIKey, vendor, err)
 	}

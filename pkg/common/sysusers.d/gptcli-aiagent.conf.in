@@ -1,0 +1,13 @@
+# @CLI_TOOL_NAME@ @CLI_SANDBOX_USERNAME@ sandbox user + shared group
+# Installed by packaging into: /usr/lib/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf
+#
+# Type Name                 ID  GECOS                         Home                      Shell
+
+g @CLI_SANDBOX_GROUPNAME@ -
+
+# Create a system user named "@CLI_SANDBOX_USERNAME@" with home directory /home/@CLI_SANDBOX_USERNAME@.
+# Explicitly set the shell to nologin.
+u @CLI_SANDBOX_USERNAME@ - "@CLI_TOOL_NAME@ sandbox execution user" /home/@CLI_SANDBOX_USERNAME@ /usr/sbin/nologin
+
+# Add @CLI_SANDBOX_USERNAME@ to the shared group used for workspace access and systemd-run permissions.
+m @CLI_SANDBOX_USERNAME@ @CLI_SANDBOX_GROUPNAME@

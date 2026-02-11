@@ -6,7 +6,7 @@ set -eu
 
 log() {
 	# Prefer stderr so the message shows up in package-manager logs.
-	echo "gptcli: $*" >&2
+	echo "@CLI_TOOL_NAME@: $*" >&2
 }
 
 is_noninteractive() {
@@ -82,7 +82,7 @@ maybe_add_invoker_to_group() {
 		log "non-interactive install detected; automatically adding '${user}' to '${group}'."
 	else
 		echo "Add '${user}' to group '${group}' now?" >&2
-		printf "(This enables gptcli shared workspace access and related permissions.) [Y/n]: " >&2
+		printf "(This enables @CLI_TOOL_NAME@ shared workspace access and related permissions.) [Y/n]: " >&2
 		read -r ans || ans=""
 		case "${ans}" in
 			n|N|no|NO)

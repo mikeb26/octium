@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -93,8 +94,8 @@ func (t FilePatchTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 
 	promptBuilder := &strings.Builder{}
 	fmt.Fprintf(promptBuilder,
-		"gptcli would like to %v affecting files under %q.\n",
-		t.GetOp(), rootDir)
+		"%s would like to %v affecting files under %q.\n",
+		internal.CliToolName, t.GetOp(), rootDir)
 	fmt.Fprintf(promptBuilder, "This patch touches %d file(s):\n", len(paths))
 
 	sort.Strings(absPaths)

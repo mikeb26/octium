@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/threads"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -114,7 +115,7 @@ func branchNameFromThread(t threads.Thread) string {
 		runeCount++
 	}
 
-	return fmt.Sprintf("gptcli/%s_%s", sb.String(), t.Id())
+	return fmt.Sprintf("%s/%s_%s", internal.CliToolName, sb.String(), t.Id())
 }
 
 func workspaceReset(ctx context.Context, tvUI *threadViewUI) error {

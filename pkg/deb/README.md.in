@@ -1,12 +1,12 @@
 # pkg/deb/
 
 Debian/Ubuntu packaging templates for building a `.deb` that includes:
-- `gptcli` binary
-- install-time aiagent artifacts (sysusers/tmpfiles, sudoers wrapper)
+- `@CLI_TOOL_NAME@` binary
+- install-time @CLI_SANDBOX_USERNAME@ artifacts (sysusers/tmpfiles, sudoers wrapper)
 
 ## Runtime dependencies
 
-The `gptcli` package declares dependencies on:
+The `@CLI_TOOL_NAME@` package declares dependencies on:
 - `systemd`
 - `git`
 - `ripgrep`

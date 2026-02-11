@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -76,8 +77,8 @@ func commonFileBuildApprovalRequest(t types.Tool, arg any, filenameIn string,
 		am.ApprovalGroupFileIO, am.ApprovalTargetFile, filename)
 
 	promptBuilder := &strings.Builder{}
-	promptBuilder.WriteString(fmt.Sprintf("gptcli would like to %v:%v. Allow?",
-		t.GetOp(), filename))
+	promptBuilder.WriteString(fmt.Sprintf("%s would like to %v:%v. Allow?",
+		internal.CliToolName, t.GetOp(), filename))
 
 	choices := []am.ApprovalChoice{
 		{

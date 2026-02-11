@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -79,8 +80,8 @@ func (t RunCommandTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 			prefixKey)
 	}
 
-	prompt := fmt.Sprintf("gptcli would like to run OS command: %q with args %q. Allow?",
-		req.Cmd, strings.Join(req.CmdArgs, " "))
+	prompt := fmt.Sprintf("%s would like to run OS command: %q with args %q. Allow?",
+		internal.CliToolName, req.Cmd, strings.Join(req.CmdArgs, " "))
 
 	choices := []am.ApprovalChoice{
 		{

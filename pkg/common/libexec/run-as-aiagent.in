@@ -2,15 +2,15 @@
 set -eu
 
 # Root-run wrapper intended to be invoked via sudoers by members of the
-# gptcli-share group.
+# @CLI_SANDBOX_GROUPNAME@ group.
 #
-# It runs an arbitrary command as the dedicated sandbox user "aiagent" inside a
+# It runs an arbitrary command as the dedicated sandbox user "@CLI_SANDBOX_USERNAME@" inside a
 # hardened transient systemd unit.
 #
 # Environment behavior:
 # - Start from an empty environment (env -i).
 # - Seed PATH with a filtered version of the invoker's PATH (best-effort).
-# - Invoke bash as a *login* shell so it can apply aiagent's profile scripts
+# - Invoke bash as a *login* shell so it can apply @CLI_SANDBOX_USERNAME@'s profile scripts
 #   (e.g. ~/.bash_profile or ~/.profile), which may further modify PATH and other
 #   env for the final exec.
 
@@ -20,7 +20,7 @@ export PATH
 DEFAULT_PROXY_ADDR="127.0.0.1:8080"
 
 log() {
-	echo "gptcli: $*" >&2
+	echo "@CLI_TOOL_NAME@: $*" >&2
 }
 
 require_root() {
@@ -32,7 +32,7 @@ require_root() {
 
 require_args() {
 	if [ "$#" -lt 1 ]; then
-		log "usage: run-as-aiagent [--proxy-addr <host:port>] <command> [args...]"
+		log "usage: $(basename "$0") [--proxy-addr <host:port>] <command> [args...]"
 		exit 2
 	fi
 }
@@ -91,35 +91,35 @@ have_systemd_run() {
 	command -v systemd-run >/dev/null 2>&1
 }
 
-aiagent_home_dir() {
-	# Determine aiagent's home directory.
-	# Prefer getent when available; fall back to /home/aiagent.
+sandbox_home_dir() {
+	# Determine @CLI_SANDBOX_USERNAME@'s home directory.
+	# Prefer getent when available; fall back to /home/@CLI_SANDBOX_USERNAME@.
 	if command -v getent >/dev/null 2>&1; then
-		home="$(getent passwd aiagent | cut -d: -f6 || true)"
+		home="$(getent passwd @CLI_SANDBOX_USERNAME@ | cut -d: -f6 || true)"
 		if [ -n "${home:-}" ]; then
 			echo "$home"
 			return
 		fi
 	fi
-	echo "/home/aiagent"
+	echo "/home/@CLI_SANDBOX_USERNAME@"
 }
 
-ensure_aiagent_home() {
-	aihome="$1"
+ensure_sandbox_home() {
+	sbhome="$1"
 
 	# systemd-run will fail with a systemd-specific exit status (e.g. 200/CHDIR)
 	# if WorkingDirectory doesn't exist. Be robust in case sysusers/tmpfiles
 	# haven't been applied yet.
-	if ! id aiagent >/dev/null 2>&1; then
-		log "user 'aiagent' does not exist."
-		log "ensure sysusers was applied (e.g. systemd-sysusers /usr/lib/sysusers.d/gptcli-aiagent.conf)."
+	if ! id @CLI_SANDBOX_USERNAME@ >/dev/null 2>&1; then
+		log "user '@CLI_SANDBOX_USERNAME@' does not exist."
+		log "ensure sysusers was applied (e.g. systemd-sysusers /usr/lib/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf)."
 		exit 1
 	fi
 
-	if [ ! -d "$aihome" ]; then
-		mkdir -p "$aihome"
-		chown aiagent:aiagent "$aihome" || true
-		chmod 0750 "$aihome" || true
+	if [ ! -d "$sbhome" ]; then
+		mkdir -p "$sbhome"
+		chown @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@ "$sbhome" || true
+		chmod 0750 "$sbhome" || true
 	fi
 }
 
@@ -215,8 +215,8 @@ run_via_systemd() {
 	# Use the system manager so we can apply hardening without needing extra
 	# polkit configuration.
 
-	aihome="$(aiagent_home_dir)"
-	ensure_aiagent_home "$aihome"
+	sbhome="$(sandbox_home_dir)"
+	ensure_sandbox_home "$sbhome"
 	upath="$(invoker_path || true)"
 	fpath=""
 	if [ -n "${upath:-}" ]; then
@@ -230,11 +230,11 @@ run_via_systemd() {
 	# adjust PATH and other env before the final exec.
 	#
 	# NOTE: bash does not automatically read ~/.bashrc for non-interactive shells.
-	# If you need ~/.bashrc behavior here, ensure aiagent's ~/.bash_profile
+	# If you need ~/.bashrc behavior here, ensure @CLI_SANDBOX_USERNAME@'s ~/.bash_profile
 	# sources it.
         #
 	# Use a tmpfs for /home (hides other users' homes) and then bind-mount
-	# aiagent's real home back in.
+	# @CLI_SANDBOX_USERNAME@'s real home back in.
 	#
 	# NOTE: ProtectHome=yes makes /home inaccessible and causes CHDIR failures
 	# on some systems even when ReadWritePaths is set.
@@ -256,7 +256,7 @@ run_via_systemd() {
 		--wait \
 		--collect \
 		--pipe \
-		--uid=aiagent \
+		--uid=@CLI_SANDBOX_USERNAME@ \
 		--property=NoNewPrivileges=yes \
 		--property=PrivateTmp=yes \
 		--property=PrivateDevices=yes \
@@ -274,14 +274,14 @@ run_via_systemd() {
 		--property=IPAddressDeny=any \
 		--property=ProtectSystem=strict \
 		--property=ProtectHome=tmpfs \
-		--property=BindPaths="$aihome:$aihome" \
-		--property=ReadWritePaths="$aihome" \
+		--property=BindPaths="$sbhome:$sbhome" \
+		--property=ReadWritePaths="$sbhome" \
 		--property=ProtectKernelTunables=yes \
 		--property=ProtectKernelModules=yes \
 		--property=ProtectControlGroups=yes \
 		--property=UMask=0077 \
-		--property=WorkingDirectory="$aihome" \
-			-- /usr/bin/env -i HOME="$aihome" PATH="$fpath" USER=aiagent LOGNAME=aiagent \
+		--property=WorkingDirectory="$sbhome" \
+			-- /usr/bin/env -i HOME="$sbhome" PATH="$fpath" USER=@CLI_SANDBOX_USERNAME@ LOGNAME=@CLI_SANDBOX_USERNAME@ \
 				http_proxy="http://$PROXY_ADDR" \
 				https_proxy="http://$PROXY_ADDR" \
 				HTTP_PROXY="http://$PROXY_ADDR" \

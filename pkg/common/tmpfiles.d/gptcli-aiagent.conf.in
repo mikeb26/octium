@@ -1,0 +1,8 @@
+# @CLI_TOOL_NAME@ @CLI_SANDBOX_USERNAME@ workspace directories
+# Installed by packaging into: /usr/lib/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf
+#
+# Type Path                               Mode  User                 Group                 Age Argument
+
+d /home/@CLI_SANDBOX_USERNAME@            0750  @CLI_SANDBOX_USERNAME@ @CLI_SANDBOX_USERNAME@      -   -
+d /home/@CLI_SANDBOX_USERNAME@/shared     2770  @CLI_SANDBOX_USERNAME@ @CLI_SANDBOX_GROUPNAME@ -   -
+d /home/@CLI_SANDBOX_USERNAME@/tmp        0700  @CLI_SANDBOX_USERNAME@ @CLI_SANDBOX_USERNAME@      -   -

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/scm"
 	"github.com/stretchr/testify/assert"
 )
@@ -202,7 +203,7 @@ func TestWorkspace_MergeSandbox_AddsRemoteFetchesAndMergesIntoOriginBranch(t *te
 	assert.Len(t, c.addRemoteCalls, 1)
 	assert.Equal(t, origin, c.addRemoteCalls[0].dir)
 	assert.Equal(t, sbox, c.addRemoteCalls[0].remoteURL)
-	assert.True(t, strings.HasPrefix(c.addRemoteCalls[0].remoteName, "gptcli_"))
+	assert.True(t, strings.HasPrefix(c.addRemoteCalls[0].remoteName, internal.CliToolName+"_"))
 	assert.Equal(t, 7+8, len(c.addRemoteCalls[0].remoteName))
 
 	assert.Len(t, c.fetchCalls, 1)

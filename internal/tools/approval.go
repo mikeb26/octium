@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -48,7 +49,7 @@ type ToolWithCustomApproval interface {
 // DefaultApprovalRequest builds the legacy yes/no style approval
 // request used by tools that do not customize their approvals.
 func DefaultApprovalRequest(t types.Tool, arg any) am.ApprovalRequest {
-	prompt := fmt.Sprintf("gptcli would like to '%v'('%v')\nallow?", t.GetOp(), arg)
+	prompt := fmt.Sprintf("%s would like to '%v'('%v')\nallow?", internal.CliToolName, t.GetOp(), arg)
 	choices := []am.ApprovalChoice{
 		{
 			Key:   "y",

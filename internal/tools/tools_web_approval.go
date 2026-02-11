@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
 	"github.com/mikeb26/gptcli/internal/types"
 )
@@ -47,8 +48,8 @@ func buildWebApprovalRequest(t types.Tool, arg any, rawURL, method string) am.Ap
 		am.ApprovalGroupWeb, am.ApprovalTargetDomain, domainKey)
 
 	promptBuilder := &strings.Builder{}
-	promptBuilder.WriteString(fmt.Sprintf("gptcli would like to %v(%v): %v. Allow?",
-		t.GetOp(), m, rawURL))
+	promptBuilder.WriteString(fmt.Sprintf("%s would like to %v(%v): %v. Allow?",
+		internal.CliToolName, t.GetOp(), m, rawURL))
 
 	choices := []am.ApprovalChoice{
 		{
