@@ -448,7 +448,9 @@ func showMenu(ctx context.Context, cliCtx *CliContext) error {
 			if name == "" { // user cancelled
 				continue
 			}
-			if err := cliCtx.threadGroupSet.NewThread(cliCtx.curThreadGroup, name); err != nil {
+			err = cliCtx.threadGroupSet.NewThread(ctx, cliCtx.curThreadGroup,
+				name)
+			if err != nil {
 				return fmt.Errorf("%w: %w", ErrFailedToCreateThread, err)
 			}
 			needRefresh = true

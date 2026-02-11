@@ -5,16 +5,16 @@
 package threads
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
 
+	"github.com/mikeb26/gptcli/internal/fsatomic"
 	"github.com/negrel/assert"
 )
 
@@ -34,21 +34,26 @@ type persistedThreadGroupSet struct {
 // ThreadGroupSet dir MUST NOT be the same directory as any ThreadGroup dir
 // that contains thread JSON files.
 type ThreadGroupSet struct {
-	persisted persistedThreadGroupSet
+	persisted    persistedThreadGroupSet
+	persistedVer fsatomic.Version
 
 	dir        string
 	fileName   string
 	threadGrps []*ThreadGroup
+	afs        fsatomic.AtomicFS
 
 	mu sync.RWMutex
 }
 
-func NewThreadGroupSet(dirIn string, thrGroupNames []string) *ThreadGroupSet {
+func NewThreadGroupSet(dirIn string, thrGroupNames []string,
+	afsIn fsatomic.AtomicFS) *ThreadGroupSet {
+
 	set := &ThreadGroupSet{
 		persisted:  persistedThreadGroupSet{ThreadNum: 0},
 		dir:        dirIn,
 		fileName:   threadGroupSetFileName,
 		threadGrps: make([]*ThreadGroup, 0),
+		afs:        afsIn,
 	}
 
 	for _, thrGroupName := range thrGroupNames {
@@ -61,13 +66,15 @@ func NewThreadGroupSet(dirIn string, thrGroupNames []string) *ThreadGroupSet {
 }
 
 // NewThread creates a new thread in the specified thread group
-func (tgs *ThreadGroupSet) NewThread(thrGroupName string, thrName string) error {
+func (tgs *ThreadGroupSet) NewThread(ctx context.Context, thrGroupName string,
+	thrName string) error {
+
 	tgs.mu.Lock()
 	defer tgs.mu.Unlock()
 
 	for _, thrGroup := range tgs.threadGrps {
 		if thrGroup.Name() == thrGroupName {
-			return thrGroup.NewThread(thrName)
+			return thrGroup.NewThread(ctx, thrName)
 		}
 	}
 
@@ -100,14 +107,26 @@ func (tgs *ThreadGroupSet) MoveThread(thr Thread, srcThrGrpName, dstThrGrpName s
 
 // newThreadId generated a new, monotonically increasing, persistent thread id.
 // callers should already hold a write lock on the thread group set's mutex
-func (tgs *ThreadGroupSet) newThreadId() (string, error) {
+func (tgs *ThreadGroupSet) newThreadId(ctx context.Context) (string, error) {
+
 	assert.Locked(&tgs.mu, "attempt to add thread without holding thread group set %v mutex",
 		tgs.dir)
 
-	tgs.persisted.ThreadNum++
-	err := tgs.save()
+	var err error
+	for {
+		tgs.persisted.ThreadNum++
+		err = tgs.save(ctx, false)
+		if errors.Is(err, fsatomic.ErrConflict) {
+			err = tgs.readPersisted(ctx)
+			if err == nil {
+				continue
+			}
+		}
+		break
+	}
+
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to save thread group set: %w", err)
 	}
 
 	return strconv.FormatInt(tgs.persisted.ThreadNum, 10), nil
@@ -153,35 +172,50 @@ func (tgs *ThreadGroupSet) NonIdleThreadCount() int {
 }
 
 // Load restores persisted thread group set.
-func (tgs *ThreadGroupSet) Load() error {
-	filePath := filepath.Join(tgs.dir, tgs.fileName)
-
+func (tgs *ThreadGroupSet) Load(ctx context.Context) error {
 	tgs.mu.Lock()
 	defer tgs.mu.Unlock()
 
-	content, err := os.ReadFile(filePath)
+	err := tgs.readPersisted(ctx)
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("failed to read thread group set (%v): %w", filePath, err)
-		}
-	} else {
-		var persisted persistedThreadGroupSet
-		if err := json.Unmarshal(content, &persisted); err != nil {
-			return fmt.Errorf("failed to parse thread group set (%v): %w", filePath, err)
-		}
-		if persisted.ThreadNum <= 0 {
-			persisted.ThreadNum = 1
-		}
-
-		tgs.persisted = persisted
+		return err
 	}
 
-	return tgs.loadThreadGroups()
+	return tgs.loadThreadGroups(ctx)
+}
+
+func (tgs *ThreadGroupSet) readPersisted(ctx context.Context) error {
+	assert.Locked(&tgs.mu, "attempt to read thread group set without holding %v mutex",
+		tgs.dir)
+
+	filePath := filepath.Join(tgs.dir, tgs.fileName)
+
+	content, f, err := tgs.afs.ReadFile(ctx, filePath)
+	if err != nil {
+		if errors.Is(err, fsatomic.ErrNotFound) {
+			return tgs.save(ctx, true)
+		}
+		return fmt.Errorf("failed to read thread group set (%v): %w", filePath,
+			err)
+	}
+
+	var persisted persistedThreadGroupSet
+	if err := json.Unmarshal(content, &persisted); err != nil {
+		return fmt.Errorf("failed to parse thread group set (%v): %w", filePath,
+			err)
+	}
+	if persisted.ThreadNum < 0 {
+		persisted.ThreadNum = 0
+	}
+	tgs.persisted = persisted
+	tgs.persistedVer = f.Version
+
+	return nil
 }
 
 // save persists the thread group set fields to disk; callers should already
 // hold a write lock on the thread group set's mutex.
-func (tgs *ThreadGroupSet) save() error {
+func (tgs *ThreadGroupSet) save(ctx context.Context, force bool) error {
 	assert.Locked(&tgs.mu, "attempt to persist thread group set %v without holding mutex",
 		tgs.dir)
 
@@ -191,22 +225,28 @@ func (tgs *ThreadGroupSet) save() error {
 	}
 
 	filePath := filepath.Join(tgs.dir, tgs.fileName)
-	err = os.WriteFile(filePath, content, 0600)
+	var f fsatomic.File
+	if force {
+		f, err = tgs.afs.WriteFile(ctx, filePath, content, 0o600)
+	} else {
+		f, err = tgs.afs.WriteFileCAS(ctx, filePath, tgs.persistedVer, content, 0o600)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to save thread group set (%v): %w", filePath, err)
 	}
+	tgs.persistedVer = f.Version
 
 	return nil
 }
 
 // loadThreadGroups loads threads for each thread group in the set. callers
 // should already hold a write lock on the thread group set's mutex.
-func (tgs *ThreadGroupSet) loadThreadGroups() error {
+func (tgs *ThreadGroupSet) loadThreadGroups(ctx context.Context) error {
 	assert.Locked(&tgs.mu, "attempt to load thread groups holding thread group set %v mutex",
 		tgs.dir)
 
 	for _, tg := range tgs.threadGrps {
-		if err := tg.LoadThreads(); err != nil {
+		if err := tg.LoadThreads(ctx); err != nil {
 			return err
 		}
 	}

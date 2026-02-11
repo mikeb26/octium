@@ -9,6 +9,7 @@ import (
 
 	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/gptcli/internal/fsatomic"
 	"github.com/mikeb26/gptcli/internal/httpproxy"
 )
 
@@ -27,6 +28,7 @@ type InternalContext struct {
 	LlmPolicyStore     am.ApprovalPolicyStore
 
 	HttpProxy *httpproxy.HttpProxy
+	Afs       fsatomic.AtomicFS
 }
 
 type iCtxKey struct{}

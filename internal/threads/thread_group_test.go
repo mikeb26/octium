@@ -5,12 +5,14 @@
 package threads
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/mikeb26/gptcli/internal/fsatomic/local"
 	"github.com/mikeb26/gptcli/internal/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,10 +24,10 @@ func TestNewThreadInitializesAndRegistersThread(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "T", grpDir)
 	set.mu.Lock()
-	err := grp.NewThread("first-thread")
+	err := grp.NewThread(context.Background(), "first-thread")
 	set.mu.Unlock()
 	assert.NoError(t, err)
 
@@ -57,7 +59,7 @@ func TestActivateThreadUpdatesAccessTimeAndPersists(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "T", grpDir)
 
 	base := time.Now().Add(-time.Hour)
@@ -105,7 +107,7 @@ func TestActivateThreadInvalidIndex(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "T", grpDir)
 
 	// ActivateThread was removed; ensure lookups behave as expected.
@@ -120,7 +122,7 @@ func TestLoadThreadsLoadsAndRenamesStaleFiles(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 
 	// Create a thread JSON under a non-canonical directory name.
 	// ThreadGroup.LoadThreads should still load it.
@@ -145,7 +147,7 @@ func TestLoadThreadsLoadsAndRenamesStaleFiles(t *testing.T) {
 	assert.NoError(t, os.WriteFile(staleThreadPath, data, 0600))
 
 	grp := newThreadGroup(set, "T", grpDir)
-	assert.NoError(t, grp.LoadThreads())
+	assert.NoError(t, grp.LoadThreads(context.Background()))
 
 	threads := grp.Threads()
 	if assert.Len(t, threads, 1) {
@@ -167,7 +169,7 @@ func TestMoveThreadMovesFileAndReloadsSourceGroup(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 
@@ -223,7 +225,7 @@ func TestMoveThreadInvalidIndex(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 
@@ -241,7 +243,7 @@ func TestMoveThreadNonIdleThreadReturnsErrorAndDoesNotMove(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/mikeb26/gptcli/internal"
 	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/gptcli/internal/fsatomic/local"
 	"github.com/mikeb26/gptcli/internal/httpproxy"
 	"github.com/mikeb26/gptcli/internal/scm"
 	"github.com/mikeb26/gptcli/internal/scm/git"
@@ -104,8 +105,9 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 		threadGroupsDirLocal = "/tmp"
 	}
 
+	cliCtx.ictx.Afs = local.New()
 	cliCtx.threadGroupSet = threads.NewThreadGroupSet(threadGroupsDirLocal,
-		[]string{MainThreadGroupName, ArchiveThreadGroupName})
+		[]string{MainThreadGroupName, ArchiveThreadGroupName}, cliCtx.ictx.Afs)
 
 	return cliCtx, nil
 }
@@ -157,7 +159,7 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 	}
 	cliCtx.ictx.LlmBaseApprover = ui.NewUIApprover(cliCtx.ui)
 
-	err = cliCtx.threadGroupSet.Load()
+	err = cliCtx.threadGroupSet.Load(ctx)
 	if err != nil {
 		return err
 	}

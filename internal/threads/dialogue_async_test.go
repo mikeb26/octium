@@ -14,6 +14,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/golang/mock/gomock"
 	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/gptcli/internal/fsatomic/local"
 	"github.com/mikeb26/gptcli/internal/llmclient"
 	"github.com/mikeb26/gptcli/internal/prompts"
 	"github.com/mikeb26/gptcli/internal/types"
@@ -33,10 +34,10 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
-	assert.NoError(t, grp.NewThread("t1"))
+	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
 	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
@@ -115,10 +116,10 @@ func TestChatOnceAsyncRequiresSystemMessage(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
-	assert.NoError(t, grp.NewThread("t1"))
+	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
 	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
@@ -139,10 +140,10 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
-	assert.NoError(t, grp.NewThread("t1"))
+	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
 	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {
@@ -197,10 +198,10 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil)
+	set := NewThreadGroupSet(setDir, nil, local.New())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
-	assert.NoError(t, grp.NewThread("t1"))
+	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
 	set.mu.Unlock()
 	threads := grp.Threads()
 	if !assert.Len(t, threads, 1) {

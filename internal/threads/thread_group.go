@@ -5,6 +5,7 @@
 package threads
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -96,7 +97,7 @@ func (thrGrp *ThreadGroup) hasNonIdleThreads() bool {
 	return false
 }
 
-func (thrGrp *ThreadGroup) LoadThreads() error {
+func (thrGrp *ThreadGroup) LoadThreads(ctx context.Context) error {
 	thrGrp.mu.Lock()
 	defer thrGrp.mu.Unlock()
 
@@ -115,7 +116,7 @@ func (thrGrp *ThreadGroup) LoadThreads() error {
 	for _, dEnt := range dEntries {
 		curThread := &thread{parent: thrGrp}
 		curThread.mu.Lock()
-		err := curThread.load(thrGrp.dir, dEnt.Name())
+		err := curThread.load(ctx, thrGrp.dir, dEnt.Name())
 		curThread.mu.Unlock()
 
 		if err != nil {
@@ -153,7 +154,7 @@ func (thread *thread) Access() error {
 // NewThread encapsulates the logic to allocate and register a new
 // thread in the main thread group. It is used both by the CLI "new"
 // subcommand and the ncurses menu UI so their behavior stays in sync.
-func (thrGrp *ThreadGroup) NewThread(name string) error {
+func (thrGrp *ThreadGroup) NewThread(ctx context.Context, name string) error {
 	thrGrp.mu.Lock()
 	defer thrGrp.mu.Unlock()
 
@@ -175,7 +176,7 @@ func (thrGrp *ThreadGroup) NewThread(name string) error {
 		state:     ThreadStateIdle,
 		parent:    thrGrp,
 	}
-	id, err := thrGrp.parent.newThreadId()
+	id, err := thrGrp.parent.newThreadId(ctx)
 	if err != nil {
 		return err
 	}

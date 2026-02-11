@@ -95,7 +95,9 @@ type thread struct {
 //
 // It also normalizes legacy/stale filenames by renaming the persisted
 // thread file to match the current genUniqFileName scheme.
-func (t *thread) load(parentDir string, dirName string) error {
+func (t *thread) load(ctx context.Context, parentDir string,
+	dirName string) error {
+
 	assert.Locked(&t.mu, "attempt to load thread %v/%v without holding thread mutex",
 		parentDir, dirName)
 
@@ -114,7 +116,7 @@ func (t *thread) load(parentDir string, dirName string) error {
 	t.dirName = dirName
 
 	if t.persisted.Id == "" {
-		id, err := t.parent.parent.newThreadId()
+		id, err := t.parent.parent.newThreadId(ctx)
 		if err != nil {
 			return err
 		}
