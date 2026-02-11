@@ -72,7 +72,7 @@ func TestActivateThreadUpdatesAccessTimeAndPersists(t *testing.T) {
 		Id:         "1",
 	}}
 	thr.state = ThreadStateIdle
-	thr.dirName = genUniqDirName(thr.persisted.Name, thr.persisted.CreateTime)
+	thr.dirName = thr.persisted.Id
 	thr.parentDir = grpDir
 	// Persist initial state so ActivateThread can overwrite it.
 	thr.mu.Lock()
@@ -140,7 +140,7 @@ func TestLoadThreadsLoadsAndRenamesStaleFiles(t *testing.T) {
 	data, err := json.Marshal(orig.persisted)
 	assert.NoError(t, err)
 
-	staleDirName := "stale-dir-name"
+	staleDirName := genUniqDirName(orig.persisted.Name, base)
 	staleThreadDir := filepath.Join(grpDir, staleDirName)
 	assert.NoError(t, os.MkdirAll(staleThreadDir, 0o700))
 	staleThreadPath := filepath.Join(staleThreadDir, ThreadFileName)
@@ -153,9 +153,14 @@ func TestLoadThreadsLoadsAndRenamesStaleFiles(t *testing.T) {
 	if assert.Len(t, threads, 1) {
 		loaded := threads[0]
 		loadedImpl := loaded.(*thread)
-		assert.Equal(t, staleDirName, loadedImpl.dirName)
+		assert.Equal(t, orig.persisted.Id, loadedImpl.dirName)
 
+		// old directory is migrated to the canonical thread id directory.
 		_, err = os.Stat(staleThreadPath)
+		assert.Error(t, err)
+		assert.True(t, os.IsNotExist(err))
+
+		_, err = os.Stat(filepath.Join(grpDir, orig.persisted.Id, ThreadFileName))
 		assert.NoError(t, err)
 	}
 }
@@ -183,7 +188,7 @@ func TestMoveThreadMovesFileAndReloadsSourceGroup(t *testing.T) {
 		Id:         "3",
 	}}
 	thr.state = ThreadStateIdle
-	thr.dirName = genUniqDirName(thr.persisted.Name, thr.persisted.CreateTime)
+	thr.dirName = thr.persisted.Id
 	thr.parentDir = srcDir
 	thr.mu.Lock()
 	assert.NoError(t, thr.save())
@@ -257,7 +262,7 @@ func TestMoveThreadNonIdleThreadReturnsErrorAndDoesNotMove(t *testing.T) {
 		Id:         "3",
 	}}
 	thr.state = ThreadStateRunning
-	thr.dirName = genUniqDirName(thr.persisted.Name, thr.persisted.CreateTime)
+	thr.dirName = thr.persisted.Id
 	thr.parentDir = srcDir
 	thr.mu.Lock()
 	thr.state = ThreadStateIdle

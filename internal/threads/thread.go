@@ -77,11 +77,12 @@ type Thread interface {
 type thread struct {
 	persisted persistedThread
 
-	dirName   string
-	parentDir string
-	state     ThreadState
-	runState  *RunningThreadState
-	parent    *ThreadGroup
+	oldDirName string
+	dirName    string
+	parentDir  string
+	state      ThreadState
+	runState   *RunningThreadState
+	parent     *ThreadGroup
 
 	// llmClient is created per-thread (and may be recreated as needed).
 	llmClient types.AIClient
@@ -93,8 +94,9 @@ type thread struct {
 
 // load restores a thread from disk.
 //
-// It also normalizes legacy/stale filenames by renaming the persisted
-// thread file to match the current genUniqFileName scheme.
+// Thread persistence historically used a derived directory name
+// (genUniqDirName). Newer versions persist threads under a directory name
+// that matches the thread's id.
 func (t *thread) load(ctx context.Context, parentDir string,
 	dirName string) error {
 
@@ -113,16 +115,23 @@ func (t *thread) load(ctx context.Context, parentDir string,
 
 	t.state = ThreadStateIdle
 	t.parentDir = parentDir
-	t.dirName = dirName
 
+	loadedDirName := dirName
 	if t.persisted.Id == "" {
 		id, err := t.parent.parent.newThreadId(ctx)
 		if err != nil {
 			return err
 		}
 		t.persisted.Id = id
-		// best effort save w/ new thread id
-		_ = t.save()
+		err = t.save()
+		if err != nil {
+			return err
+		}
+	}
+
+	t.dirName = t.persisted.Id
+	if loadedDirName != t.dirName {
+		t.oldDirName = loadedDirName
 	}
 
 	return nil

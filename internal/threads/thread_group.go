@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/negrel/assert"
 )
 
 type ThreadGroup struct {
@@ -97,12 +100,67 @@ func (thrGrp *ThreadGroup) hasNonIdleThreads() bool {
 	return false
 }
 
+func (thrGrp *ThreadGroup) migrateOldThreadDirs(ctx context.Context) error {
+	assert.Locked(&thrGrp.mu, "attempt to migrate old thread dirs %v without holding thread group mutex",
+		thrGrp.dir)
+
+	// Legacy directory names contain an underscore (crc32hex_unixtime) while
+	// canonical ids are monotonically increasing integers.
+	// (see genUniqDirName())
+	dEntries, err := os.ReadDir(thrGrp.dir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("Failed to read dir %v: %w", thrGrp.dir, err)
+	}
+
+	for _, dEnt := range dEntries {
+		if !dEnt.IsDir() {
+			continue
+		}
+		if !strings.Contains(dEnt.Name(), "_") {
+			continue
+		}
+
+		// load the thread to ensure valid thread id
+		curThread := &thread{parent: thrGrp}
+		curThread.mu.Lock()
+		err := curThread.load(ctx, thrGrp.dir, dEnt.Name())
+		curThread.mu.Unlock()
+		if err != nil {
+			return err
+		}
+
+		srcPath := filepath.Join(thrGrp.dir, dEnt.Name())
+		dstPath := filepath.Join(thrGrp.dir, curThread.dirName)
+		if srcPath == dstPath {
+			continue
+		}
+		if _, err := os.Stat(dstPath); err == nil {
+			return fmt.Errorf("cannot migrate legacy thread dir %q -> %q: destination exists",
+				srcPath, dstPath)
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("failed to stat thread dir %q: %w", dstPath, err)
+		}
+
+		if err := os.Rename(srcPath, dstPath); err != nil {
+			return fmt.Errorf("failed to migrate thread dir %q -> %q: %w",
+				srcPath, dstPath, err)
+		}
+	}
+
+	return nil
+}
+
 func (thrGrp *ThreadGroup) LoadThreads(ctx context.Context) error {
 	thrGrp.mu.Lock()
 	defer thrGrp.mu.Unlock()
 
 	if thrGrp.hasNonIdleThreads() {
 		return fmt.Errorf("Cannot re-load thread group with non-idle threads")
+	}
+
+	err := thrGrp.migrateOldThreadDirs(ctx)
+	if err != nil {
+		return err
 	}
 
 	thrGrp.totThreads = 0
@@ -114,16 +172,33 @@ func (thrGrp *ThreadGroup) LoadThreads(ctx context.Context) error {
 	}
 
 	for _, dEnt := range dEntries {
+		if !dEnt.IsDir() {
+			continue
+		}
+
 		curThread := &thread{parent: thrGrp}
 		curThread.mu.Lock()
 		err := curThread.load(ctx, thrGrp.dir, dEnt.Name())
 		curThread.mu.Unlock()
-
 		if err != nil {
 			return err
 		}
-		thrGrp.addThread(curThread)
+		if curThread.oldDirName != "" {
+			return fmt.Errorf("thread dir name %q does not match id %q after migration",
+				curThread.oldDirName, curThread.dirName)
+		}
+
+		thrId := curThread.persisted.Id
+		if thrId == "" {
+			return fmt.Errorf("loaded thread missing id")
+		}
+		if _, exists := thrGrp.threads[thrId]; exists {
+			return fmt.Errorf("duplicate thread id %q while loading from %q",
+				thrId, filepath.Join(thrGrp.dir, dEnt.Name()))
+		}
+		thrGrp.threads[thrId] = curThread
 	}
+	thrGrp.totThreads = len(thrGrp.threads)
 
 	return nil
 }
@@ -159,7 +234,6 @@ func (thrGrp *ThreadGroup) NewThread(ctx context.Context, name string) error {
 	defer thrGrp.mu.Unlock()
 
 	cTime := time.Now()
-	dirNameLocal := genUniqDirName(name, cTime)
 
 	dialogue := []*types.ThreadMessage{}
 
@@ -171,7 +245,7 @@ func (thrGrp *ThreadGroup) NewThread(ctx context.Context, name string) error {
 			ModTime:    cTime,
 			Dialogue:   dialogue,
 		},
-		dirName:   dirNameLocal,
+		dirName:   "",
 		parentDir: thrGrp.dir,
 		state:     ThreadStateIdle,
 		parent:    thrGrp,
@@ -181,6 +255,7 @@ func (thrGrp *ThreadGroup) NewThread(ctx context.Context, name string) error {
 		return err
 	}
 	curThread.persisted.Id = id
+	curThread.dirName = id
 
 	thrGrp.addThread(curThread)
 

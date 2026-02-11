@@ -139,6 +139,22 @@ The `Makefile` defines `TESTPKGS` to include core packages (`cmd/gptcli`, `inter
       - Lift the logic into a named helper (e.g. `rebuildHistory(...)`) and call it from the caller. This keeps call sites compact and improves readability, testability, and reusability.
     - Exception:
       - Small, obviously local lambdas (~5 lines or fewer) are acceptable when they are truly trivial (e.g. a comparator passed to `sort.Slice` or a short closure that captures a couple of values).
+
+### Change-design conventions (reduce back-and-forth)
+
+- **Prefer the simplest implementation that satisfies the request.**
+  - Do not add pre-emptive conflict resolution, dedup logic, or “just in case” checks unless the user explicitly asked for them or existing code already enforces them.
+  - If there are plausible alternatives (e.g., strict vs. permissive migration behavior), ask the user which behavior they want rather than choosing a complex default.
+
+- **Separate “migration” from “steady-state” behavior.**
+  - When migrating persisted on-disk formats (files/dirs/JSON fields), prefer a **two-pass** pattern:
+    1. First pass: detect legacy format and migrate (e.g., read minimal metadata, ensure required fields exist, rename/move).
+    2. Second pass: re-scan and load using only the new canonical format.
+  - This avoids intertwined logic (e.g., “dir not found because we renamed it”, “already loaded under another name”) and keeps the steady-state loader simple.
+
+- **Reuse existing persistence helpers instead of re-implementing storage logic.**
+  - If code already has a “save”/“persist” method, prefer calling it over manually marshalling JSON and writing files.
+  - If reuse requires a small temporary state tweak (e.g., setting the directory name to the currently-loaded dir before saving), keep it local, restore state, and add a clarifying comment.
 - Testing:
   - Prefer adding or updating unit tests under `internal/...` or `cmd/gptcli/...` when you change behavior.
 
