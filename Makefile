@@ -136,7 +136,7 @@ $(PKG_RENDERED_FILES):
 
 .PHONY: clean
 clean:
-	rm -f $(NCLI_TOOL_NAME) unit-tests.xml
+	rm -f $(NCLI_TOOL_NAME) unit-tests.xml /tmp/$(CLI_TOOL_NAME)*.deb
 
 .PHONY: pkg-clean
 pkg-clean:

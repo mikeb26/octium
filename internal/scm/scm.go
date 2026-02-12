@@ -154,6 +154,11 @@ type Client interface {
 	InitRepo(ctx context.Context, dstDir string) error
 	CloneRepo(ctx context.Context, srcRepoURL string, dstDir string) error
 
+	// ShareRepo configures a repository so it can be shared across users.
+	//
+	// For Git, this sets core.sharedRepository.
+	ShareRepo(ctx context.Context, dir string) error
+
 	// RepoSyncStatus returns a status snapshot suitable for determining whether
 	// it is safe to perform automated sync operations.
 	RepoSyncStatus(ctx context.Context, dir string) (RepoSyncStatus, error)

@@ -26,12 +26,29 @@ type persistedWorkspace struct {
 	ScratchDir          string `json:"scratch_dir"`
 	OriginRepo          string `json:"origin_repo"`
 	SboxRepo            string `json:"sbox_repo"`
+	Id                  string
 }
 
 // Save persists the workspace to scratchDir/WorkspaceFileName.
 func (ws *Workspace) Save() error {
 	scratchDir := ws.persisted.ScratchDir
 	assert.NotEmpty(scratchDir)
+
+	// Ensure the sandbox parent directory exists even before a sandbox is set.
+	//
+	// This is intentionally done here (rather than during sandbox creation)
+	// so callers can rely on Workspace.GetPwd() returning an existing directory
+	// for the sandbox parent when no sandbox is present.
+	baseSandboxDir, err := ws.getSandboxDir("")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(baseSandboxDir, 0o770|os.ModeSetgid); err != nil {
+		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirCreate, baseSandboxDir, err)
+	}
+	if err := fixupSharedDirPerms(baseSandboxDir); err != nil {
+		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirChmod, baseSandboxDir, err)
+	}
 
 	if err := os.MkdirAll(scratchDir, 0o700); err != nil {
 		return fmt.Errorf("%w %v: %w", ErrScratchDirCreate, scratchDir, err)
@@ -126,6 +143,39 @@ func (ws *Workspace) Load(ctx context.Context) error {
 
 	loaded.ScratchDir = scratchDir
 	ws.persisted = loaded
+
+	return nil
+}
+
+func fixupSharedDirPerms(dir string) error {
+	dirMode := os.FileMode(0o775) | os.ModeSetgid
+	filMode := os.FileMode(0o664)
+	if err := os.Chmod(dir, dirMode); err != nil {
+		return fmt.Errorf("failed to chmod dir %v: %w", dir, err)
+	}
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry,
+		walkErr error) error {
+
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == dir {
+			return nil
+		}
+		if d.Type().IsRegular() {
+			if err := os.Chmod(path, filMode); err != nil {
+				return fmt.Errorf("chmod %q: %w", path, err)
+			}
+		} else if d.IsDir() {
+			if err := os.Chmod(path, dirMode); err != nil {
+				return fmt.Errorf("chmod %q: %w", path, err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to chmod subdirectories for %v: %w", dir, err)
+	}
 
 	return nil
 }

@@ -10,6 +10,10 @@ import "fmt"
 var (
 	ErrScratchDirNotSet               = fmt.Errorf("scratch dir not set")
 	ErrScratchDirCreate               = fmt.Errorf("failed to create scratch dir")
+	ErrSandboxParentDirCreate         = fmt.Errorf("failed to create sandbox parent dir")
+	ErrSandboxParentDirChmod          = fmt.Errorf("failed to chmod sandbox parent dir")
+	ErrSandboxDirChmod                = fmt.Errorf("failed to chmod sandbox dir/subdirs")
+	ErrSandboxDirCreate               = fmt.Errorf("failed to create sandbox dir")
 	ErrWorkspaceMarshal               = fmt.Errorf("failed to marshal workspace")
 	ErrWorkspaceOpenFile              = fmt.Errorf("failed to open workspace file")
 	ErrWorkspaceWriteFile             = fmt.Errorf("failed to write workspace file")

@@ -59,6 +59,11 @@ func (tvUI *threadViewUI) beginAsyncChat(
 		return "", false
 	}
 
+	// Preserve the workspace directory for downstream tool execution.
+	// This allows tools like cmd_run to execute from within the thread's
+	// workspace sandbox.
+	ctx = types.WithWorkspacePwd(ctx, tvUI.ws.GetPwd(ctx))
+
 	state, err := tvUI.thread.ChatOnceAsync(ctx, &tvUI.cliCtx.ictx, prompt,
 		tvUI.cliCtx.toggles.summary, tvUI.getSystemPrompt())
 	if err != nil {

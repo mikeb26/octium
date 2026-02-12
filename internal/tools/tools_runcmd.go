@@ -204,7 +204,14 @@ func (t RunCommandTool) Invoke(ctx context.Context,
 	runAsPath := filepath.Join(internal.CliLibexecDir, internal.CliToolName,
 		fmt.Sprintf("run-as-%s", internal.CliSandboxUsername))
 
-	args := []string{runAsPath, "--proxy-addr", proxyAddr, "--", req.Cmd}
+	args := []string{runAsPath, "--proxy-addr", proxyAddr}
+	if pwd, ok := types.GetWorkspacePwd(ctx); ok {
+		pwd = strings.TrimSpace(pwd)
+		if pwd != "" {
+			args = append(args, "--cwd", pwd)
+		}
+	}
+	args = append(args, "--", req.Cmd)
 	args = append(args, req.CmdArgs...)
 
 	cmd := exec.CommandContext(ctx, "sudo", args...)

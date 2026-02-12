@@ -47,3 +47,22 @@ func GetIctx(ctx context.Context) (*InternalContext, bool) {
 	}
 	return nil, false
 }
+
+type workspacePwdKey struct{}
+
+// WithWorkspacePwd returns a context with a workspace "present working
+// directory" attached. This is used by lower layers (e.g. OS command tools)
+// to run within the user's workspace sandbox.
+func WithWorkspacePwd(ctx context.Context, pwd string) context.Context {
+	return context.WithValue(ctx, workspacePwdKey{}, pwd)
+}
+
+// GetWorkspacePwd retrieves the workspace pwd from a context, if any.
+func GetWorkspacePwd(ctx context.Context) (string, bool) {
+	if v := ctx.Value(workspacePwdKey{}); v != nil {
+		if s, ok := v.(string); ok {
+			return s, true
+		}
+	}
+	return "", false
+}

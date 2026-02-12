@@ -4,6 +4,8 @@
  */
 package internal
 
+import "path/filepath"
+
 const MaxDepth = 3
 
 // The following variables are intended to be set at build-time via:
@@ -17,9 +19,13 @@ var (
 	CliToolName         = "octium"
 	CliSandboxUsername  = "octium"
 	CliSandboxGroupname = "octium-users"
+	// should match pkg/common/tmpfiles.d/octium-aiagent.conf.in
+	CliSandboxShared = "shared"
 	// CliLibexecDir is the base directory where octium's privileged helpers
 	// (such as the run-as-<sandbox> wrapper) are installed by packaging.
 	//
 	// It is a var (not const) so tests can override it.
-	CliLibexecDir = "/usr/libexec"
+	CliLibexecDir      = filepath.Join(string(filepath.Separator), "usr", "libexec")
+	CliSandboxHome     = filepath.Join(string(filepath.Separator), "home", CliSandboxUsername)
+	CliSandboxRepoHome = filepath.Join(CliSandboxHome, CliSandboxShared)
 )

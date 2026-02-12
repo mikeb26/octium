@@ -179,7 +179,7 @@ func Test_RunCommandTool_Invoke_ExecutesCommand_CapturesOutputAndExitError(t *te
 	if err := os.MkdirAll(internal.CliLibexecDir+"/"+internal.CliToolName, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(runAsPath, []byte("#!/bin/sh\n\n# Ignore proxy args; just exec the requested command.\nif [ \"$1\" = \"--proxy-addr\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--\" ]; then\n  shift\nfi\nexec \"$@\"\n"), 0o755); err != nil {
+	if err := os.WriteFile(runAsPath, []byte("#!/bin/sh\n\n# Ignore wrapper args; just exec the requested command.\nif [ \"$1\" = \"--proxy-addr\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--cwd\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--\" ]; then\n  shift\nfi\nexec \"$@\"\n"), 0o755); err != nil {
 		t.Fatalf("WriteFile(runAs): %v", err)
 	}
 
@@ -227,7 +227,7 @@ func Test_RunCommandTool_Invoke_TruncatesStdoutAndStderr(t *testing.T) {
 	if err := os.MkdirAll(internal.CliLibexecDir+"/"+internal.CliToolName, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err := os.WriteFile(runAsPath, []byte("#!/bin/sh\n\nif [ \"$1\" = \"--proxy-addr\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--\" ]; then\n  shift\nfi\nexec \"$@\"\n"), 0o755); err != nil {
+	if err := os.WriteFile(runAsPath, []byte("#!/bin/sh\n\nif [ \"$1\" = \"--proxy-addr\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--cwd\" ]; then\n  shift 2\nfi\nif [ \"$1\" = \"--\" ]; then\n  shift\nfi\nexec \"$@\"\n"), 0o755); err != nil {
 		t.Fatalf("WriteFile(runAs): %v", err)
 	}
 

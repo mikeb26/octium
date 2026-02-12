@@ -32,7 +32,7 @@ require_root() {
 
 require_args() {
 	if [ "$#" -lt 1 ]; then
-		log "usage: $(basename "$0") [--proxy-addr <host:port>] <command> [args...]"
+		log "usage: $(basename "$0") [--proxy-addr <host:port>] [--cwd <dir>] <command> [args...]"
 		exit 2
 	fi
 }
@@ -120,6 +120,40 @@ ensure_sandbox_home() {
 		mkdir -p "$sbhome"
 		chown @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@ "$sbhome" || true
 		chmod 0750 "$sbhome" || true
+	fi
+}
+
+validate_cwd() {
+	sbhome="$1"
+	cwd="$2"
+
+	if [ -z "${cwd:-}" ]; then
+		log "invalid --cwd: empty"
+		exit 2
+	fi
+
+	# Only allow absolute paths.
+	case "$cwd" in
+		/*) ;;
+		*)
+			log "invalid --cwd (must be absolute): $cwd"
+			exit 2
+			;;
+	esac
+
+	# Only allow directories under the sandbox home.
+	case "$cwd" in
+		"$sbhome"|"$sbhome"/*) ;;
+		*)
+			log "invalid --cwd (must be under sandbox home $sbhome): $cwd"
+			exit 2
+			;;
+	esac
+
+	# Require that the directory exists.
+	if [ ! -d "$cwd" ]; then
+		log "invalid --cwd (directory does not exist): $cwd"
+		exit 2
 	fi
 }
 
@@ -231,6 +265,13 @@ run_via_systemd() {
 
 	sbhome="$(sandbox_home_dir)"
 	ensure_sandbox_home "$sbhome"
+
+	# Default to sandbox home unless the caller provided a validated cwd.
+	wd="$sbhome"
+	if [ -n "${CWD:-}" ]; then
+		validate_cwd "$sbhome" "$CWD"
+		wd="$CWD"
+	fi
 	upath="$(invoker_path || true)"
 	fpath=""
 	if [ -n "${upath:-}" ]; then
@@ -306,7 +347,7 @@ run_via_systemd() {
 		--property=ProtectKernelModules=yes \
 		--property=ProtectControlGroups=yes \
 		--property=UMask=0077 \
-		--property=WorkingDirectory="$sbhome" \
+		--property=WorkingDirectory="$wd" \
 			-- /usr/bin/env -i HOME="$sbhome" PATH="$fpath" USER=@CLI_SANDBOX_USERNAME@ LOGNAME=@CLI_SANDBOX_USERNAME@ \
 				http_proxy="http://$PROXY_ADDR" \
 				https_proxy="http://$PROXY_ADDR" \
@@ -322,6 +363,7 @@ main() {
 	require_systemd_run
 
 	PROXY_ADDR="$DEFAULT_PROXY_ADDR"
+	CWD=""
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
 			--proxy-addr)
@@ -338,6 +380,19 @@ main() {
 				p="${1#--proxy-addr=}"
 				validate_proxy_addr "$p"
 				PROXY_ADDR="$p"
+				shift
+				;;
+			--cwd)
+				shift
+				if [ "$#" -lt 1 ]; then
+					log "--cwd requires a value"
+					exit 2
+				fi
+				CWD="$1"
+				shift
+				;;
+			--cwd=*)
+				CWD="${1#--cwd=}"
 				shift
 				;;
 			--)

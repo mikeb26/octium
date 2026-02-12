@@ -140,6 +140,12 @@ case "$cmd" in
                 exit 0
                 ;;
         esac
+
+        # Support: git config <key> <value>
+        if [ "${1:-}" != "" ] && [ "${2:-}" != "" ]; then
+            # no-op (just succeed)
+            exit 0
+        fi
         ;;
 
     ls-files)

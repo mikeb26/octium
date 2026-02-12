@@ -6,6 +6,7 @@
 [core]
 	autocrlf = false
 	pager = cat
+	fileMode = false
 
 [branch]
 	autosetupmerge = true
@@ -35,3 +36,8 @@
 [color "diff"]
 	old = red
 	new = green
+
+# we would prefer /home/octium/shared/* or /home/octium/shared/*/*/* here but git doesnt
+# wildcard patterns like this
+[safe]
+	directory = *

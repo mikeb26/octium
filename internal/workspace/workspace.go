@@ -19,11 +19,12 @@ type Workspace struct {
 	scmClient scm.Client
 }
 
-func New(scratchDirIn string, scmClientIn scm.Client) *Workspace {
+func New(scratchDirIn string, idIn string, scmClientIn scm.Client) *Workspace {
 	return &Workspace{
 		persisted: persistedWorkspace{
 			RepoExplicitlyUnset: false,
 			ScratchDir:          scratchDirIn,
+			Id:                  idIn,
 		},
 		scmClient: scmClientIn,
 	}
@@ -147,4 +148,19 @@ func (ws *Workspace) SandboxSyncStatus(ctx context.Context) (scm.RepoSyncStatus,
 		return scm.RepoSyncStatus{}, fmt.Errorf("%w", ErrWorkspaceNoSandboxSet)
 	}
 	return ws.scmClient.RepoSyncStatus(ctx, ws.persisted.SboxRepo)
+}
+
+func (ws *Workspace) GetPwd(ctx context.Context) string {
+	_ = ctx
+	if ws.persisted.SboxRepo != "" {
+		return ws.persisted.SboxRepo
+	}
+	// When no sandbox is set, return the sandbox parent directory.
+	// Save() is responsible for ensuring it exists.
+	dir, err := ws.getSandboxDir("")
+	if err != nil {
+		// Keep GetPwd side-effect-free; callers should handle empty results.
+		return ""
+	}
+	return dir
 }

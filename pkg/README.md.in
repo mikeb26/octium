@@ -16,8 +16,8 @@ Install-time artifacts intended for packaging on modern systemd-based distros (D
 ### tmpfiles.d
 - `pkg/common/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
   - Creates directories:
-    - `/home/@CLI_SANDBOX_USERNAME@` (0750 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
-    - `/home/@CLI_SANDBOX_USERNAME@/shared` (2770 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_GROUPNAME@, setgid)
+    - `/home/@CLI_SANDBOX_USERNAME@` (0755 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
+    - `/home/@CLI_SANDBOX_USERNAME@/shared` (2775 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_GROUPNAME@, setgid)
     - `/home/@CLI_SANDBOX_USERNAME@/tmp` (0700 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
 
 **Package install target:** `/usr/lib/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`

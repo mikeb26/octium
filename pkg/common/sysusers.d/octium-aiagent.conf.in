@@ -7,7 +7,7 @@ g @CLI_SANDBOX_GROUPNAME@ -
 
 # Create a system user named "@CLI_SANDBOX_USERNAME@" with home directory /home/@CLI_SANDBOX_USERNAME@.
 # Explicitly set the shell to nologin.
-u @CLI_SANDBOX_USERNAME@ - "@CLI_TOOL_NAME@ sandbox execution user" /home/@CLI_SANDBOX_USERNAME@ /usr/sbin/nologin
+u @CLI_SANDBOX_USERNAME@ - "@CLI_TOOL_NAME@ agent" /home/@CLI_SANDBOX_USERNAME@ /usr/sbin/nologin
 
 # NOTE: Do NOT add the sandbox user "@CLI_SANDBOX_USERNAME@" to the "@CLI_SANDBOX_GROUPNAME@" group.
 # Members of @CLI_SANDBOX_GROUPNAME@ are permitted (via sudoers) to invoke the root-run

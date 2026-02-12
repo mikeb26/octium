@@ -7,3 +7,4 @@ pkg/common/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo etc/sud
 pkg/common/libexec/@CLI_TOOL_NAME@-postinstall-common.sh usr/libexec/@CLI_TOOL_NAME@/
 pkg/common/libexec/run-as-@CLI_SANDBOX_USERNAME@ usr/libexec/@CLI_TOOL_NAME@/
 pkg/common/share/gitconfig usr/share/@CLI_TOOL_NAME@/
+pkg/common/share/bashprofile usr/share/@CLI_TOOL_NAME@/

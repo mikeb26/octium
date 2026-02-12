@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -19,8 +20,6 @@ import (
 	"github.com/mikeb26/octium/internal/scm"
 	"github.com/negrel/assert"
 )
-
-const LlmRootMount = "llmroot"
 
 func (ws *Workspace) validateScmRepoDir(ctx context.Context, label string, dir string) error {
 	assert.NotEmpty(dir)
@@ -133,11 +132,24 @@ func (ws *Workspace) createNewSandbox(ctx context.Context,
 	return originDir, sboxDir, nil
 }
 
+func (ws *Workspace) getSandboxDir(base string) (string, error) {
+	usrN, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(internal.CliSandboxRepoHome, usrN.Username,
+		ws.persisted.Id, base), nil
+}
+
 func (ws *Workspace) createNewSandboxWithValidOrigin(ctx context.Context,
 	originDir string) (string, error) {
 
 	base := filepath.Base(originDir)
-	sboxDir := filepath.Join(ws.persisted.ScratchDir, LlmRootMount, base)
+	sboxDir, err := ws.getSandboxDir(base)
+	if err != nil {
+		return "", err
+	}
 	if st, err := os.Stat(sboxDir); err == nil {
 		if st.IsDir() {
 			return "", fmt.Errorf("%w: %v", ErrSandboxDirAlreadyExists, sboxDir)
@@ -155,10 +167,21 @@ func (ws *Workspace) createNewSandboxWithValidOrigin(ctx context.Context,
 		_ = os.RemoveAll(sboxDir)
 		return "", err
 	}
-	err := ws.validateSandboxOriginRemote(ctx, sboxDir, originDir)
+	err = ws.validateSandboxOriginRemote(ctx, sboxDir, originDir)
 	if err != nil {
 		_ = os.RemoveAll(sboxDir)
 		return "", err
+	}
+
+	err = fixupSharedDirPerms(sboxDir)
+	if err != nil {
+		_ = os.RemoveAll(sboxDir)
+		return "", fmt.Errorf("%w: %w", ErrSandboxDirChmod, err)
+	}
+	err = ws.scmClient.ShareRepo(ctx, sboxDir)
+	if err != nil {
+		_ = os.RemoveAll(sboxDir)
+		return "", fmt.Errorf("%w: %w", ErrSandboxDirChmod, err)
 	}
 
 	return sboxDir, nil

@@ -129,7 +129,7 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 		cliCtx:     cliCtx,
 		thread:     thread,
 		isArchived: isArchivedIn,
-		ws:         workspace.New(thread.ScratchDir(), cliCtx.scmClient),
+		ws:         workspace.New(thread.ScratchDir(), tid, cliCtx.scmClient),
 	}
 	tvUI.clearRunningState()
 	cliCtx.threadViews[tid] = tvUI

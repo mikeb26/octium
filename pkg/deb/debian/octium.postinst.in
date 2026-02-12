@@ -24,7 +24,7 @@ case "$1" in
 			maybe_add_invoker_to_group "@CLI_SANDBOX_GROUPNAME@" || true
 		fi
 
-		# Install the sandbox user's git configuration.
+		# Install the sandbox user's git configuration and bash profile
 		#
 		# We intentionally do this in postinst (instead of shipping directly to
 		# /home) because /home is not owned by the package manager and may not
@@ -33,6 +33,11 @@ case "$1" in
 			install -o @CLI_SANDBOX_USERNAME@ -g @CLI_SANDBOX_USERNAME@ -m 0644 \
 				/usr/share/@CLI_TOOL_NAME@/gitconfig \
 				"/home/@CLI_SANDBOX_USERNAME@/.gitconfig" || true
+		fi
+		if [ -f /usr/share/@CLI_TOOL_NAME@/bashprofile ]; then
+			install -o @CLI_SANDBOX_USERNAME@ -g @CLI_SANDBOX_USERNAME@ -m 0755 \
+				/usr/share/@CLI_TOOL_NAME@/bashprofile \
+				"/home/@CLI_SANDBOX_USERNAME@/.bash_profile" || true
 		fi
 		;;
 esac

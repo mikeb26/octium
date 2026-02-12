@@ -13,15 +13,19 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/scm"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestWorkspace_Save_WritesWorkspaceFile(t *testing.T) {
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 
 	c := &fakeSCMClient{}
-	ws := New(scratchDir, c)
+	ws := New(scratchDir, "test", c)
 	ws.persisted.OriginRepo = "/origin"
 	ws.persisted.SboxRepo = "/sbox"
 
@@ -47,7 +51,10 @@ func TestWorkspace_Load_ErrorsWhenScratchDirNotSet(t *testing.T) {
 
 func TestWorkspace_Load_CreatesFileWhenMissing(t *testing.T) {
 	scratchDir := t.TempDir()
-	ws := New(scratchDir, &fakeSCMClient{})
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 
 	err := ws.Load(context.Background())
 	mustNoErr(t, err)
@@ -57,7 +64,10 @@ func TestWorkspace_Load_CreatesFileWhenMissing(t *testing.T) {
 
 func TestWorkspace_Load_ErrorsOnInvalidJSON(t *testing.T) {
 	scratchDir := t.TempDir()
-	ws := New(scratchDir, &fakeSCMClient{})
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 	mustNoErr(t, os.WriteFile(filepath.Join(scratchDir, WorkspaceFileName), []byte("not-json"), 0o600))
 
 	err := ws.Load(context.Background())
@@ -67,7 +77,10 @@ func TestWorkspace_Load_ErrorsOnInvalidJSON(t *testing.T) {
 
 func TestWorkspace_Load_ErrorsOnScratchDirMismatch(t *testing.T) {
 	scratchDir := t.TempDir()
-	ws := New(scratchDir, &fakeSCMClient{})
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 
 	bad := persistedWorkspace{ScratchDir: filepath.Join(t.TempDir(), "different")}
 	bs := mustMarshal(t, &bad)
@@ -80,7 +93,10 @@ func TestWorkspace_Load_ErrorsOnScratchDirMismatch(t *testing.T) {
 
 func TestWorkspace_Load_SucceedsWithEmptyRepos(t *testing.T) {
 	scratchDir := t.TempDir()
-	ws := New(scratchDir, &fakeSCMClient{})
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: "", SboxRepo: ""}
 	bs := mustMarshal(t, &loaded)
@@ -96,6 +112,9 @@ func TestWorkspace_Load_SucceedsWithEmptyRepos(t *testing.T) {
 func TestWorkspace_Load_ValidatesOriginRepoExistsAndIsRepo(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 	originDir := filepath.Join(t.TempDir(), "origin")
 	mustNoErr(t, os.MkdirAll(originDir, 0o700))
 
@@ -105,7 +124,7 @@ func TestWorkspace_Load_ValidatesOriginRepoExistsAndIsRepo(t *testing.T) {
 		listRemotes:   map[string][]scm.RemoteRepo{},
 		listErr:       map[string]error{},
 	}
-	ws := New(scratchDir, c)
+	ws := New(scratchDir, "test", c)
 
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: originDir}
 	bs := mustMarshal(t, &loaded)
@@ -119,9 +138,12 @@ func TestWorkspace_Load_ValidatesOriginRepoExistsAndIsRepo(t *testing.T) {
 func TestWorkspace_Load_ErrorsWhenOriginRepoMissing(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 	missingOrigin := filepath.Join(t.TempDir(), "missing")
 
-	ws := New(scratchDir, &fakeSCMClient{})
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: missingOrigin}
 	bs := mustMarshal(t, &loaded)
 	mustNoErr(t, os.WriteFile(filepath.Join(scratchDir, WorkspaceFileName), bs, 0o600))
@@ -134,10 +156,13 @@ func TestWorkspace_Load_ErrorsWhenOriginRepoMissing(t *testing.T) {
 func TestWorkspace_Load_ErrorsWhenOriginRepoNotDir(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 	originFile := filepath.Join(t.TempDir(), "origin_file")
 	mustNoErr(t, os.WriteFile(originFile, []byte("x"), 0o600))
 
-	ws := New(scratchDir, &fakeSCMClient{})
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: originFile}
 	bs := mustMarshal(t, &loaded)
 	mustNoErr(t, os.WriteFile(filepath.Join(scratchDir, WorkspaceFileName), bs, 0o600))
@@ -150,6 +175,9 @@ func TestWorkspace_Load_ErrorsWhenOriginRepoNotDir(t *testing.T) {
 func TestWorkspace_Load_ErrorsWhenOriginRepoNotScmRepo(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 	originDir := filepath.Join(t.TempDir(), "origin")
 	mustNoErr(t, os.MkdirAll(originDir, 0o700))
 
@@ -159,7 +187,7 @@ func TestWorkspace_Load_ErrorsWhenOriginRepoNotScmRepo(t *testing.T) {
 		listRemotes:   map[string][]scm.RemoteRepo{},
 		listErr:       map[string]error{},
 	}
-	ws := New(scratchDir, c)
+	ws := New(scratchDir, "test", c)
 
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: originDir}
 	bs := mustMarshal(t, &loaded)
@@ -173,10 +201,13 @@ func TestWorkspace_Load_ErrorsWhenOriginRepoNotScmRepo(t *testing.T) {
 func TestWorkspace_Load_ErrorsWhenSboxSetButOriginEmpty(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 	sboxDir := filepath.Join(t.TempDir(), "sbox")
 	mustNoErr(t, os.MkdirAll(sboxDir, 0o700))
 
-	ws := New(scratchDir, &fakeSCMClient{})
+	ws := New(scratchDir, "test", &fakeSCMClient{})
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: "", SboxRepo: sboxDir}
 	bs := mustMarshal(t, &loaded)
 	mustNoErr(t, os.WriteFile(filepath.Join(scratchDir, WorkspaceFileName), bs, 0o600))
@@ -189,6 +220,9 @@ func TestWorkspace_Load_ErrorsWhenSboxSetButOriginEmpty(t *testing.T) {
 func TestWorkspace_Load_SucceedsWithOriginAndSandboxAndRemoteMatch(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
 	root := t.TempDir()
 	originDir := filepath.Join(root, "origin")
 	sboxDir := filepath.Join(root, "sbox")
@@ -204,7 +238,7 @@ func TestWorkspace_Load_SucceedsWithOriginAndSandboxAndRemoteMatch(t *testing.T)
 		},
 		listErr: map[string]error{},
 	}
-	ws := New(scratchDir, c)
+	ws := New(scratchDir, "test", c)
 
 	loaded := persistedWorkspace{ScratchDir: scratchDir, OriginRepo: originDir, SboxRepo: sboxDir}
 	bs := mustMarshal(t, &loaded)
@@ -214,4 +248,20 @@ func TestWorkspace_Load_SucceedsWithOriginAndSandboxAndRemoteMatch(t *testing.T)
 	mustNoErr(t, err)
 	assert.Equal(t, originDir, ws.persisted.OriginRepo)
 	assert.Equal(t, sboxDir, ws.persisted.SboxRepo)
+}
+
+func TestWorkspace_Save_CreatesSandboxParentDir(t *testing.T) {
+	scratchDir := t.TempDir()
+	prevSandboxRepoHome := internal.CliSandboxRepoHome
+	internal.CliSandboxRepoHome = t.TempDir()
+	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+
+	ws := New(scratchDir, "test", &fakeSCMClient{})
+	mustNoErr(t, ws.Save())
+
+	parentDir, err := ws.getSandboxDir("")
+	mustNoErr(t, err)
+	st, err := os.Stat(parentDir)
+	mustNoErr(t, err)
+	assert.True(t, st.IsDir())
 }
