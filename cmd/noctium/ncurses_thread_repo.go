@@ -57,7 +57,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	}
 
 	if tvUI.ws.IsUnset() && !ignoreUnset {
-		return fmt.Errorf("repo not specified")
+		return ErrWorkspaceNotConfigured
 	}
 
 	// first try pwd; if it's a repo confirm with the user
@@ -80,7 +80,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		}
 		if usePwd.Key == "x" {
 			tvUI.ws.Destroy()
-			return fmt.Errorf("repo not specified")
+			return ErrWorkspaceSetupCancelled
 		}
 		if usePwd.Key == "y" {
 			if !filepath.IsAbs(pwd) {
@@ -109,7 +109,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		return err
 	}
 	if repoDir == "" {
-		return fmt.Errorf("repo not specified")
+		return ErrWorkspaceSetupCancelled
 	}
 
 	// Normalize to an absolute path for persistence.
@@ -141,7 +141,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 			return err
 		}
 		if !create {
-			return fmt.Errorf("repo creation cancelled")
+			return ErrWorkspaceSetupCancelled
 		}
 		if err := os.MkdirAll(repoDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create dir %v: %w", repoDir, err)
@@ -162,7 +162,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 				return err
 			}
 			if !create {
-				return fmt.Errorf("repo creation cancelled")
+				return ErrWorkspaceSetupCancelled
 			}
 		}
 		if err := tvUI.initNewGitRepo(ctx, repoDir); err != nil {

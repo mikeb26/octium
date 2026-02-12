@@ -38,6 +38,8 @@ var (
 	ErrFailedToPromptThreadName    = errors.New("Failed to prompt for new thread name")
 	ErrFailedToCreateThread        = errors.New("Failed to create new thread")
 	ErrFailedToArchiveThread       = errors.New("Failed to archive thread")
+	ErrWorkspaceNotConfigured      = errors.New("Workspace not configured")
+	ErrWorkspaceSetupCancelled     = errors.New("Workspace setup cancelled")
 	ErrUnreachable                 = errors.New("BUG: unreachable")
 	ErrCreatingHistoryFrame        = errors.New("Could not create thread history frame")
 	ErrCreatingInputFrame          = errors.New("Could not create thread input frame")

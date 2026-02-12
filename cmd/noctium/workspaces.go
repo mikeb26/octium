@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
@@ -22,6 +23,10 @@ func (tvUI *threadViewUI) launchWorkspaceModalFromThreadView(ctx context.Context
 	if tvUI.ws.Origin() == "" {
 		err := tvUI.setupWorkspace(ctx, true)
 		if err != nil {
+			if errors.Is(err, ErrWorkspaceSetupCancelled) || errors.Is(err, ErrWorkspaceNotConfigured) {
+				return nil
+			}
+			_ = tvUI.cliCtx.ui.Confirm(fmt.Sprintf("Workspace setup failed:\n%v", err))
 			return err
 		}
 	}

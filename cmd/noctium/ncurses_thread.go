@@ -587,7 +587,11 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	// We still process async events immediately afterwards; this just ensures the
 	// user sees the thread view first.
 	tvUI.redrawThreadView(ctx)
-	_ = tvUI.setupWorkspace(ctx, false)
+	err = tvUI.setupWorkspace(ctx, false)
+	if err != nil && !errors.Is(err, ErrWorkspaceNotConfigured) && !errors.Is(err, ErrWorkspaceSetupCancelled) {
+		_ = tvUI.cliCtx.ui.Confirm(fmt.Sprintf("Workspace setup failed:\n%v", err))
+	}
+	err = nil
 	needRedraw := true
 
 	for {
