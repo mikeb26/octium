@@ -6,3 +6,4 @@ pkg/common/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf usr/lib/tmpfil
 pkg/common/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo etc/sudoers.d/
 pkg/common/libexec/@CLI_TOOL_NAME@-postinstall-common.sh usr/libexec/@CLI_TOOL_NAME@/
 pkg/common/libexec/run-as-@CLI_SANDBOX_USERNAME@ usr/libexec/@CLI_TOOL_NAME@/
+pkg/common/share/gitconfig usr/share/@CLI_TOOL_NAME@/

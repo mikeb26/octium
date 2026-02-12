@@ -5,6 +5,7 @@
 /pkg/README.md
 /pkg/common/libexec/octium-postinstall-common.sh
 /pkg/common/libexec/run-as-octium
+/pkg/common/share/gitconfig
 /pkg/common/sudoers.d/octium-users-octium-echo
 /pkg/common/sysusers.d/octium-octium.conf
 /pkg/common/tmpfiles.d/octium-octium.conf

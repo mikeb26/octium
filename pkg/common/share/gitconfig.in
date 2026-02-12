@@ -1,0 +1,37 @@
+# Installed by packaging into: /home/@CLI_SANDBOX_USERNAME@/.gitconfig
+#
+# This file is deployed into the sandbox user's home directory to ensure
+# consistent git defaults for the @CLI_TOOL_NAME@ environment.
+
+[core]
+	autocrlf = false
+	pager = cat
+
+[branch]
+	autosetupmerge = true
+	autosetuprebase = always
+
+[user]
+	name = Octium Agent
+	email = agent@octium.dev
+
+[rerere]
+	enabled = 1
+
+[fetch]
+	prune = true
+
+[merge]
+	conflictstyle = diff3
+
+[init]
+	defaultBranch = main
+
+[color "decorate"]
+	tag = blue
+	branch = red
+	HEAD = green
+
+[color "diff"]
+	old = red
+	new = green

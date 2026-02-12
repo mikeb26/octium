@@ -23,6 +23,17 @@ case "$1" in
 			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
 			maybe_add_invoker_to_group "@CLI_SANDBOX_GROUPNAME@" || true
 		fi
+
+		# Install the sandbox user's git configuration.
+		#
+		# We intentionally do this in postinst (instead of shipping directly to
+		# /home) because /home is not owned by the package manager and may not
+		# exist at unpack time.
+		if [ -f /usr/share/@CLI_TOOL_NAME@/gitconfig ]; then
+			install -o @CLI_SANDBOX_USERNAME@ -g @CLI_SANDBOX_USERNAME@ -m 0644 \
+				/usr/share/@CLI_TOOL_NAME@/gitconfig \
+				"/home/@CLI_SANDBOX_USERNAME@/.gitconfig" || true
+		fi
 		;;
 esac
 

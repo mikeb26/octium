@@ -70,6 +70,7 @@ PKG_COMMON_TMPFILES_OUT := pkg/common/tmpfiles.d/$(CLI_TOOL_NAME)-$(CLI_SANDBOX_
 PKG_COMMON_SUDOERS_OUT := pkg/common/sudoers.d/$(CLI_SANDBOX_GROUPNAME)-$(CLI_SANDBOX_USERNAME)-echo
 PKG_COMMON_POSTINSTALL_OUT := pkg/common/libexec/$(CLI_TOOL_NAME)-postinstall-common.sh
 PKG_COMMON_RUN_AS_OUT := pkg/common/libexec/run-as-$(CLI_SANDBOX_USERNAME)
+PKG_COMMON_GITCONFIG_OUT := pkg/common/share/gitconfig
 
 PKG_RENDERED_FILES := \
 	$(PKG_COMMON_SYSUSERS_OUT) \
@@ -77,6 +78,7 @@ PKG_RENDERED_FILES := \
 	$(PKG_COMMON_SUDOERS_OUT) \
 	$(PKG_COMMON_POSTINSTALL_OUT) \
 	$(PKG_COMMON_RUN_AS_OUT) \
+	$(PKG_COMMON_GITCONFIG_OUT) \
 	pkg/deb/debian/octium.install \
 	pkg/deb/debian/octium.postinst \
 	pkg/deb/debian/rules \
@@ -96,6 +98,7 @@ $(PKG_COMMON_TMPFILES_OUT): pkg/common/tmpfiles.d/octium-aiagent.conf.in
 $(PKG_COMMON_SUDOERS_OUT): pkg/common/sudoers.d/octium-share-aiagent-echo.in
 $(PKG_COMMON_POSTINSTALL_OUT): pkg/common/libexec/octium-postinstall-common.sh.in
 $(PKG_COMMON_RUN_AS_OUT): pkg/common/libexec/run-as-aiagent.in
+$(PKG_COMMON_GITCONFIG_OUT): pkg/common/share/gitconfig.in
 
 pkg/deb/debian/octium.install: pkg/deb/debian/octium.install.in
 pkg/deb/debian/octium.postinst: pkg/deb/debian/octium.postinst.in
