@@ -9,5 +9,8 @@ g @CLI_SANDBOX_GROUPNAME@ -
 # Explicitly set the shell to nologin.
 u @CLI_SANDBOX_USERNAME@ - "@CLI_TOOL_NAME@ sandbox execution user" /home/@CLI_SANDBOX_USERNAME@ /usr/sbin/nologin
 
-# Add @CLI_SANDBOX_USERNAME@ to the shared group used for workspace access and systemd-run permissions.
-m @CLI_SANDBOX_USERNAME@ @CLI_SANDBOX_GROUPNAME@
+# NOTE: Do NOT add the sandbox user "@CLI_SANDBOX_USERNAME@" to the "@CLI_SANDBOX_GROUPNAME@" group.
+# Members of @CLI_SANDBOX_GROUPNAME@ are permitted (via sudoers) to invoke the root-run
+# wrapper that launches processes as @CLI_SANDBOX_USERNAME@. If @CLI_SANDBOX_USERNAME@ itself were in that
+# group, any sandboxed process could re-invoke the wrapper and exercise a
+# privileged entrypoint.

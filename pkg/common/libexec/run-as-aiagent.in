@@ -211,6 +211,20 @@ require_systemd_run() {
 	exit 1
 }
 
+half_system_memory_kb() {
+	# Return half of total system memory in KiB (rounded down).
+	# Used for MemoryMax.
+	#
+	# If we fail to detect total memory, return empty and let the caller decide.
+	mem_total_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)"
+	case "$mem_total_kb" in
+		''|*[!0-9]*)
+			return
+			;;
+	esac
+	echo $((mem_total_kb / 2))
+}
+
 run_via_systemd() {
 	# Use the system manager so we can apply hardening without needing extra
 	# polkit configuration.
@@ -251,12 +265,24 @@ run_via_systemd() {
 	# Additionally, restricting protocol families blocks raw sockets/packet
 	# sockets (ICMP etc), but cannot prevent a process from using TCP to any
 	# allowed destination IP/port.
+	memmax_kb="$(half_system_memory_kb || true)"
+	memmax_prop=""
+	if [ -n "${memmax_kb:-}" ]; then
+		memmax_prop="--property=MemoryMax=${memmax_kb}K"
+	fi
 
 	systemd-run \
 		--wait \
 		--collect \
 		--pipe \
 		--uid=@CLI_SANDBOX_USERNAME@ \
+                --property=SupplementaryGroups=octium-users \
+		$memmax_prop \
+		--property=TasksMax=64 \
+		--property=RuntimeMaxSec=600 \
+		--property=Nice=19 \
+		--property=CPUSchedulingPolicy=batch \
+		--property=IOSchedulingClass=idle \
 		--property=NoNewPrivileges=yes \
 		--property=PrivateTmp=yes \
 		--property=PrivateDevices=yes \
@@ -268,7 +294,7 @@ run_via_systemd() {
 		--property=RestrictNamespaces=yes \
 		--property=RestrictRealtime=yes \
 		--property=RestrictSUIDSGID=yes \
-		--property=RestrictAddressFamilies="AF_UNIX AF_INET AF_INET6" \
+		--property=RestrictAddressFamilies="AF_INET AF_INET6" \
 		--property=IPAddressAllow=127.0.0.1/32 \
 		--property=IPAddressAllow=::1/128 \
 		--property=IPAddressDeny=any \

@@ -9,3 +9,8 @@
 # - Packaging should ensure permissions are correct at install time.
 
 %@CLI_SANDBOX_GROUPNAME@ ALL=(root) NOPASSWD: /usr/libexec/@CLI_TOOL_NAME@/run-as-@CLI_SANDBOX_USERNAME@
+
+# Defense in depth: even if a process running as the sandbox user "@CLI_SANDBOX_USERNAME@" ends
+# up with supplementary group "@CLI_SANDBOX_GROUPNAME@" (e.g. via systemd-run
+# SupplementaryGroups), never allow it to invoke this root-run wrapper.
+@CLI_SANDBOX_USERNAME@ ALL=(root) !/usr/libexec/@CLI_TOOL_NAME@/run-as-@CLI_SANDBOX_USERNAME@
