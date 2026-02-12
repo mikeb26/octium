@@ -22,6 +22,29 @@ jobs:
           command: |
               sudo apt-get update
               sudo apt-get install -y libncurses-dev
+
+      - run:
+          name: Install Debian packaging dependencies
+          command: |
+              if [ "$CIRCLE_TAG" != "" ]
+              then
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                    devscripts \
+                    debhelper \
+                    debhelper-compat \
+                    dpkg-dev \
+                    fakeroot \
+                    build-essential \
+                    git \
+                    make \
+                    pkg-config \
+                    ca-certificates \
+                    ncurses-bin \
+                    libncurses-dev
+              else
+                  echo "Not a tagged release; skipping Debian packaging dependencies"
+              fi
       - save_cache:
           key: go-mod-v4-{{ checksum "go.sum" }}
           paths:
@@ -35,6 +58,16 @@ jobs:
                 make cmd/noctium/version.txt
             fi          
             make build
+
+            mkdir -p dist
+            cp noctium dist/
+
+            if [ "$CIRCLE_TAG" != "" ]
+            then
+                make deb
+                cp /tmp/octium_*.deb dist/
+                cp /tmp/octium-dbgsym_*.deb dist/
+            fi
       - run:
           name: Install mockgen
           command: |
@@ -48,7 +81,7 @@ jobs:
       - store_test_results:
           path: unit-tests.xml
       - store_artifacts:
-          path: octium
+          path: dist
       - run:
           name: Github release
           command: |
@@ -56,7 +89,7 @@ jobs:
             PATH=$PATH:$HOME/go/bin
             if [ "$CIRCLE_TAG" != "" ]
             then
-                ghr -name "octium ($CIRCLE_TAG)" $CIRCLE_TAG octium
+                ghr -name "octium ($CIRCLE_TAG)" $CIRCLE_TAG dist
             else
                 echo "Not releasing untagged commit"
             fi
