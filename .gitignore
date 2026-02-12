@@ -14,3 +14,4 @@
 /pkg/deb/debian/octium.install
 /pkg/deb/debian/octium.postinst
 /pkg/deb/debian/rules
+/pkg/deb/debian/changelog

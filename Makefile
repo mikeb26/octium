@@ -26,6 +26,21 @@ GO_LDFLAGS := \
 	-X github.com/mikeb26/octium/internal.CliSandboxUsername=$(CLI_SANDBOX_USERNAME) \
 	-X github.com/mikeb26/octium/internal.CliSandboxGroupname=$(CLI_SANDBOX_GROUPNAME)
 
+# Versioning.
+#
+# cmd/$(NCLI_TOOL_NAME)/version.txt is the source of truth for the build/version.
+# For Debian packaging, we derive the package version from version.txt:
+#   - release tags: vMAJOR.MINOR.PATCH  ->  MAJOR.MINOR.PATCH-1
+#   - otherwise:                         0.0.0+git
+CLI_VERSION_RAW = $(shell cat cmd/$(NCLI_TOOL_NAME)/version.txt 2>/dev/null)
+CLI_DEB_VERSION = $(shell \
+	v="$(CLI_VERSION_RAW)"; \
+	if printf '%s' "$$v" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		printf '%s-1\n' "$${v#v}"; \
+	else \
+		printf '%s\n' '0.0.0+git'; \
+	fi)
+
 .PHONY: build
 build: cmd/$(NCLI_TOOL_NAME)
 
@@ -37,7 +52,7 @@ vendor: go.mod
 	go mod vendor
 
 cmd/$(NCLI_TOOL_NAME)/version.txt:
-	git describe --tags > cmd/$(NCLI_TOOL_NAME)/version.txt
+	git describe --tags --always > cmd/$(NCLI_TOOL_NAME)/version.txt
 	truncate -s -1 cmd/$(NCLI_TOOL_NAME)/version.txt
 
 .PHONY: mocks
@@ -79,6 +94,7 @@ PKG_RENDERED_FILES := \
 	$(PKG_COMMON_POSTINSTALL_OUT) \
 	$(PKG_COMMON_RUN_AS_OUT) \
 	$(PKG_COMMON_GITCONFIG_OUT) \
+	pkg/deb/debian/changelog \
 	pkg/deb/debian/octium.install \
 	pkg/deb/debian/octium.postinst \
 	pkg/deb/debian/rules \
@@ -90,7 +106,7 @@ PKG_RENDERED_FILES := \
 pkg-generate: $(PKG_RENDERED_FILES)
 
 .PHONY: deb
-deb: pkg-generate
+deb: cmd/$(NCLI_TOOL_NAME)/version.txt pkg-generate
 	cd pkg/deb && ./build.sh -d
 
 $(PKG_COMMON_SYSUSERS_OUT): pkg/common/sysusers.d/octium-aiagent.conf.in
@@ -100,6 +116,7 @@ $(PKG_COMMON_POSTINSTALL_OUT): pkg/common/libexec/octium-postinstall-common.sh.i
 $(PKG_COMMON_RUN_AS_OUT): pkg/common/libexec/run-as-aiagent.in
 $(PKG_COMMON_GITCONFIG_OUT): pkg/common/share/gitconfig.in
 
+pkg/deb/debian/changelog: pkg/deb/debian/changelog.in cmd/$(NCLI_TOOL_NAME)/version.txt
 pkg/deb/debian/octium.install: pkg/deb/debian/octium.install.in
 pkg/deb/debian/octium.postinst: pkg/deb/debian/octium.postinst.in
 pkg/deb/debian/rules: pkg/deb/debian/rules.in
@@ -113,6 +130,7 @@ $(PKG_RENDERED_FILES):
 		-e 's|@CLI_TOOL_NAME@|$(CLI_TOOL_NAME)|g' \
 		-e 's|@CLI_SANDBOX_USERNAME@|$(CLI_SANDBOX_USERNAME)|g' \
 		-e 's|@CLI_SANDBOX_GROUPNAME@|$(CLI_SANDBOX_GROUPNAME)|g' \
+		-e 's|@CLI_DEB_VERSION@|$(CLI_DEB_VERSION)|g' \
 		"$<" > "$@"
 	@chmod --reference="$<" "$@"
 
