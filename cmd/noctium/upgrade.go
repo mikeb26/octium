@@ -1,4 +1,4 @@
-/* Copyright © 2023-2024 Mike Brown. All Rights Reserved.
+/* Copyright © 2023-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -25,8 +25,11 @@ var versionText string
 
 const DevVersionText = "v0.devbuild"
 
+// disabled for now since we switched to .deb packaging
+const DisableUpgrade = true
+
 func upgradeIfNeeded(ctx context.Context, octiumCtx *CliContext) error {
-	if versionText == DevVersionText {
+	if versionText == DevVersionText || DisableUpgrade {
 		return nil
 	}
 	latestVer, err := getLatestVersion()
