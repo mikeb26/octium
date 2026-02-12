@@ -2,4 +2,4 @@
 
   * Initial Debian packaging (@CLI_SANDBOX_USERNAME@ sysusers/tmpfiles, sudoers wrapper).
 
- -- Mike Brown <debpkg@torvosoft.com>  Sat, 01 Jan 2000 00:00:00 +0000
+ -- Octium DEB Packaging <apt@octium.dev>  Sat, 01 Jan 2000 00:00:00 +0000

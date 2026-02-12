@@ -1,7 +1,7 @@
 Source: octium
 Section: utils
 Priority: optional
-Maintainer: Mike Brown <debpkg@torvosoft.com>
+Maintainer: Octium DEB Packaging <apt@octium.dev>
 Build-Depends:
  debhelper-compat (= 13),
  ca-certificates,
