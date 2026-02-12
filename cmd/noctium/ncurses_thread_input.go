@@ -31,8 +31,14 @@ func drawThreadInputLabel(cliCtx *CliContext, statusText string) {
 		startY = menuHeaderHeight
 	}
 
-	if len([]rune(statusText)) > maxX {
-		statusText = string([]rune(statusText)[:maxX])
+	// Reserve the last 2 cells for the terminating 'O₂' so the label row always
+	// has a visual end-cap.
+	maxTextWidth := maxX
+	if maxTextWidth > 1 {
+		maxTextWidth = maxX - 2
+	}
+	if len([]rune(statusText)) > maxTextWidth {
+		statusText = string([]rune(statusText)[:maxTextWidth])
 	}
 	var sepAttr gc.Char = gc.A_NORMAL
 	if cliCtx.toggles.useColors {
@@ -46,11 +52,22 @@ func drawThreadInputLabel(cliCtx *CliContext, statusText string) {
 	//   can make the status background look "truncated".
 	// - Writing each cell explicitly ensures the full row is touched and uses
 	//   the desired background attributes.
-	for x := 0; x < maxX; x++ {
+	// Print the label/status text first, then explicitly touch the remainder of
+	// the row so the background attribute is applied consistently.
+	printedRunes := []rune(statusText)
+	cliCtx.rootWin.MovePrint(startY, 0, statusText)
+	x := len(printedRunes)
+	endX := maxX - 2
+	if endX < 0 {
+		endX = 0
+	}
+	for ; x < endX; x++ {
 		cliCtx.rootWin.MoveAddChar(startY, x, gc.Char(' ')|sepAttr)
 	}
+	if maxX > 1 {
+		cliCtx.rootWin.MovePrint(startY, endX, "O₂")
+	}
 	_ = cliCtx.rootWin.TouchLine(startY, 1)
-	cliCtx.rootWin.MovePrint(startY, 0, statusText)
 	_ = cliCtx.rootWin.AttrSet(gc.A_NORMAL)
 }
 
