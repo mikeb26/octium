@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/octium/internal/am"
 )
 
 type memPolicyStore struct {

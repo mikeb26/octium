@@ -1,4 +1,4 @@
-Source: gptcli
+Source: octium
 Section: utils
 Priority: optional
 Maintainer: Mike Brown <debpkg@torvosoft.com>
@@ -14,11 +14,11 @@ Build-Depends:
  git
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
-Homepage: https://github.com/mikeb26/gptcli
-Vcs-Git: https://github.com/mikeb26/gptcli.git
-Vcs-Browser: https://github.com/mikeb26/gptcli
+Homepage: https://github.com/mikeb26/octium
+Vcs-Git: https://github.com/mikeb26/octium.git
+Vcs-Browser: https://github.com/mikeb26/octium
 
-Package: gptcli
+Package: octium
 Architecture: any
 Depends:
  ${shlibs:Depends},
@@ -34,5 +34,5 @@ Depends:
  fonts-liberation,
  chromium
 Description: terminal-based agentic coding assistant (ncurses TUI)
- gptcli is a terminal-based, agentic coding assistant with an ncurses UI.
+ octium is a terminal-based, agentic coding assistant with an ncurses UI.
  It supports multiple LLM vendors and a curated, approval-gated toolset.

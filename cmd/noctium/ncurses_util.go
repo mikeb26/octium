@@ -12,9 +12,9 @@ import (
 	gc "github.com/rthornton128/goncurses"
 	"golang.org/x/term"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/types"
-	"github.com/mikeb26/gptcli/internal/ui"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/ui"
 )
 
 // statusSegment represents a slice of text within a status bar and

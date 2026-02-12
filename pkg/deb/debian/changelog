@@ -1,4 +1,4 @@
-gptcli (0.0.0+git) UNRELEASED; urgency=medium
+octium (0.0.0+git) UNRELEASED; urgency=medium
 
   * Initial Debian packaging (aiagent sysusers/tmpfiles, sudoers wrapper).
 

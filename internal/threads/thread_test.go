@@ -7,7 +7,7 @@ package threads
 import (
 	"testing"
 
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 

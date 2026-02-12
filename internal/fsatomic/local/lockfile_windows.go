@@ -31,7 +31,7 @@ func newLockFile(targetPath string) (*lockFile, error) {
 }
 
 func (l *lockFile) lock(ctx context.Context) error {
-	// Best-effort: Windows file locking semantics vary, and gptcli is primarily
+	// Best-effort: Windows file locking semantics vary, and octium is primarily
 	// targeting Unix-like systems. We rely on in-process locking here.
 	_ = ctx
 	return nil

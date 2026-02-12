@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -10,9 +10,9 @@ import (
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/golang/mock/gomock"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/types"
-	uipkg "github.com/mikeb26/gptcli/internal/ui"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/types"
+	uipkg "github.com/mikeb26/octium/internal/ui"
 	"github.com/stretchr/testify/assert"
 )
 

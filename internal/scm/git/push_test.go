@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mikeb26/gptcli/internal/scm"
+	"github.com/mikeb26/octium/internal/scm"
 )
 
 func TestPush_UsesUpstreamRemoteAndBranchWhenUnspecified(t *testing.T) {

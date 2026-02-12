@@ -15,10 +15,10 @@ override_dh_auto_build:
 	# Build with uncompressed DWARF so debhelper's dh_dwz (if enabled) can
 	# operate reliably across distros/tooling versions.
 	go build -tags "$(TAGS)" -ldflags "-compressdwarf=false \
-		-X github.com/mikeb26/gptcli/internal.CliToolName=@CLI_TOOL_NAME@ \
-		-X github.com/mikeb26/gptcli/internal.CliSandboxUsername=@CLI_SANDBOX_USERNAME@ \
-		-X github.com/mikeb26/gptcli/internal.CliSandboxGroupname=@CLI_SANDBOX_GROUPNAME@" \
-		-o @CLI_TOOL_NAME@ ./cmd/gptcli
+		-X github.com/mikeb26/octium/internal.CliToolName=@CLI_TOOL_NAME@ \
+		-X github.com/mikeb26/octium/internal.CliSandboxUsername=@CLI_SANDBOX_USERNAME@ \
+		-X github.com/mikeb26/octium/internal.CliSandboxGroupname=@CLI_SANDBOX_GROUPNAME@" \
+		-o n@CLI_TOOL_NAME@ ./cmd/n@CLI_TOOL_NAME@
 
 override_dh_dwz:
 	# dwz frequently fails on Go binaries due to DWARF/compression details.

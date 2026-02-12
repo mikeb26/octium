@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/fsatomic"
+	"github.com/mikeb26/octium/internal/fsatomic"
 )
 
 func TestFS_ReadFile_NotFound(t *testing.T) {

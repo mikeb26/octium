@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: gptcli
-Upstream-Contact: https://github.com/mikeb26/gptcli
-Source: https://github.com/mikeb26/gptcli
+Upstream-Name: octium
+Upstream-Contact: https://github.com/mikeb26/octium
+Source: https://github.com/mikeb26/octium
 
 Files: *
 Copyright: 2023-2026 Mike Brown and contributors

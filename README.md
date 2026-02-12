@@ -1,6 +1,6 @@
-# gptcli
+# octium
 
-gptcli is a terminal-based, agentic coding assistant. It wraps LLMs behind an **ncurses TUI** (thread menu + per-thread chat view) and exposes a curated set of tools (file ops, command execution, web retrieval, etc.) with a **user-approval gate** for potentially dangerous actions.
+octium is a terminal-based, agentic coding assistant. It wraps LLMs behind an **ncurses TUI** (thread menu + per-thread chat view) and exposes a curated set of tools (file ops, command execution, web retrieval, etc.) with a **user-approval gate** for potentially dangerous actions.
 
 Conversations are stored as local “threads” on disk, so you can resume work across multiple executions.
 
@@ -33,20 +33,20 @@ Conversations are stored as local “threads” on disk, so you can resume work 
 ### Install a prebuilt binary
 
 Precompiled binaries are published for Linux on the
-[releases](https://github.com/mikeb26/gptcli/releases) page.
+[releases](https://github.com/mikeb26/octium/releases) page.
 
-Example (downloads the latest release asset named `gptcli`):
+Example (downloads the latest release asset named `octium`):
 
 ```bash
 mkdir -p "$HOME/bin"
 
-GPTCLI_URL=$(curl -s https://api.github.com/repos/mikeb26/gptcli/releases/latest \
+OCTIUM_URL=$(curl -s https://api.github.com/repos/mikeb26/octium/releases/latest \
   | grep browser_download_url \
   | cut -f4 -d\" \
   | head -n 1)
 
-wget "$GPTCLI_URL" -O "$HOME/bin/gptcli"
-chmod 755 "$HOME/bin/gptcli"
+wget "$OCTIUM_URL" -O "$HOME/bin/octium"
+chmod 755 "$HOME/bin/octium"
 
 # add $HOME/bin to your PATH if not already present
 ```
@@ -54,8 +54,8 @@ chmod 755 "$HOME/bin/gptcli"
 ### Build from source
 
 ```bash
-git clone https://github.com/mikeb26/gptcli.git
-cd gptcli
+git clone https://github.com/mikeb26/octium.git
+cd octium
 make
 ```
 
@@ -64,14 +64,14 @@ make
 Run:
 
 ```bash
-gptcli
+octium
 ```
 
 Notes:
 
-- gptcli requires a real TTY (it uses ncurses); it is not designed for non-interactive piping.
-- On first run (or when config is missing), gptcli will prompt you to choose an LLM vendor/model and enter an API key.
-- When a newer version is available, gptcli may prompt to upgrade on startup.
+- octium requires a real TTY (it uses ncurses); it is not designed for non-interactive piping.
+- On first run (or when config is missing), octium will prompt you to choose an LLM vendor/model and enter an API key.
+- When a newer version is available, octium may prompt to upgrade on startup.
 
 ### Key bindings (thread menu)
 
@@ -92,9 +92,9 @@ Notes:
 
 ## Configuration & storage
 
-gptcli stores state under:
+octium stores state under:
 
-`~/.config/gptcli/`
+`~/.config/octium/`
 
 Key files/directories:
 
@@ -113,7 +113,7 @@ Exact model names are selectable in the in-app config UI.
 
 ## Contributing
 
-Pull requests are welcome at https://github.com/mikeb26/gptcli
+Pull requests are welcome at https://github.com/mikeb26/octium
 
 For major changes, please open an issue first to discuss what you would like to change.
 

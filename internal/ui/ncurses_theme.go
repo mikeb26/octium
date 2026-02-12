@@ -8,7 +8,7 @@ import gc "github.com/rthornton128/goncurses"
 
 // Theme configures optional styling for NcursesUI widgets.
 //
-// Theme values are intentionally minimal; they allow cmd/gptcli to keep
+// Theme values are intentionally minimal; they allow cmd/noctium to keep
 // color-pair ownership and initialization centralized while internal/ui
 // widgets can still render consistently.
 type Theme struct {

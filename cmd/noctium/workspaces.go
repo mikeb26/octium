@@ -11,9 +11,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/threads"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 // launchWorkspaceModalFromThreadView opens a selection modal for workspace

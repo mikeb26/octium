@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mikeb26/gptcli/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/fsatomic/local"
 )
 
 func TestThreadGroupSet_Save(t *testing.T) {

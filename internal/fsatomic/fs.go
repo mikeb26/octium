@@ -42,7 +42,7 @@ type File struct {
 //   - fsync + rename + fsync(parent-dir) discipline.
 //
 //   - Mutual exclusion: operations must be safe when multiple goroutines and
-//     multiple gptcli processes on the same host concurrently access the same
+//     multiple octium processes on the same host concurrently access the same
 //     paths. Locking is implicit and implementation-defined (e.g., advisory
 //     file locks).
 //

@@ -2,9 +2,10 @@ export GO111MODULE=on
 export GOFLAGS=-mod=vendor
 
 # Packaging / sandbox parameters.
-CLI_TOOL_NAME ?= gptcli
-CLI_SANDBOX_USERNAME ?= aiagent
-CLI_SANDBOX_GROUPNAME ?= gptcli-share
+CLI_TOOL_NAME ?= octium
+CLI_SANDBOX_USERNAME ?= octium
+CLI_SANDBOX_GROUPNAME ?= octium-users
+NCLI_TOOL_NAME ?= n$(CLI_TOOL_NAME)
 
 # Build/test tags. Defaults to enabling github.com/negrel/assert assertions.
 # Override with e.g.:
@@ -21,29 +22,29 @@ endif
 # This is the Go equivalent of C's -D...: we inject string vars via
 # `go build -ldflags "-X pkgpath.Name=value"`.
 GO_LDFLAGS := \
-	-X github.com/mikeb26/gptcli/internal.CliToolName=$(CLI_TOOL_NAME) \
-	-X github.com/mikeb26/gptcli/internal.CliSandboxUsername=$(CLI_SANDBOX_USERNAME) \
-	-X github.com/mikeb26/gptcli/internal.CliSandboxGroupname=$(CLI_SANDBOX_GROUPNAME)
+	-X github.com/mikeb26/octium/internal.CliToolName=$(CLI_TOOL_NAME) \
+	-X github.com/mikeb26/octium/internal.CliSandboxUsername=$(CLI_SANDBOX_USERNAME) \
+	-X github.com/mikeb26/octium/internal.CliSandboxGroupname=$(CLI_SANDBOX_GROUPNAME)
 
 .PHONY: build
-build: cmd/gptcli
+build: cmd/$(NCLI_TOOL_NAME)
 
-cmd/gptcli: vendor FORCE
-	go build $(GO_TAG_FLAGS) -ldflags "$(GO_LDFLAGS)" -o $(CLI_TOOL_NAME) cmd/gptcli/*.go
+cmd/$(NCLI_TOOL_NAME): vendor FORCE
+	go build $(GO_TAG_FLAGS) -ldflags "$(GO_LDFLAGS)" -o $(NCLI_TOOL_NAME) ./cmd/$(NCLI_TOOL_NAME)
 
 vendor: go.mod
 	go mod download
 	go mod vendor
 
-cmd/gptcli/version.txt:
-	git describe --tags > cmd/gptcli/version.txt
-	truncate -s -1 cmd/gptcli/version.txt
+cmd/$(NCLI_TOOL_NAME)/version.txt:
+	git describe --tags > cmd/$(NCLI_TOOL_NAME)/version.txt
+	truncate -s -1 cmd/$(NCLI_TOOL_NAME)/version.txt
 
 .PHONY: mocks
 mocks:
 	cd internal/types; go generate
 
-TESTPKGS=github.com/mikeb26/gptcli/cmd/gptcli github.com/mikeb26/gptcli/internal github.com/mikeb26/gptcli/internal/prompts github.com/mikeb26/gptcli/internal/ui github.com/mikeb26/gptcli/internal/am github.com/mikeb26/gptcli/internal/llmclient github.com/mikeb26/gptcli/internal/threads github.com/mikeb26/gptcli/internal/scm github.com/mikeb26/gptcli/internal/scm/git github.com/mikeb26/gptcli/internal/tools github.com/mikeb26/gptcli/internal/workspace
+TESTPKGS=github.com/mikeb26/octium/cmd/$(NCLI_TOOL_NAME) github.com/mikeb26/octium/internal github.com/mikeb26/octium/internal/prompts github.com/mikeb26/octium/internal/ui github.com/mikeb26/octium/internal/am github.com/mikeb26/octium/internal/llmclient github.com/mikeb26/octium/internal/threads github.com/mikeb26/octium/internal/scm github.com/mikeb26/octium/internal/scm/git github.com/mikeb26/octium/internal/tools github.com/mikeb26/octium/internal/workspace
 
 # Enable the race detector by default for `make test`. You can disable with:
 #   make test RACE=0
@@ -76,8 +77,8 @@ PKG_RENDERED_FILES := \
 	$(PKG_COMMON_SUDOERS_OUT) \
 	$(PKG_COMMON_POSTINSTALL_OUT) \
 	$(PKG_COMMON_RUN_AS_OUT) \
-	pkg/deb/debian/gptcli.install \
-	pkg/deb/debian/gptcli.postinst \
+	pkg/deb/debian/octium.install \
+	pkg/deb/debian/octium.postinst \
 	pkg/deb/debian/rules \
 	pkg/deb/debian/README.Debian \
 	pkg/README.md \
@@ -90,14 +91,14 @@ pkg-generate: $(PKG_RENDERED_FILES)
 deb: pkg-generate
 	cd pkg/deb && ./build.sh -d
 
-$(PKG_COMMON_SYSUSERS_OUT): pkg/common/sysusers.d/gptcli-aiagent.conf.in
-$(PKG_COMMON_TMPFILES_OUT): pkg/common/tmpfiles.d/gptcli-aiagent.conf.in
-$(PKG_COMMON_SUDOERS_OUT): pkg/common/sudoers.d/gptcli-share-aiagent-echo.in
-$(PKG_COMMON_POSTINSTALL_OUT): pkg/common/libexec/gptcli-postinstall-common.sh.in
+$(PKG_COMMON_SYSUSERS_OUT): pkg/common/sysusers.d/octium-aiagent.conf.in
+$(PKG_COMMON_TMPFILES_OUT): pkg/common/tmpfiles.d/octium-aiagent.conf.in
+$(PKG_COMMON_SUDOERS_OUT): pkg/common/sudoers.d/octium-share-aiagent-echo.in
+$(PKG_COMMON_POSTINSTALL_OUT): pkg/common/libexec/octium-postinstall-common.sh.in
 $(PKG_COMMON_RUN_AS_OUT): pkg/common/libexec/run-as-aiagent.in
 
-pkg/deb/debian/gptcli.install: pkg/deb/debian/gptcli.install.in
-pkg/deb/debian/gptcli.postinst: pkg/deb/debian/gptcli.postinst.in
+pkg/deb/debian/octium.install: pkg/deb/debian/octium.install.in
+pkg/deb/debian/octium.postinst: pkg/deb/debian/octium.postinst.in
 pkg/deb/debian/rules: pkg/deb/debian/rules.in
 pkg/deb/debian/README.Debian: pkg/deb/debian/README.Debian.in
 pkg/README.md: pkg/README.md.in
@@ -114,7 +115,7 @@ $(PKG_RENDERED_FILES):
 
 .PHONY: clean
 clean:
-	rm -f $(CLI_TOOL_NAME) unit-tests.xml
+	rm -f $(NCLI_TOOL_NAME) unit-tests.xml
 
 .PHONY: pkg-clean
 pkg-clean:
@@ -123,7 +124,7 @@ pkg-clean:
 .PHONY: deps
 deps:
 	rm -rf go.mod go.sum vendor
-	go mod init github.com/mikeb26/gptcli
+	go mod init github.com/mikeb26/octium
 	go mod edit -replace=github.com/rthornton128/goncurses=github.com/mikeb26/rthornton128-goncurses@bc9261688f2c003b706dacc3a9437181cb864bbe
 	GOPROXY=direct go mod tidy
 	go mod vendor

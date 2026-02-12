@@ -10,9 +10,9 @@ import (
 	"os"
 
 	"github.com/cloudwego/eino/components/tool/utils"
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 type PwdTool struct {

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal/scm"
+	"github.com/mikeb26/octium/internal/scm"
 )
 
 // Push pushes the current branch to a remote.

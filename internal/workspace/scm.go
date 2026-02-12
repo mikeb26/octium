@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/scm"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/scm"
 	"github.com/negrel/assert"
 )
 

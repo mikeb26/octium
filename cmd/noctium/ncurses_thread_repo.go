@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal/scm"
-	"github.com/mikeb26/gptcli/internal/types"
-	"github.com/mikeb26/gptcli/internal/workspace"
+	"github.com/mikeb26/octium/internal/scm"
+	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/workspace"
 )
 
 //go:embed amd.template

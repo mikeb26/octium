@@ -1,4 +1,4 @@
-module github.com/mikeb26/gptcli
+module github.com/mikeb26/octium
 
 go 1.24.0
 

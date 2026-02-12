@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -20,10 +20,10 @@ import (
 	"github.com/cloudwego/eino/flow/agent"
 	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/tools"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/tools"
+	"github.com/mikeb26/octium/internal/types"
 	"google.golang.org/genai"
 )
 

@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/llmclient"
-	"github.com/mikeb26/gptcli/internal/prompts"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/llmclient"
+	"github.com/mikeb26/octium/internal/prompts"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 // setRunning transitions the thread to ThreadStateRunning.

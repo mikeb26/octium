@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/fsatomic"
+	"github.com/mikeb26/octium/internal/fsatomic"
 	"github.com/negrel/assert"
 )
 
@@ -140,7 +140,7 @@ func (l *FS) WriteFileCAS(ctx context.Context, path string, expected fsatomic.Ve
 //   - process-local: a per-path *sync.Mutex prevents concurrent goroutines from
 //     interleaving read/modify/write sequences.
 //   - host-local: an advisory lock file (path + ".lock") is used to coordinate
-//     with other gptcli processes operating on the same threads directory.
+//     with other octium processes operating on the same threads directory.
 //
 // The lock acquisition order is always (1) in-process mutex then (2) lock file.
 // Keeping a single ordering avoids deadlocks if future code ever composes

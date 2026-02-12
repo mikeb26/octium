@@ -16,15 +16,15 @@ import (
 	"time"
 
 	"github.com/famz/SetLocale"
-	"github.com/mikeb26/gptcli/internal/threads"
-	"github.com/mikeb26/gptcli/internal/types"
-	iui "github.com/mikeb26/gptcli/internal/ui"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
+	iui "github.com/mikeb26/octium/internal/ui"
 	gc "github.com/rthornton128/goncurses"
 	"golang.org/x/term"
 )
 
-func confirmQuitIfNonIdleThreads(gptCliCtx *CliContext) (bool, error) {
-	nonIdle := gptCliCtx.threadGroupSet.NonIdleThreadCount()
+func confirmQuitIfNonIdleThreads(octiumCtx *CliContext) (bool, error) {
+	nonIdle := octiumCtx.threadGroupSet.NonIdleThreadCount()
 
 	if nonIdle == 0 {
 		return true, nil
@@ -37,7 +37,7 @@ func confirmQuitIfNonIdleThreads(gptCliCtx *CliContext) (bool, error) {
 	defaultQuit := false
 	trueOpt := types.UIOption{Key: "y", Label: "Yes, quit anyway"}
 	falseOpt := types.UIOption{Key: "n", Label: "No, I don't want to lose progress"}
-	quit, err := gptCliCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultQuit)
+	quit, err := octiumCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultQuit)
 	if err != nil {
 		return false, err
 	}

@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 // GetUserApproval is a helper that enforces the RequiresUserApproval contract
@@ -33,7 +33,7 @@ func GetUserApproval(ctx context.Context, approver am.Approver,
 		return err
 	}
 	if !dec.Allowed {
-		return fmt.Errorf("The user denied approval for us to run %v(%v); you(the AI agent) should provide justification to the gptcli user for why we need to invoke it.",
+		return fmt.Errorf("The user denied approval for us to run %v(%v); you(the AI agent) should provide justification to the octium user for why we need to invoke it.",
 			t.GetOp(), arg)
 	}
 

@@ -8,9 +8,9 @@ import (
 	"context"
 
 	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/fsatomic"
-	"github.com/mikeb26/gptcli/internal/httpproxy"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsatomic"
+	"github.com/mikeb26/octium/internal/httpproxy"
 )
 
 type InternalContext struct {

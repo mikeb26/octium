@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal/scm"
+	"github.com/mikeb26/octium/internal/scm"
 )
 
 // ListRemoteRepos lists configured remotes.

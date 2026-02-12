@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/tools"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/tools"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 // defined here due to recursion with newEINOClient()
@@ -64,8 +64,8 @@ func newPromptRunTool(ctxIn context.Context, vendor string,
 }
 
 func (t PromptRunTool) Define() types.LlmTool {
-	const NonLeafDesc = "Query the LLM with the provided system and user prompts. This function is useful for managing limited sized LLM context windows. Bigger picture tasks can be broken down into smaller more focused tasks (which themselves could be further subtasked). It has access to the same set of tools gptcli provides."
-	const LeafDesc = "Query the LLM with the provided system and user prompts. This function is useful for managing limited sized LLM context windows. Bigger picture tasks can be broken down into smaller more focused tasks. It has access to the same set of tools gptcli provides (except this one)."
+	const NonLeafDesc = "Query the LLM with the provided system and user prompts. This function is useful for managing limited sized LLM context windows. Bigger picture tasks can be broken down into smaller more focused tasks (which themselves could be further subtasked). It has access to the same set of tools octium provides."
+	const LeafDesc = "Query the LLM with the provided system and user prompts. This function is useful for managing limited sized LLM context windows. Bigger picture tasks can be broken down into smaller more focused tasks. It has access to the same set of tools octium provides (except this one)."
 
 	desc := NonLeafDesc
 	if t.depth >= internal.MaxDepth {

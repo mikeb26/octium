@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/scm"
+	"github.com/mikeb26/octium/internal/scm"
 )
 
 func TestInitRepo_CreatesDirAndRunsGitInit(t *testing.T) {

@@ -1,4 +1,4 @@
-/* Copyright © 2023-2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2023-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -8,7 +8,7 @@ import (
 	_ "embed"
 	"fmt"
 
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 //go:embed system_msg.txt

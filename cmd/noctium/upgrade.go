@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 //go:embed version.txt
@@ -25,7 +25,7 @@ var versionText string
 
 const DevVersionText = "v0.devbuild"
 
-func upgradeIfNeeded(ctx context.Context, gptCliCtx *CliContext) error {
+func upgradeIfNeeded(ctx context.Context, octiumCtx *CliContext) error {
 	if versionText == DevVersionText {
 		return nil
 	}
@@ -37,12 +37,12 @@ func upgradeIfNeeded(ctx context.Context, gptCliCtx *CliContext) error {
 		return nil
 	}
 
-	prompt := fmt.Sprintf("A new version of gptcli is available (%v). Upgrade?",
+	prompt := fmt.Sprintf("A new version of octium is available (%v). Upgrade?",
 		latestVer)
 	trueOpt := types.UIOption{Key: "y", Label: "y"}
 	falseOpt := types.UIOption{Key: "n", Label: "n"}
 	defaultYes := true
-	shouldUpgrade, err := gptCliCtx.ui.SelectBool(prompt, trueOpt, falseOpt,
+	shouldUpgrade, err := octiumCtx.ui.SelectBool(prompt, trueOpt, falseOpt,
 		&defaultYes)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func upgradeIfNeeded(ctx context.Context, gptCliCtx *CliContext) error {
 }
 
 func getLatestVersion() (string, error) {
-	const LatestReleaseUrl = "https://api.github.com/repos/mikeb26/gptcli/releases/latest"
+	const LatestReleaseUrl = "https://api.github.com/repos/mikeb26/octium/releases/latest"
 
 	client := http.Client{
 		Timeout: time.Second * 30,
@@ -90,7 +90,7 @@ func getLatestVersion() (string, error) {
 }
 
 func upgradeViaGithub(latestVer string) error {
-	const LatestDownloadFmt = "https://github.com/mikeb26/gptcli/releases/download/%v/gptcli"
+	const LatestDownloadFmt = "https://github.com/mikeb26/octium/releases/download/%v/octium"
 
 	client := http.Client{
 		Timeout: time.Second * 30,
@@ -102,7 +102,7 @@ func upgradeViaGithub(latestVer string) error {
 
 	}
 
-	tmpFile, err := os.CreateTemp("", "gptcli-*")
+	tmpFile, err := os.CreateTemp("", "octium-*")
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToCreateTempFile, err)
 	}

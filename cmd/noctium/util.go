@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/threads"
+	"github.com/mikeb26/octium/internal/threads"
 	gc "github.com/rthornton128/goncurses"
 )
 

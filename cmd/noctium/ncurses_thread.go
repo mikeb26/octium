@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/mikeb26/gptcli/internal/prompts"
-	"github.com/mikeb26/gptcli/internal/scm"
-	"github.com/mikeb26/gptcli/internal/threads"
-	"github.com/mikeb26/gptcli/internal/types"
-	"github.com/mikeb26/gptcli/internal/ui"
-	"github.com/mikeb26/gptcli/internal/workspace"
+	"github.com/mikeb26/octium/internal/prompts"
+	"github.com/mikeb26/octium/internal/scm"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/ui"
+	"github.com/mikeb26/octium/internal/workspace"
 	gc "github.com/rthornton128/goncurses"
 )
 

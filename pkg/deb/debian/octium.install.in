@@ -1,4 +1,5 @@
-@CLI_TOOL_NAME@ usr/bin/
+# The ncurses TUI binary is built as n@CLI_TOOL_NAME@ (e.g. noctium).
+n@CLI_TOOL_NAME@ usr/bin/
 
 pkg/common/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf usr/lib/sysusers.d/
 pkg/common/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf usr/lib/tmpfiles.d/

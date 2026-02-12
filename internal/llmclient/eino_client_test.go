@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 

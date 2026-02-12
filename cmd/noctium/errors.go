@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ErrTTYRequired                 = errors.New("A terminal is required to run gptcli")
+	ErrTTYRequired                 = errors.New("A terminal is required to run octium")
 	ErrUnknownReasoningEffort      = errors.New("Unknown reasoning effort")
 	ErrEmptyMenuText               = errors.New("Empty menu text")
 	ErrNilScreen                   = errors.New("Nil screen returned")
@@ -20,8 +20,8 @@ var (
 	ErrCouldNotParseLatestRelease  = errors.New("Could not parse latest release JSON")
 	ErrFailedToDownloadVersion     = errors.New("Failed to download new version")
 	ErrFailedToCreateTempFile      = errors.New("Failed to create temp file")
-	ErrCouldNotDetermineBinaryPath = errors.New("Could not determine path to gptcli")
-	ErrCouldNotReplaceBinary       = errors.New("Could not replace existing gptcli; do you need to be root?")
+	ErrCouldNotDetermineBinaryPath = errors.New("Could not determine path to octium")
+	ErrCouldNotReplaceBinary       = errors.New("Could not replace existing octium; do you need to be root?")
 	ErrFailedToGetPrefsPath        = errors.New("Failed to get prefs path")
 	ErrFailedToReadPrefs           = errors.New("Failed to read prefs")
 	ErrFailedToMarshalPrefs        = errors.New("Failed to marshal prefs")

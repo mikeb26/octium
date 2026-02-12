@@ -14,15 +14,15 @@ import (
 	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	gc "github.com/rthornton128/goncurses"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/fsatomic/local"
-	"github.com/mikeb26/gptcli/internal/httpproxy"
-	"github.com/mikeb26/gptcli/internal/scm"
-	"github.com/mikeb26/gptcli/internal/scm/git"
-	"github.com/mikeb26/gptcli/internal/threads"
-	"github.com/mikeb26/gptcli/internal/types"
-	"github.com/mikeb26/gptcli/internal/ui"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/httpproxy"
+	"github.com/mikeb26/octium/internal/scm"
+	"github.com/mikeb26/octium/internal/scm/git"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/ui"
 )
 
 const (

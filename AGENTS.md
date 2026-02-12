@@ -2,7 +2,7 @@
 
 ## Project overview
 
-This repository contains `gptcli`, a terminal-based, agentic coding assistant. It wraps LLMs behind a ncurses/stdio UI and exposes a curated toolset so agents can:
+This repository contains `octium`, a terminal-based, agentic coding assistant. It wraps LLMs behind a ncurses/stdio UI and exposes a curated toolset so agents can:
 
 - Read, create, append, patch, and delete local files
 - Run OS-level commands
@@ -17,7 +17,7 @@ The core agent implementation is built on [CloudWeGo EINO](https://github.com/cl
 
 For agents that need to build, test, or lint this repo:
 
-- Build the `gptcli` binary:
+- Build the `octium` binary:
   - `make build`
 - Run tests:
   - `make test`
@@ -31,7 +31,7 @@ These commands assume a Go toolchain is installed and available in `PATH`. The p
 
 Agents working on this repo should be aware of these key directories:
 
-- `cmd/gptcli/` – entrypoint, ncurses UI, config & prefs handling
+- `cmd/noctium/` – entrypoint, ncurses UI, config & prefs handling
 - `internal/llmclient/` – EINO-based agent client (`NewEINOClient`)
 - `internal/tools/` – tool definitions for file/command/web/env operations
 - `internal/prompts/` – system prompt and summarization prompt wiring
@@ -47,7 +47,7 @@ If you need to change behavior in one of these areas, prefer editing the existin
 ### High-level behavior
 
 - Agents in this repo are *tool-using* LLMs configured via `NewEINOClient` in `internal/llmclient/eino_client.go`.
-- Supported vendors (at time of writing) are: `openai`, `anthropic`, `google`. The active vendor and model are selected via the `gptcli config` flow and `internal.DefaultModels`.
+- Supported vendors (at time of writing) are: `openai`, `anthropic`, `google`. The active vendor and model are selected via the `octium config` flow and `internal.DefaultModels`.
 - Conversations are stored as "threads" on disk. Each thread keeps a JSON-serialized dialogue, including an initial system message from `internal/prompts/system_msg.txt`.
 - When `SummarizePrior` is enabled for a user, older dialogue in a thread may be summarized via a dedicated summarization prompt before continuing the conversation, to reduce context window usage.
 
@@ -112,7 +112,7 @@ Agents should run tests when modifying Go code or tooling:
 - Optionally, generate JUnit output (for CI contexts):
   - `gotestsum --junitfile unit-tests.xml $(TESTPKGS)`
 
-The `Makefile` defines `TESTPKGS` to include core packages (`cmd/gptcli`, `internal/...`, `internal/am`). If you touch files under these paths, you should expect to run these tests.
+The `Makefile` defines `TESTPKGS` to include core packages (`cmd/noctium`, `internal/...`, `internal/am`). If you touch files under these paths, you should expect to run these tests.
 
 
 ## Code style and conventions
@@ -156,7 +156,7 @@ The `Makefile` defines `TESTPKGS` to include core packages (`cmd/gptcli`, `inter
   - If code already has a “save”/“persist” method, prefer calling it over manually marshalling JSON and writing files.
   - If reuse requires a small temporary state tweak (e.g., setting the directory name to the currently-loaded dir before saving), keep it local, restore state, and add a clarifying comment.
 - Testing:
-  - Prefer adding or updating unit tests under `internal/...` or `cmd/gptcli/...` when you change behavior.
+  - Prefer adding or updating unit tests under `internal/...` or `cmd/noctium/...` when you change behavior.
 
 
 ## Security and approvals
@@ -174,7 +174,7 @@ When making non-trivial changes (suitable for a pull request):
 
 1. **Understand the context**
    - Read this `AGENTS.md` and any nearby documentation or comments in the target files.
-   - Inspect the relevant implementation in `internal/` and `cmd/gptcli/` instead of guessing behavior.
+   - Inspect the relevant implementation in `internal/` and `cmd/noctium/` instead of guessing behavior.
 
 2. **Implement changes carefully**
    - Use the `file_*` tools to modify code.
@@ -193,6 +193,6 @@ When making non-trivial changes (suitable for a pull request):
 
 - Respect the user’s preferred vendor and model; these are configured through `prefs.json` and `DefaultModels`.
 - Reasoning effort (applicable for some vendors/models) can be adjusted at runtime via `reasoning <low|medium|high>`. Use higher effort only when the task genuinely benefits from deeper reasoning.
-- Threads live under the user’s config directory (`~/.config/gptcli/threads` by default). To inspect or debug a thread’s raw data, read the JSON files there rather than introducing new storage formats.
+- Threads live under the user’s config directory (`~/.config/octium/threads` by default). To inspect or debug a thread’s raw data, read the JSON files there rather than introducing new storage formats.
 
 This file is intended as living documentation for agents. If you find yourself needing extra project-specific guidance that isn’t covered here, prefer updating `AGENTS.md` alongside your code changes.

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/scm"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/scm"
 	"github.com/stretchr/testify/assert"
 )
 

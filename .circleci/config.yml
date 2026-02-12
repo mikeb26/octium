@@ -31,8 +31,8 @@ jobs:
           command: |
             if [ "$CIRCLE_TAG" != "" ]
             then
-                rm cmd/gptcli/version.txt
-                make cmd/gptcli/version.txt
+                rm cmd/noctium/version.txt
+                make cmd/noctium/version.txt
             fi          
             make build
       - run:
@@ -48,7 +48,7 @@ jobs:
       - store_test_results:
           path: unit-tests.xml
       - store_artifacts:
-          path: gptcli
+          path: octium
       - run:
           name: Github release
           command: |
@@ -56,7 +56,7 @@ jobs:
             PATH=$PATH:$HOME/go/bin
             if [ "$CIRCLE_TAG" != "" ]
             then
-                ghr -name "gptcli ($CIRCLE_TAG)" $CIRCLE_TAG gptcli
+                ghr -name "octium ($CIRCLE_TAG)" $CIRCLE_TAG octium
             else
                 echo "Not releasing untagged commit"
             fi

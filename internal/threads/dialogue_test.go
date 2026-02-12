@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/mikeb26/gptcli/internal/prompts"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/prompts"
+	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -17,7 +17,7 @@ import (
 
 // Client is a small abstraction over calling the git executable.
 //
-// gptcli assumes git is installed and available, and uses this client
+// octium assumes git is installed and available, and uses this client
 // as the backend for git-related functionality.
 //
 // Keeping all git process invocation behind this type makes it easier

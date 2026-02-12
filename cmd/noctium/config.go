@@ -17,17 +17,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/types"
 )
 
-func (gptCliCtx *CliContext) loadPrefs() error {
+func (octiumCtx *CliContext) loadPrefs() error {
 	vendor := internal.DefaultVendor
 	vendorInfo := internal.GetVendorInfo(vendor)
 	model := vendorInfo.DefaultModel
 	// Establish defaults so newly added prefs fields take the intended defaults
 	// even when loading older prefs.json files that don't include them.
-	gptCliCtx.prefs = Prefs{
+	octiumCtx.prefs = Prefs{
 		SummarizePrior: false,
 		Vendor:         vendor,
 		Model:          model,
@@ -42,22 +42,22 @@ func (gptCliCtx *CliContext) loadPrefs() error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToReadPrefs, err)
 	}
-	err = json.Unmarshal(prefsFileContent, &gptCliCtx.prefs)
+	err = json.Unmarshal(prefsFileContent, &octiumCtx.prefs)
 	if err != nil {
 		return err
 	}
-	gptCliCtx.toggles.summary = gptCliCtx.prefs.SummarizePrior
-	if gptCliCtx.prefs.Vendor == "" {
-		gptCliCtx.prefs.Vendor = vendor
+	octiumCtx.toggles.summary = octiumCtx.prefs.SummarizePrior
+	if octiumCtx.prefs.Vendor == "" {
+		octiumCtx.prefs.Vendor = vendor
 	}
-	if gptCliCtx.prefs.Model == "" {
-		gptCliCtx.prefs.Model = model
+	if octiumCtx.prefs.Model == "" {
+		octiumCtx.prefs.Model = model
 	}
 	return nil
 }
 
-func (gptCliCtx *CliContext) savePrefs() error {
-	prefsFileContent, err := json.Marshal(gptCliCtx.prefs)
+func (octiumCtx *CliContext) savePrefs() error {
+	prefsFileContent, err := json.Marshal(octiumCtx.prefs)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToMarshalPrefs, err)
 	}
@@ -74,7 +74,7 @@ func (gptCliCtx *CliContext) savePrefs() error {
 	return nil
 }
 
-func configMain(ctx context.Context, gptCliCtx *CliContext) error {
+func configMain(ctx context.Context, octiumCtx *CliContext) error {
 	configDir, err := getConfigDir()
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 		choices = append(choices, types.UIOption{Key: v, Label: fullName})
 	}
 
-	selection, err := gptCliCtx.ui.SelectOption("Choose an LLM vendor:", choices)
+	selection, err := octiumCtx.ui.SelectOption("Choose an LLM vendor:", choices)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 	if !slices.Contains(vendorKeys, vendor) {
 		return fmt.Errorf("%w: %v", ErrUnsupportedVendor, vendor)
 	}
-	gptCliCtx.prefs.Vendor = vendor
+	octiumCtx.prefs.Vendor = vendor
 	vendorInfo := internal.GetVendorInfo(vendor)
 
 	models := vendorInfo.SupportedModels
@@ -108,7 +108,7 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 	for _, m := range models {
 		choices = append(choices, types.UIOption{Key: m, Label: m})
 	}
-	selection, err = gptCliCtx.ui.SelectOption(
+	selection, err = octiumCtx.ui.SelectOption(
 		fmt.Sprintf("Choose an %v model:", vendorInfo.FullName), choices)
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 	if !slices.Contains(models, model) {
 		return fmt.Errorf("%w: %v", ErrUnsupportedModel, model)
 	}
-	gptCliCtx.prefs.Model = model
+	octiumCtx.prefs.Model = model
 
 	keyPath := path.Join(configDir, fmt.Sprintf(KeyFileFmt, vendor))
 	keyBytes, err := os.ReadFile(keyPath)
@@ -135,7 +135,7 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 		defaultKeep := true
 		trueOpt := types.UIOption{Key: "y", Label: "y"}
 		falseOpt := types.UIOption{Key: "n", Label: "n"}
-		keepKey, err = gptCliCtx.ui.SelectBool(keepPrompt, trueOpt, falseOpt, &defaultKeep)
+		keepKey, err = octiumCtx.ui.SelectBool(keepPrompt, trueOpt, falseOpt, &defaultKeep)
 		if err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 
 	if !keepKey {
 		keyPrompt := fmt.Sprintf("Please visit %v to obtain an API key.\nEnter your %v API key: ", vendorInfo.ApiKeyUrl, vendorInfo.FullName)
-		key, err := gptCliCtx.ui.Get(keyPrompt)
+		key, err := octiumCtx.ui.Get(keyPrompt)
 		if err != nil {
 			return err
 		}
@@ -168,13 +168,13 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 	trueOpt := types.UIOption{Key: "y", Label: "y"}
 	falseOpt := types.UIOption{Key: "n", Label: "n"}
 
-	summarize, err := gptCliCtx.ui.SelectBool(summarizePrompt, trueOpt, falseOpt, &defaultSummarize)
+	summarize, err := octiumCtx.ui.SelectBool(summarizePrompt, trueOpt, falseOpt, &defaultSummarize)
 	if err != nil {
 		return err
 	}
 
-	gptCliCtx.prefs.SummarizePrior = summarize
-	gptCliCtx.toggles.summary = gptCliCtx.prefs.SummarizePrior
+	octiumCtx.prefs.SummarizePrior = summarize
+	octiumCtx.toggles.summary = octiumCtx.prefs.SummarizePrior
 
 	auditLogPath, err := getAuditLogPath()
 	if err != nil {
@@ -185,12 +185,12 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 		auditLogPath,
 	)
 	defaultAudit := true
-	enableAudit, err := gptCliCtx.ui.SelectBool(auditPrompt, trueOpt, falseOpt, &defaultAudit)
+	enableAudit, err := octiumCtx.ui.SelectBool(auditPrompt, trueOpt, falseOpt, &defaultAudit)
 	if err != nil {
 		return err
 	}
-	gptCliCtx.prefs.EnableAuditLog = enableAudit
-	if gptCliCtx.prefs.EnableAuditLog {
+	octiumCtx.prefs.EnableAuditLog = enableAudit
+	if octiumCtx.prefs.EnableAuditLog {
 		logsDir, err := getLogsDir()
 		if err != nil {
 			return err
@@ -201,12 +201,12 @@ func configMain(ctx context.Context, gptCliCtx *CliContext) error {
 		}
 	}
 
-	err = gptCliCtx.savePrefs()
+	err = octiumCtx.savePrefs()
 	if err != nil {
 		return err
 	}
 
-	return gptCliCtx.load(ctx)
+	return octiumCtx.load(ctx)
 }
 
 func getConfigDir() (string, error) {

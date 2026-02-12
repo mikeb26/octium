@@ -13,11 +13,11 @@ import (
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/golang/mock/gomock"
-	"github.com/mikeb26/gptcli/internal/am"
-	"github.com/mikeb26/gptcli/internal/fsatomic/local"
-	"github.com/mikeb26/gptcli/internal/llmclient"
-	"github.com/mikeb26/gptcli/internal/prompts"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/llmclient"
+	"github.com/mikeb26/octium/internal/prompts"
+	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 

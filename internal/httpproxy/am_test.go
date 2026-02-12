@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/octium/internal/am"
 )
 
 func TestHasAllApprovalActions(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mikeb26/gptcli/internal/fsatomic/local"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 

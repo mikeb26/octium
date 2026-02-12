@@ -1,4 +1,4 @@
-/* Copyright © 2025 Mike Brown. All Rights Reserved.
+/* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
@@ -12,12 +12,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	ub "github.com/cloudwego/eino/utils/callbacks"
+	"github.com/mikeb26/octium/internal"
 )
 
 // summarizeText returns a truncated version of s for logging purposes.
@@ -320,7 +320,7 @@ func newAuditCallbacksHandler(logfile string) (callbacks.Handler, error) {
 	}
 
 	// Include a trailing space in the prefix so entries are easier to scan,
-	// e.g. "gptcli 2025/01/02 15:04:05 [..." instead of "gptcli2025/...".
+	// e.g. "octium 2025/01/02 15:04:05
 	logger := log.New(f, internal.CliToolName+" ", log.LstdFlags)
 
 	helper := ub.NewHandlerHelper().

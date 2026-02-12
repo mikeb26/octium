@@ -6,9 +6,9 @@
 package main
 
 import (
-	"github.com/mikeb26/gptcli/internal/threads"
-	"github.com/mikeb26/gptcli/internal/types"
-	"github.com/mikeb26/gptcli/internal/ui"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/ui"
 	gc "github.com/rthornton128/goncurses"
 )
 

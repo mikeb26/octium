@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/octium/internal/am"
 )
 
 func collectChoiceKeys(req am.ApprovalRequest) map[string]am.ApprovalChoice {

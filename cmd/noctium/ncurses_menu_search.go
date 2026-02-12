@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mikeb26/gptcli/internal/threads"
-	"github.com/mikeb26/gptcli/internal/types"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 func threadContainsSearchStr(t threads.Thread, searchStr string) bool {

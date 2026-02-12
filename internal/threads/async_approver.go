@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mikeb26/gptcli/internal/am"
+	"github.com/mikeb26/octium/internal/am"
 )
 
 // AsyncApprover is an Approver implementation that forwards approval requests
@@ -100,9 +100,9 @@ func (a *AsyncApprover) AskApproval(ctx context.Context, req am.ApprovalRequest)
 //
 // Ctx is the context supplied to AskApproval; it may be nil.
 type AsyncApprovalRequest struct {
-	Ctx      context.Context
-	Request  am.ApprovalRequest
-	ReplyCh  chan AsyncApprovalResponse
+	Ctx     context.Context
+	Request am.ApprovalRequest
+	ReplyCh chan AsyncApprovalResponse
 }
 
 type AsyncApprovalResponse struct {

@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/mikeb26/gptcli/internal/fsatomic"
+	"github.com/mikeb26/octium/internal/fsatomic"
 	"github.com/negrel/assert"
 )
 
