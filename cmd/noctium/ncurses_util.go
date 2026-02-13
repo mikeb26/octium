@@ -117,7 +117,7 @@ func showErrorRetryModal(nui *ui.NcursesUI, message string) (bool, error) {
 	// Build a compact prompt that shows the error text and asks whether
 	// to retry. NcursesUI.SelectBool handles rendering the modal and
 	// collecting the response.
-	prompt := fmt.Sprintf("Error: %s\nRetry?", message)
+	prompt := fmt.Sprintf("Error: %s\n\nRetry sending the last prompt?\n\nNote: choosing 'No' will discard the last prompt (it will not be saved to the thread).", message)
 	trueOpt := types.UIOption{Key: "y", Label: "Yes, retry"}
 	falseOpt := types.UIOption{Key: "n", Label: "No, do not retry"}
 	defaultNo := false

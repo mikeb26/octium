@@ -191,6 +191,7 @@ func runChatOnceAsync(
 		summaryDialogue, sumErr := summarizeDialogue(ctx, thread.llmClient,
 			sysMsg, priorDialogue)
 		if sumErr != nil {
+			abortChatOnce(thread)
 			resultCh <- RunningThreadResult{Reply: nil, Err: sumErr}
 			return
 		}
@@ -199,11 +200,13 @@ func runChatOnceAsync(
 
 	res, err := thread.llmClient.StreamChatCompletion(ctx, workingDialogue)
 	if err != nil {
+		abortChatOnce(thread)
 		resultCh <- RunningThreadResult{Reply: nil, Err: err}
 		return
 	}
 	if res == nil || res.Stream == nil {
 		err := errors.New("nil stream result")
+		abortChatOnce(thread)
 		resultCh <- RunningThreadResult{Reply: nil, Err: err}
 		return
 	}
@@ -217,6 +220,7 @@ func runChatOnceAsync(
 			if errors.Is(recvErr, io.EOF) {
 				break
 			}
+			abortChatOnce(thread)
 			resultCh <- RunningThreadResult{Reply: nil, Err: recvErr}
 			return
 		}
@@ -232,6 +236,7 @@ func runChatOnceAsync(
 	}
 	finalDialogue := append(fullDialogue, replyMsg)
 	if err := finalizeChatOnce(thread, finalDialogue); err != nil {
+		abortChatOnce(thread)
 		resultCh <- RunningThreadResult{Reply: nil, Err: err}
 		return
 	}

@@ -120,7 +120,7 @@ func TestThreadGroupSet_NonIdleThreadCount_SumsAcrossGroups(t *testing.T) {
 		t.Fatalf("expected 2 threads in grpA, got %v", len(grpA.threads))
 	}
 	for _, thr := range grpA.threads {
-		thr.setState(ThreadStateRunning)
+		thr.setStateIfEqual(ThreadStateIdle, ThreadStateRunning)
 		break
 	}
 	grpA.mu.RUnlock()
@@ -132,7 +132,7 @@ func TestThreadGroupSet_NonIdleThreadCount_SumsAcrossGroups(t *testing.T) {
 		t.Fatalf("expected 1 thread in grpB, got %v", len(grpB.threads))
 	}
 	for _, thr := range grpB.threads {
-		thr.setState(ThreadStateBlocked)
+		thr.setStateIfEqual(ThreadStateIdle, ThreadStateBlocked)
 		break
 	}
 	grpB.mu.RUnlock()

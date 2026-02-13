@@ -64,6 +64,19 @@ func finalizeChatOnce(thread *thread,
 	return nil
 }
 
+// abortChatOnce resets a thread back to idle after a failed in-flight chat.
+//
+// Unlike finalizeChatOnce, this does not persist any dialogue changes.
+// It is intended to be called by the async worker goroutine when it
+// encounters an error (including cancellations).
+func abortChatOnce(thread *thread) {
+	thread.mu.Lock()
+	defer thread.mu.Unlock()
+
+	thread.state = ThreadStateIdle
+	thread.runState = nil
+}
+
 // summarizeDialogue summarizes the entire chat history in order to reduce LLM
 // token costs and refocus the context window.
 func summarizeDialogue(ctx context.Context, llmClient types.AIClient,

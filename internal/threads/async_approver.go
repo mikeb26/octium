@@ -76,8 +76,8 @@ func (a *AsyncApprover) AskApproval(ctx context.Context, req am.ApprovalRequest)
 
 	// If the caller attached a thread-state setter to the context, mark the
 	// thread blocked while we prompt for user input.
-	a.setThreadState(ctx, ThreadStateBlocked)
-	defer a.setThreadState(ctx, ThreadStateRunning)
+	a.setThreadState(ctx, ThreadStateRunning, ThreadStateBlocked)
+	defer a.setThreadState(ctx, ThreadStateBlocked, ThreadStateRunning)
 
 	// send the approval request
 	select {
@@ -125,11 +125,12 @@ func (a *AsyncApprover) ServeRequest(req AsyncApprovalRequest) {
 }
 
 func (a *AsyncApprover) setThreadState(ctx context.Context,
-	state ThreadState) {
+	oldState ThreadState, newState ThreadState) {
 
 	thread, ok := GetThread(ctx)
 	if !ok || thread == nil {
 		return
 	}
-	thread.setState(state)
+
+	thread.setStateIfEqual(oldState, newState)
 }

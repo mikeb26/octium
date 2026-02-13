@@ -13,6 +13,7 @@ import (
 
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/negrel/assert"
 )
 
 const asyncStatusProcessing = "Processing"
@@ -74,6 +75,27 @@ func (tvUI *threadViewUI) beginAsyncChat(
 	tvUI.setRunningState(state)
 
 	return prompt, true
+}
+
+func (tvUI *threadViewUI) retryAsyncChat(
+	ctx context.Context,
+	prompt string,
+) (ok bool) {
+
+	assert.NotEmpty(prompt)
+	assert.False(tvUI.isArchived)
+
+	ctx = types.WithWorkspacePwd(ctx, tvUI.ws.GetPwd(ctx))
+	state, err := tvUI.thread.ChatOnceAsync(ctx, tvUI.cliCtx.ictx, prompt,
+		tvUI.cliCtx.toggles.summary, tvUI.getSystemPrompt())
+	if err != nil {
+		// Retry itself failed to start; report the error and leave the thread idle.
+		_, _ = showErrorRetryModal(tvUI.cliCtx.ui, err.Error())
+		return false
+	}
+
+	tvUI.setRunningState(state)
+	return true
 }
 
 func (tvUI *threadViewUI) setRunningState(state *threads.RunningThreadState) {
@@ -168,7 +190,7 @@ func (tvUI *threadViewUI) tickStatus() bool {
 	return true
 }
 
-func (tvUI *threadViewUI) processAsyncChat() bool {
+func (tvUI *threadViewUI) processAsyncChat(ctx context.Context) bool {
 	if tvUI.running.state == nil {
 		return false
 	}
@@ -181,7 +203,7 @@ func (tvUI *threadViewUI) processAsyncChat() bool {
 		tvUI.running.lastContentLen = len(content)
 		contentRedraw = true
 	}
-	_, stepRedraw := tvUI.processAsyncChatEvents()
+	_, stepRedraw := tvUI.processAsyncChatEvents(ctx)
 
 	// Keep status durations ticking even if no new progress events arrive.
 	statusRedraw := tvUI.tickStatus()
@@ -191,7 +213,7 @@ func (tvUI *threadViewUI) processAsyncChat() bool {
 
 // processAsyncChatEvents drains any currently-available async events
 // without blocking the UI.
-func (tvUI *threadViewUI) processAsyncChatEvents() (done bool, needRedraw bool) {
+func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool, needRedraw bool) {
 	// maxAsyncEventsPerTick caps the number of async events we process per UI
 	// tick so we don't starve keyboard input when a thread is very chatty
 	// (progress updates, etc.).
@@ -228,12 +250,34 @@ func (tvUI *threadViewUI) processAsyncChatEvents() (done bool, needRedraw bool) 
 			}
 			tvUI.running.resultCh = nil
 			if res.Err != nil {
+				// Best-effort cancellation; at this point the worker already sent the
+				// terminal result, but Stop ensures any lingering tool/progress work is
+				// canceled.
 				state.Stop()
-				_, _ = showErrorRetryModal(tvUI.cliCtx.ui, res.Err.Error())
+				retry, _ := showErrorRetryModal(tvUI.cliCtx.ui, res.Err.Error())
+				if retry {
+					prompt := state.Prompt
+					// Tear down the failed run state and start a fresh async run.
+					tvUI.clearRunningState()
+					if tvUI.retryAsyncChat(ctx, prompt) {
+						blocks := threadViewDisplayBlocks(tvUI.thread, prompt)
+						tvUI.setHistoryFrameFromBlocks(blocks, "")
+						needRedraw = true
+						return false, true
+					}
+					// Retry failed to start; fall through to clear the pending prompt.
+				}
+
+				// User declined retry (or retry failed to start): clear the pending
+				// prompt and return to idle.
+				tvUI.setHistoryFrameForThread()
+				needRedraw = true
+				tvUI.clearRunningState()
+				return true, true
 			}
 
-			// Whether success or error, the thread is now persisted (or failed),
-			// so rebuild from the thread's current dialogue.
+			// Success: the thread is now persisted, so rebuild from the thread's
+			// current dialogue.
 			tvUI.setHistoryFrameForThread()
 			needRedraw = true
 			tvUI.clearRunningState()

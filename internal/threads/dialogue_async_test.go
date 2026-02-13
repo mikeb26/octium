@@ -194,6 +194,7 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 
 	// Thread should not have been finalized with an assistant reply.
 	thr := grp.Threads()[0]
+	assert.Equal(t, ThreadStateIdle, thr.State())
 	assert.Len(t, thr.Dialogue(), 0) // no persisted messages
 }
 

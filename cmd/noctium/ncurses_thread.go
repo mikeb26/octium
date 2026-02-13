@@ -592,7 +592,7 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	needRedraw := true
 
 	for {
-		if runningNeedRedraw := tvUI.processAsyncChat(); runningNeedRedraw {
+		if runningNeedRedraw := tvUI.processAsyncChat(ctx); runningNeedRedraw {
 			needRedraw = true
 		}
 

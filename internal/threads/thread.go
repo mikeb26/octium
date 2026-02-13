@@ -147,11 +147,13 @@ func (t *thread) State() ThreadState {
 }
 
 // SetState sets the current thread state.
-func (t *thread) setState(state ThreadState) {
+func (t *thread) setStateIfEqual(oldState, newState ThreadState) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.state = state
+	if t.state == oldState {
+		t.state = newState
+	}
 }
 
 // Id returns the current thread id
