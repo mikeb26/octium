@@ -319,7 +319,7 @@ run_via_systemd() {
 		--uid=@CLI_SANDBOX_USERNAME@ \
                 --property=SupplementaryGroups=octium-users \
 		$memmax_prop \
-		--property=TasksMax=64 \
+		--property=TasksMax=1024 \
 		--property=RuntimeMaxSec=600 \
 		--property=Nice=19 \
 		--property=CPUSchedulingPolicy=batch \
