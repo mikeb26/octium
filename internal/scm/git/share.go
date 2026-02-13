@@ -20,5 +20,10 @@ func (c *Client) ShareRepo(ctx context.Context, dir string) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
 	}
+	_, _, err = c.runWithTimeout(ctx, nil, buildGitArgs(dir, "config", "core.fileMode", "false")...)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrFailedToExecuteGit, err)
+	}
+
 	return nil
 }
