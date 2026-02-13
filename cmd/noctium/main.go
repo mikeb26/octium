@@ -187,6 +187,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v: Failed to migrate existing threads to new format: %v\n", internal.CliToolName, err)
 		os.Exit(1)
 	}
+	err = cliCtx.migrateOldConfigDirIfNeeded()
+	if err != nil {
+		gcExit()
+		fmt.Fprintf(os.Stderr, "%v: Failed to migrate old config dir to new: %v\n", internal.CliToolName, err)
+		os.Exit(1)
+	}
 
 	err = cliCtx.load(ctx)
 	if err != nil && !cliCtx.toggles.needConfig {

@@ -218,6 +218,17 @@ func getConfigDir() (string, error) {
 	return filepath.Join(configDir, internal.CliToolName), nil
 }
 
+func getConfigDirOld() (string, error) {
+	const CliToolNameOld = "gptcli"
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrCouldNotFindConfigDir, err)
+	}
+
+	return filepath.Join(configDir, CliToolNameOld), nil
+}
+
 func getKeyPath(vendor string) (string, error) {
 	configDir, err := getConfigDir()
 	if err != nil {

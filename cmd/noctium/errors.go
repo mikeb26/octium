@@ -43,4 +43,6 @@ var (
 	ErrUnreachable                 = errors.New("BUG: unreachable")
 	ErrCreatingHistoryFrame        = errors.New("Could not create thread history frame")
 	ErrCreatingInputFrame          = errors.New("Could not create thread input frame")
+	ErrConfigNotADir               = errors.New("Config directory location is not a dir")
+	ErrConfigExists                = errors.New("Config directory already exists")
 )

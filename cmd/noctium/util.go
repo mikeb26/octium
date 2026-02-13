@@ -187,6 +187,38 @@ func (cliCtx *CliContext) migrateOneOldThreadFormat(dEntry os.DirEntry,
 	return nil
 }
 
+func (cliCtx *CliContext) migrateOldConfigDirIfNeeded() error {
+	oldCDir, err := getConfigDirOld()
+	if err != nil {
+		return err
+	}
+	newCDir, err := getConfigDir()
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Stat(oldCDir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	if !f.IsDir() {
+		return fmt.Errorf("%w: %v", ErrConfigNotADir, oldCDir)
+	}
+
+	_, err = os.Stat(newCDir)
+	if err == nil {
+		return fmt.Errorf("%w: %v", ErrConfigExists, newCDir)
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
+	return os.Rename(oldCDir, newCDir)
+}
+
 func suspendNCurses() {
 	gc.DefProgMode()
 	gc.End()
