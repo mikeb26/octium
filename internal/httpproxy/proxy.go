@@ -154,7 +154,7 @@ func (httpProxy *HttpProxy) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !allowed {
-		http.Error(w, "forbidden by proxy policy", http.StatusForbidden)
+		http.Error(w, buildProxyPolicyForbiddenMsg(r), http.StatusForbidden)
 		return
 	}
 
@@ -163,6 +163,29 @@ func (httpProxy *HttpProxy) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpProxy.handleHTTP(w, r)
+}
+
+func buildProxyPolicyForbiddenMsg(r *http.Request) string {
+	method := strings.ToUpper(strings.TrimSpace(r.Method))
+	if method == "" {
+		method = "GET"
+	}
+
+	target := "unknown"
+	if host, port, scheme, ok := requestTarget(r); ok {
+		target = fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, port))
+	} else if h := strings.TrimSpace(r.Host); h != "" {
+		target = h
+	}
+
+	// IMPORTANT: this message is intended to be readable by the AI agent running
+	// inside the sandbox, and should hint at the right remediation.
+	return fmt.Sprintf(
+		"forbidden by proxy policy (no approval for %s %s). "+
+			"Network access from sandboxed commands is blocked until the user approves it. "+
+			"Hint for AI agent: call the url_retrieve tool (a.k.a. retrieve_url) with approval_only=true for this URL/origin to request approval, then retry the command.",
+		method, target,
+	)
 }
 
 func (httpProxy *HttpProxy) handleHTTP(w http.ResponseWriter, r *http.Request) {

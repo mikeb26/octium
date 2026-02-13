@@ -144,6 +144,10 @@ func TestHttpProxy_Handle_Forbidden(t *testing.T) {
 	if rr.Result().StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rr.Result().StatusCode)
 	}
+	b, _ := io.ReadAll(rr.Result().Body)
+	if !strings.Contains(string(b), "retrieve_url") {
+		t.Fatalf("expected forbidden message to hint retrieve_url; got %q", string(b))
+	}
 }
 
 func TestProxyConns_CopiesAndCloses(t *testing.T) {

@@ -35,6 +35,7 @@ type RetrieveUrlReq struct {
 	Headers      []RetrieveUrlRequestHeader `json:"headers" jsonschema:"description=The HTTP headers to include with the request (optional)"`
 	Method       string                     `json:"method" jsonschema:"description=HTTP request method (e.g., GET, POST, etc.); defaults to GET if not set (optional)"`
 	Body         string                     `json:"body" jsonschema:"description=HTTP request body (optional)"`
+	ApprovalOnly bool                       `json:"approval_only,omitempty" jsonschema:"description=When true, do not perform any network request; only request user approval/policy access for this URL/method. Useful to pre-authorize network access (e.g., after a sandboxed cmd_run failed with a 403 from the proxy policy) and then retry the original action."`
 	TruncateSize int                        `json:"truncate_size" jsonschema:"description=The maximum size in bytes of the returned response body. Mutually exclusive with resp_body_filename. Use this to prevent context window explosion. Required unless resp_body_filename is set"`
 	// RespBodyFilename, when set, causes the retrieved (or rendered) result to be
 	// written to a local file instead of returned directly in the response body.
@@ -148,25 +149,36 @@ func (t RetrieveUrlTool) Invoke(ctx context.Context,
 
 	ret := &RetrieveUrlResp{Mode: "raw"}
 
-	// Exactly one of truncate_size or resp_body_filename must be set.
-	// - truncate_size: return body (possibly truncated) in the tool result.
-	// - resp_body_filename: write the full body to disk and return no body.
-	if strings.TrimSpace(req.RespBodyFilename) == "" && req.TruncateSize == 0 {
-		ret.Error = "one of truncate_size or resp_body_filename must be set"
+	if req.ApprovalOnly && strings.TrimSpace(req.RespBodyFilename) != "" {
+		ret.Error = "approval_only cannot be used with resp_body_filename"
 		return ret, nil
 	}
 
-	// truncate_size and resp_body_filename both exist to protect the context
-	// window, but they can't be used together: one returns a (possibly truncated)
-	// body, while the other writes the full body to disk and returns no body.
-	if strings.TrimSpace(req.RespBodyFilename) != "" && req.TruncateSize != 0 {
-		ret.Error = "truncate_size is mutually exclusive with resp_body_filename"
-		return ret, nil
+	if !req.ApprovalOnly {
+		// Exactly one of truncate_size or resp_body_filename must be set.
+		// - truncate_size: return body (possibly truncated) in the tool result.
+		// - resp_body_filename: write the full body to disk and return no body.
+		if strings.TrimSpace(req.RespBodyFilename) == "" && req.TruncateSize == 0 {
+			ret.Error = "one of truncate_size or resp_body_filename must be set"
+			return ret, nil
+		}
+
+		// truncate_size and resp_body_filename both exist to protect the context
+		// window, but they can't be used together: one returns a (possibly truncated)
+		// body, while the other writes the full body to disk and returns no body.
+		if strings.TrimSpace(req.RespBodyFilename) != "" && req.TruncateSize != 0 {
+			ret.Error = "truncate_size is mutually exclusive with resp_body_filename"
+			return ret, nil
+		}
 	}
 
 	err := GetUserApproval(ctx, t.approver, t, req)
 	if err != nil {
 		ret.Error = err.Error()
+		return ret, nil
+	}
+
+	if req.ApprovalOnly {
 		return ret, nil
 	}
 

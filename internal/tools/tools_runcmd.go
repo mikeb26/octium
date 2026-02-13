@@ -25,8 +25,8 @@ type RunCommandTool struct {
 }
 
 type CmdRunReq struct {
-	Cmd          string   `json:"cmd" jsonschema:"description=The command to execute"`
-	CmdArgs      []string `json:"cmdargs" jsonschema:"description=A list of arguments to include when executing the command."`
+	Cmd          string   `json:"cmd" jsonschema:"description=The command to execute (program name or absolute path). Runs in a sandbox (no shell unless you explicitly invoke one)."`
+	CmdArgs      []string `json:"cmdargs" jsonschema:"description=A list of arguments to include when executing the command. Arguments are passed exactly (no shell parsing/globbing/expansion)."`
 	TruncateSize int      `json:"truncate_size" jsonschema:"description=The maximum size in bytes of each output stream (stdout and stderr) in the response; this limit should be used to prevent context window explosion"`
 }
 
@@ -169,7 +169,7 @@ func NewRunCommandTool(approver am.Approver) types.LlmTool {
 }
 
 func (t RunCommandTool) Define() types.LlmTool {
-	const cmdRunDesc = "Execute a single OS-level program directly (no shell by default). Do NOT call shell interpreters such as bash, sh, or zsh, and do NOT use `-lc`, unless the user has explicitly requested shell features (pipes, redirects, &&, ||, etc.)."
+	const cmdRunDesc = "Execute a single OS-level program directly (no shell by default). Do NOT call shell interpreters such as bash, sh, or zsh, and do NOT use `-lc`, unless the user has explicitly requested shell features (pipes, redirects, &&, ||, etc.).\n\nSandbox/environment notes:\n- Commands run inside a hardened sandbox user account via a privileged wrapper (sudo + systemd-run).\n- The environment is heavily sanitized (env -i) and only a conservative PATH is provided; do not assume your usual shell init files or environment variables.\n- Working directory may be set to the current workspace (if provided by the UI); otherwise it runs under the sandbox user's home.\n- Outbound network from sandboxed commands is forced through a local HTTP proxy and is subject to user approval policies; if a command fails with an HTTP 403/\"forbidden by proxy policy\", request approval via url_retrieve (approval_only=true) and retry.\n- Always capture output via stdout/stderr; interactive prompts may not work as expected."
 
 	ret, err := utils.InferTool(string(t.GetOp()), cmdRunDesc, t.Invoke)
 	if err != nil {

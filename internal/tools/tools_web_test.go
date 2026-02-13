@@ -32,6 +32,34 @@ func Test_RetrieveUrlTool_Invoke_RequiresExactlyOneOfTruncateSizeOrRespBodyFilen
 	}
 }
 
+func Test_RetrieveUrlTool_Invoke_ApprovalOnly_RequestsApprovalAndDoesNotHitNetwork(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
+	tool := RetrieveUrlTool{approver: fa}
+
+	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, ApprovalOnly: true})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("expected resp.Error empty; got %q", resp.Error)
+	}
+	if hits != 0 {
+		t.Fatalf("expected no network request when approval_only=true; hits=%d", hits)
+	}
+	if fa.lastReq.Prompt == "" {
+		t.Fatalf("expected AskApproval to be called with a prompt")
+	}
+}
+
 func Test_RetrieveUrlTool_Invoke_TruncateSizeAndRespBodyFilenameAreMutuallyExclusive(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := RetrieveUrlTool{approver: fa}
