@@ -55,10 +55,10 @@ func (t RunCommandTool) RequiresUserApproval() bool {
 // command execution. Approvals can be granted for a single
 // invocation, for all invocations of a specific command name, or for
 // a specific command+argument combination (hashed for brevity).
-func (t RunCommandTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t RunCommandTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*CmdRunReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	// Construct stable policy identifiers for the command and the full
@@ -129,7 +129,7 @@ func (t RunCommandTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 		Prompt:          prompt,
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionExecute},
 		Choices:         choices,
-	}
+	}, nil
 }
 
 // buildCommandInvocationPrefixKey creates a stable key for a command

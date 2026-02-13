@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 func collectChoiceKeys(req am.ApprovalRequest) map[string]am.ApprovalChoice {
@@ -38,19 +39,14 @@ func requireChoiceKey(t *testing.T, keys map[string]am.ApprovalChoice, key strin
 
 func Test_ReadFileTool_BuildApprovalRequest_NormalizesRelativePathsAndIncludesReadChoices(t *testing.T) {
 	tmp := t.TempDir()
-
-	oldwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldwd) }()
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("Chdir: %v", err)
-	}
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 
 	reqPath := "foo.txt" // relative
 	tool := ReadFileTool{}
-	ar := tool.BuildApprovalRequest(&ReadFileReq{Filename: reqPath})
+	ar, err := tool.BuildApprovalRequest(ctx, &ReadFileReq{Filename: reqPath})
+	if err != nil {
+		t.Fatalf("BuildApprovalRequest: %v", err)
+	}
 	if ar.Prompt == "" {
 		t.Fatalf("expected non-empty prompt")
 	}
@@ -63,11 +59,7 @@ func Test_ReadFileTool_BuildApprovalRequest_NormalizesRelativePathsAndIncludesRe
 	requireChoiceKey(t, keys, "dr")
 	requireChoiceKey(t, keys, "dw")
 
-	absFile, err := filepath.Abs(reqPath)
-	if err != nil {
-		t.Fatalf("Abs: %v", err)
-	}
-	absFile = filepath.Clean(absFile)
+	absFile := filepath.Clean(filepath.Join(tmp, reqPath))
 	absDir := filepath.Dir(absFile)
 
 	fr := requireChoiceKey(t, keys, "fr")
@@ -83,10 +75,14 @@ func Test_ReadFileTool_BuildApprovalRequest_NormalizesRelativePathsAndIncludesRe
 
 func Test_CreateFileTool_BuildApprovalRequest_DoesNotIncludeReadOnlyChoices(t *testing.T) {
 	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 	filename := filepath.Join(tmp, "bar.txt")
 
 	tool := CreateFileTool{}
-	ar := tool.BuildApprovalRequest(&CreateFileReq{Filename: filename, Content: "x"})
+	ar, err := tool.BuildApprovalRequest(ctx, &CreateFileReq{Filename: filename, Content: "x"})
+	if err != nil {
+		t.Fatalf("BuildApprovalRequest: %v", err)
+	}
 	keys := collectChoiceKeys(ar)
 
 	requireChoiceKey(t, keys, "y")
@@ -103,12 +99,13 @@ func Test_CreateFileTool_BuildApprovalRequest_DoesNotIncludeReadOnlyChoices(t *t
 
 func Test_CreateFileTool_Invoke_DeniedApproval_DoesNotWriteFile(t *testing.T) {
 	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 	filename := filepath.Join(tmp, "deny.txt")
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: false}}
 	tool := CreateFileTool{approver: fa}
 
-	resp, err := tool.Invoke(context.Background(), &CreateFileReq{Filename: filename, Content: "nope"})
+	resp, err := tool.Invoke(ctx, &CreateFileReq{Filename: filename, Content: "nope"})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -122,12 +119,13 @@ func Test_CreateFileTool_Invoke_DeniedApproval_DoesNotWriteFile(t *testing.T) {
 
 func Test_CreateFileTool_Invoke_AllowsApproval_WritesFile(t *testing.T) {
 	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 	filename := filepath.Join(tmp, "ok.txt")
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := CreateFileTool{approver: fa}
 
-	resp, err := tool.Invoke(context.Background(), &CreateFileReq{Filename: filename, Content: "hello"})
+	resp, err := tool.Invoke(ctx, &CreateFileReq{Filename: filename, Content: "hello"})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -145,6 +143,7 @@ func Test_CreateFileTool_Invoke_AllowsApproval_WritesFile(t *testing.T) {
 
 func Test_AppendFileTool_Invoke_AppendsToExistingFile(t *testing.T) {
 	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 	filename := filepath.Join(tmp, "append.txt")
 	if err := os.WriteFile(filename, []byte("a"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -153,7 +152,7 @@ func Test_AppendFileTool_Invoke_AppendsToExistingFile(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := AppendFileTool{approver: fa}
 
-	resp, err := tool.Invoke(context.Background(), &AppendFileReq{Filename: filename, Content: "b"})
+	resp, err := tool.Invoke(ctx, &AppendFileReq{Filename: filename, Content: "b"})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -172,6 +171,7 @@ func Test_AppendFileTool_Invoke_AppendsToExistingFile(t *testing.T) {
 
 func Test_DeleteFileTool_Invoke_DeletesFile(t *testing.T) {
 	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 	filename := filepath.Join(tmp, "del.txt")
 	if err := os.WriteFile(filename, []byte("x"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -180,7 +180,7 @@ func Test_DeleteFileTool_Invoke_DeletesFile(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := DeleteFileTool{approver: fa}
 
-	resp, err := tool.Invoke(context.Background(), &DeleteFileReq{Filename: filename})
+	resp, err := tool.Invoke(ctx, &DeleteFileReq{Filename: filename})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -194,6 +194,7 @@ func Test_DeleteFileTool_Invoke_DeletesFile(t *testing.T) {
 
 func Test_ReadFileTool_Invoke_ReadsContent_WithEOFError(t *testing.T) {
 	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
 	filename := filepath.Join(tmp, "read.txt")
 	if err := os.WriteFile(filename, []byte("hello"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -202,7 +203,7 @@ func Test_ReadFileTool_Invoke_ReadsContent_WithEOFError(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := ReadFileTool{approver: fa}
 
-	resp, err := tool.Invoke(context.Background(), &ReadFileReq{Filename: filename, StartOffset: 0, NumBytes: 100})
+	resp, err := tool.Invoke(ctx, &ReadFileReq{Filename: filename, StartOffset: 0, NumBytes: 100})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}

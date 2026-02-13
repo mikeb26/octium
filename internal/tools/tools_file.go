@@ -38,22 +38,12 @@ func (t CreateFileTool) RequiresUserApproval() bool {
 	return true
 }
 
-func commonFileBuildApprovalRequest(t types.Tool, arg any, filenameIn string,
-	writeRequired bool) am.ApprovalRequest {
+func commonFileBuildApprovalRequest(ctx context.Context, t types.Tool, arg any, filenameIn string,
+	writeRequired bool) (am.ApprovalRequest, error) {
 
-	// Normalize to an absolute, cleaned path so that approval policies
-	// are keyed consistently regardless of how the tool was invoked
-	// (relative vs absolute paths). This ensures that cached approvals
-	// for a given file or directory apply across different invocations.
-	filename := filenameIn
-	if !filepath.IsAbs(filenameIn) {
-		if abs, err := filepath.Abs(filenameIn); err == nil {
-			filename = abs
-		} else {
-			filename = filepath.Clean(filenameIn)
-		}
-	} else {
-		filename = filepath.Clean(filenameIn)
+	filename, err := resolvePathWithinWorkspace(ctx, filenameIn)
+	if err != nil {
+		return am.ApprovalRequest{}, err
 	}
 	isDir := false
 	fInfo, err := os.Stat(filename)
@@ -136,19 +126,19 @@ func commonFileBuildApprovalRequest(t types.Tool, arg any, filenameIn string,
 		Prompt:          promptBuilder.String(),
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionWrite},
 		Choices:         choices,
-	}
+	}, nil
 }
 
 // BuildApprovalRequest implements ToolWithCustomApproval for
 // CreateFileTool so that write permissions can be cached on a per-file
 // or per-directory basis using ApprovalActionWrite.
-func (t CreateFileTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t CreateFileTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*CreateFileReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
-	return commonFileBuildApprovalRequest(t, arg, req.Filename, true)
+	return commonFileBuildApprovalRequest(ctx, t, arg, req.Filename, true)
 }
 
 type AppendFileTool struct {
@@ -174,13 +164,13 @@ func (t AppendFileTool) RequiresUserApproval() bool {
 // BuildApprovalRequest implements ToolWithCustomApproval for
 // AppendFileTool so that write permissions can be cached similarly to
 // CreateFileTool.
-func (t AppendFileTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t AppendFileTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*AppendFileReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
-	return commonFileBuildApprovalRequest(t, arg, req.Filename, true)
+	return commonFileBuildApprovalRequest(ctx, t, arg, req.Filename, true)
 }
 
 type ReadFileTool struct {
@@ -210,15 +200,15 @@ func (t ReadFileTool) RequiresUserApproval() bool {
 // file- and directory-specific approval prompts and options. It supports
 // granting approval for a single read, for a specific file, or for all
 // reads within a directory tree (recursively).
-func (t ReadFileTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t ReadFileTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*ReadFileReq)
 	if !ok || req == nil {
 		// Fallback to the default behavior if the argument is not as
 		// expected; this should not happen in normal flows.
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
-	return commonFileBuildApprovalRequest(t, arg, req.Filename, false)
+	return commonFileBuildApprovalRequest(ctx, t, arg, req.Filename, false)
 }
 
 type DeleteFileTool struct {
@@ -244,13 +234,13 @@ func (t DeleteFileTool) RequiresUserApproval() bool {
 // BuildApprovalRequest implements ToolWithCustomApproval for
 // DeleteFileTool so that write permissions can be cached consistently
 // with CreateFileTool and AppendFileTool.
-func (t DeleteFileTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t DeleteFileTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*DeleteFileReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
-	return commonFileBuildApprovalRequest(t, arg, req.Filename, true)
+	return commonFileBuildApprovalRequest(ctx, t, arg, req.Filename, true)
 }
 
 func NewDeleteFileTool(approver am.Approver) types.LlmTool {
@@ -336,7 +326,14 @@ func (t CreateFileTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	err = os.WriteFile(req.Filename, []byte(req.Content), 0644)
+	filename, err := resolvePathWithinWorkspace(ctx, req.Filename)
+	if err != nil {
+		ret.Error = err.Error()
+		return ret, nil
+	}
+	req.Filename = filename
+
+	err = os.WriteFile(filename, []byte(req.Content), 0644)
 	if err != nil {
 		ret.Error = err.Error()
 	}
@@ -355,7 +352,14 @@ func (t AppendFileTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	file, err := os.OpenFile(req.Filename, os.O_APPEND|os.O_WRONLY, 0644)
+	filename, err := resolvePathWithinWorkspace(ctx, req.Filename)
+	if err != nil {
+		ret.Error = err.Error()
+		return ret, nil
+	}
+	req.Filename = filename
+
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		ret.Error = err.Error()
 		return ret, nil
@@ -380,7 +384,14 @@ func (t ReadFileTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	f, err := os.Open(req.Filename)
+	filename, err := resolvePathWithinWorkspace(ctx, req.Filename)
+	if err != nil {
+		ret.Error = err.Error()
+		return ret, nil
+	}
+	req.Filename = filename
+
+	f, err := os.Open(filename)
 	if err != nil {
 		ret.Error = err.Error()
 		return ret, nil
@@ -407,7 +418,14 @@ func (t DeleteFileTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	err = os.Remove(req.Filename)
+	filename, err := resolvePathWithinWorkspace(ctx, req.Filename)
+	if err != nil {
+		ret.Error = err.Error()
+		return ret, nil
+	}
+	req.Filename = filename
+
+	err = os.Remove(filename)
 	if err != nil {
 		ret.Error = err.Error()
 	}

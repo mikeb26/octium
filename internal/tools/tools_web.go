@@ -70,20 +70,26 @@ func (t RetrieveUrlTool) RequiresUserApproval() bool {
 // per-URL (file-equivalent) and per-domain (directory-equivalent)
 // basis. HTTP GET, HEAD, and OPTIONS are treated as reads, while all
 // other methods are treated as writes (which also imply read).
-func (t RetrieveUrlTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t RetrieveUrlTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*RetrieveUrlReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	// Writing to local files is intentionally treated as a separate, explicit
 	// user-approved operation. We do not allow this to be auto-approved via cached
 	// web policies.
 	if strings.TrimSpace(req.RespBodyFilename) != "" {
-		return buildWebApprovalRequestWithFileOutput(t, arg, req.Url, req.Method, req.RespBodyFilename)
+		absOut, err := resolvePathWithinWorkspace(ctx, req.RespBodyFilename)
+		if err != nil {
+			return am.ApprovalRequest{}, err
+		}
+		// Ensure the prompt/policy keys show the canonical absolute path.
+		req.RespBodyFilename = absOut
+		return buildWebApprovalRequestWithFileOutput(t, arg, req.Url, req.Method, absOut), nil
 	}
 
-	return buildWebApprovalRequest(t, arg, req.Url, req.Method)
+	return buildWebApprovalRequest(t, arg, req.Url, req.Method), nil
 }
 
 func buildWebApprovalRequestWithFileOutput(t types.Tool, arg any, rawURL, method, outputFilename string) am.ApprovalRequest {
@@ -164,6 +170,18 @@ func (t RetrieveUrlTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
+	// Canonicalize the output file path after approval too, so the actual write
+	// is guaranteed to be within the workspace even if the request was mutated
+	// elsewhere.
+	if strings.TrimSpace(req.RespBodyFilename) != "" {
+		absOut, rerr := resolvePathWithinWorkspace(ctx, req.RespBodyFilename)
+		if rerr != nil {
+			ret.Error = rerr.Error()
+			return ret, nil
+		}
+		req.RespBodyFilename = absOut
+	}
+
 	requestMethod := normalizeHTTPRequestMethod(req.Method)
 
 	var bodyReader io.Reader
@@ -221,12 +239,17 @@ func (t RetrieveUrlTool) Invoke(ctx context.Context,
 	}
 
 	if strings.TrimSpace(req.RespBodyFilename) != "" {
-		werr := writeTextFile(req.RespBodyFilename, bodyText)
+		absOut, rerr := resolvePathWithinWorkspace(ctx, req.RespBodyFilename)
+		if rerr != nil {
+			ret.Error = rerr.Error()
+			return ret, nil
+		}
+		werr := writeTextFile(absOut, bodyText)
 		if werr != nil {
 			ret.Error = werr.Error()
 			return ret, nil
 		}
-		ret.BodyFilename = req.RespBodyFilename
+		ret.BodyFilename = absOut
 		// Avoid sending potentially large content back in the tool result.
 		ret.Body = ContentOutput{UntruncatedContentLen: len(bodyText)}
 	}

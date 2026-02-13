@@ -24,7 +24,11 @@ func GetUserApproval(ctx context.Context, approver am.Approver,
 
 	var req am.ApprovalRequest
 	if ca, ok := t.(ToolWithCustomApproval); ok {
-		req = ca.BuildApprovalRequest(arg)
+		r, rerr := ca.BuildApprovalRequest(ctx, arg)
+		if rerr != nil {
+			return rerr
+		}
+		req = r
 	} else {
 		req = DefaultApprovalRequest(t, arg)
 	}
@@ -43,7 +47,7 @@ func GetUserApproval(ctx context.Context, approver am.Approver,
 // ToolWithCustomApproval can be implemented by tools that want to
 // customize their approval prompt and options.
 type ToolWithCustomApproval interface {
-	BuildApprovalRequest(arg any) am.ApprovalRequest
+	BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error)
 }
 
 // DefaultApprovalRequest builds the legacy yes/no style approval

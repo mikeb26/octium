@@ -15,13 +15,15 @@ import (
 	"testing"
 
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 func Test_RetrieveUrlTool_Invoke_RequiresExactlyOneOfTruncateSizeOrRespBodyFilename(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := RetrieveUrlTool{approver: fa}
 
-	resp, err := tool.Invoke(context.Background(), &RetrieveUrlReq{Url: "http://example.invalid"})
+	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: "http://example.invalid"})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -33,8 +35,9 @@ func Test_RetrieveUrlTool_Invoke_RequiresExactlyOneOfTruncateSizeOrRespBodyFilen
 func Test_RetrieveUrlTool_Invoke_TruncateSizeAndRespBodyFilenameAreMutuallyExclusive(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := RetrieveUrlTool{approver: fa}
+	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
 
-	resp, err := tool.Invoke(context.Background(), &RetrieveUrlReq{
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{
 		Url:              "http://example.invalid",
 		TruncateSize:     10,
 		RespBodyFilename: "out.txt",
@@ -58,8 +61,8 @@ func Test_RetrieveUrlTool_Invoke_DeniedApproval_DoesNotHitNetwork(t *testing.T) 
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: false}}
 	tool := RetrieveUrlTool{approver: fa}
-
-	resp, err := tool.Invoke(context.Background(), &RetrieveUrlReq{Url: srv.URL, TruncateSize: 10})
+	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, TruncateSize: 10})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -83,8 +86,8 @@ func Test_RetrieveUrlTool_Invoke_TruncatesBodyAndSetsMetadata(t *testing.T) {
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RetrieveUrlTool{approver: fa}
-
-	resp, err := tool.Invoke(context.Background(), &RetrieveUrlReq{Url: srv.URL, TruncateSize: 5})
+	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, TruncateSize: 5})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -119,8 +122,10 @@ func Test_RetrieveUrlTool_Invoke_RespBodyFilename_WritesFullBodyAndReturnsEmptyB
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RetrieveUrlTool{approver: fa}
 
-	out := filepath.Join(t.TempDir(), "sub", "out.txt")
-	resp, err := tool.Invoke(context.Background(), &RetrieveUrlReq{Url: srv.URL, RespBodyFilename: out})
+	ws := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), ws)
+	out := filepath.Join(ws, "sub", "out.txt")
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, RespBodyFilename: out})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -170,8 +175,9 @@ func Test_RetrieveUrlTool_Invoke_POST_SendsBodyAndHeaders(t *testing.T) {
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RetrieveUrlTool{approver: fa}
+	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
 
-	resp, err := tool.Invoke(context.Background(), &RetrieveUrlReq{
+	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{
 		Url:          srv.URL,
 		Method:       "POST",
 		Body:         "abc",

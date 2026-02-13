@@ -116,20 +116,20 @@ func (t ChdirTool) RequiresUserApproval() bool {
 // cached on a per-directory-tree basis. Approvals can be granted for a
 // single chdir, or for a specific target directory and all of its
 // subdirectories.
-func (t ChdirTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t ChdirTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*ChdirReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	// Normalize target directory to an absolute path for consistent
 	// policy keys.
 	newDir := req.Newdir
 	if newDir == "" {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
-	return commonFileBuildApprovalRequest(t, arg, newDir, false)
+	return commonFileBuildApprovalRequest(ctx, t, arg, newDir, false)
 }
 func NewChdirTool(approver am.Approver) types.LlmTool {
 	t := &ChdirTool{
@@ -160,7 +160,14 @@ func (t ChdirTool) Invoke(ctx context.Context,
 		return ret, nil
 	}
 
-	err = os.Chdir(req.Newdir)
+	newDir, err := resolvePathWithinWorkspace(ctx, req.Newdir)
+	if err != nil {
+		ret.Error = err.Error()
+		return ret, nil
+	}
+	req.Newdir = newDir
+
+	err = os.Chdir(newDir)
 	if err != nil {
 		ret.Error = err.Error()
 	}
@@ -180,15 +187,15 @@ func (t EnvGetTool) RequiresUserApproval() bool {
 // EnvGetTool so that read access to environment variables can be
 // cached on a per-variable or global basis. EnvGet is read-only and
 // only ever requests ApprovalActionRead.
-func (t EnvGetTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t EnvGetTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*EnvGetReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	varName := req.Envvar
 	if varName == "" {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	varPolicyID := am.ApprovalPolicyID(am.ApprovalSubsysTools,
@@ -227,7 +234,7 @@ func (t EnvGetTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 		Prompt:          prompt,
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionRead},
 		Choices:         choices,
-	}
+	}, nil
 }
 
 func NewEnvGetTool(approver am.Approver) types.LlmTool {
@@ -276,15 +283,15 @@ func (t EnvSetTool) RequiresUserApproval() bool {
 // EnvSetTool so that write access to environment variables can be
 // cached on a per-variable or global basis. Writes imply the ability
 // to read as well.
-func (t EnvSetTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t EnvSetTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*EnvSetReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	varName := req.Envvar
 	if varName == "" {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	varPolicyID := am.ApprovalPolicyID(am.ApprovalSubsysTools,
@@ -317,7 +324,7 @@ func (t EnvSetTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 		Prompt:          prompt,
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionWrite, am.ApprovalActionRead},
 		Choices:         choices,
-	}
+	}, nil
 }
 
 func NewEnvSetTool(approver am.Approver) types.LlmTool {

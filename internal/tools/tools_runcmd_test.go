@@ -72,9 +72,13 @@ func Test_buildCommandInvocationKey_DeterministicAndSensitiveToArgs(t *testing.T
 
 func Test_RunCommandTool_BuildApprovalRequest_IncludesSimilarChoiceOnlyWhenPrefixMeaningful(t *testing.T) {
 	tool := RunCommandTool{}
+	ctx := context.Background()
 
 	// No args => no "similar" option.
-	req0 := tool.BuildApprovalRequest(&CmdRunReq{Cmd: "go", CmdArgs: nil})
+	req0, err := tool.BuildApprovalRequest(ctx, &CmdRunReq{Cmd: "go", CmdArgs: nil})
+	if err != nil {
+		t.Fatalf("BuildApprovalRequest: %v", err)
+	}
 	for _, c := range req0.Choices {
 		if c.Key == "cs" {
 			t.Fatalf("did not expect similar-choice cs when args are empty")
@@ -82,7 +86,10 @@ func Test_RunCommandTool_BuildApprovalRequest_IncludesSimilarChoiceOnlyWhenPrefi
 	}
 
 	// 2+ args => prefix => includes "cs".
-	req1 := tool.BuildApprovalRequest(&CmdRunReq{Cmd: "go", CmdArgs: []string{"test", "./..."}})
+	req1, err := tool.BuildApprovalRequest(ctx, &CmdRunReq{Cmd: "go", CmdArgs: []string{"test", "./..."}})
+	if err != nil {
+		t.Fatalf("BuildApprovalRequest: %v", err)
+	}
 	var haveCS bool
 	for _, c := range req1.Choices {
 		if c.Key == "cs" {

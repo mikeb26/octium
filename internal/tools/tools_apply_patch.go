@@ -47,38 +47,33 @@ func (t FilePatchTool) RequiresUserApproval() bool {
 // directory-scoped approval request. This allows policies granted for a
 // directory (e.g. via the file tools) to automatically apply to
 // apply_patch as well.
-func (t FilePatchTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
+func (t FilePatchTool) BuildApprovalRequest(ctx context.Context, arg any) (am.ApprovalRequest, error) {
 	req, ok := arg.(*FilePatchReq)
 	if !ok || req == nil {
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
 	paths := collectPatchPaths(req.Input)
 	if len(paths) == 0 {
 		// If we cannot infer any paths from the patch text, fall back to the
 		// default behavior.
-		return DefaultApprovalRequest(t, arg)
+		return DefaultApprovalRequest(t, arg), nil
 	}
 
-	// Normalize all paths to absolute, cleaned form so that approvals
-	// are keyed consistently regardless of the working directory or how
-	// the patch paths are expressed.
+	// Normalize all paths to absolute, cleaned form rooted at the workspace,
+	// and ensure none of them escape the workspace.
 	absPaths := make([]string, 0, len(paths))
 	for _, p := range paths {
 		if p == "" {
 			continue
 		}
-		if !filepath.IsAbs(p) {
-			if abs, err := filepath.Abs(p); err == nil {
-				p = abs
-			} else {
-				p = filepath.Clean(p)
-			}
-		} else {
-			p = filepath.Clean(p)
+		abs, err := resolvePathWithinWorkspace(ctx, p)
+		if err != nil {
+			return am.ApprovalRequest{}, err
 		}
-		absPaths = append(absPaths, p)
+		absPaths = append(absPaths, abs)
 	}
+	paths = absPaths
 
 	rootDir := commonRootDir(absPaths)
 
@@ -140,7 +135,7 @@ func (t FilePatchTool) BuildApprovalRequest(arg any) am.ApprovalRequest {
 		Prompt:          promptBuilder.String(),
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionWrite},
 		Choices:         choices,
-	}
+	}, nil
 }
 
 func NewFilePatchTool(approver am.Approver) types.LlmTool {
@@ -166,13 +161,18 @@ func (t FilePatchTool) Define() types.LlmTool {
 func (t FilePatchTool) Invoke(ctx context.Context, req *FilePatchReq) (*FilePatchResp, error) {
 	ret := &FilePatchResp{}
 
+	// Attach the workspace context to any errors returned from approval.
+	// The approval step already ensures all patch paths are within the
+	// workspace, but we still pass ctx down so patch application is also
+	// constrained.
+
 	err := GetUserApproval(ctx, t.approver, t, req)
 	if err != nil {
 		ret.Error = err.Error()
 		return ret, nil
 	}
 
-	err = processPatch(req.Input)
+	err = processPatch(ctx, req.Input)
 	if err != nil {
 		ret.Error = err.Error()
 		return ret, nil
@@ -722,10 +722,14 @@ func commonRootDir(paths []string) string {
 	return common
 }
 
-func loadFiles(paths []string) (map[string]string, error) {
+func loadFiles(ctx context.Context, paths []string) (map[string]string, error) {
 	m := make(map[string]string)
 	for _, p := range paths {
-		content, err := openFile(p)
+		abs, err := resolvePathWithinWorkspace(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		content, err := openFile(abs)
 		if err != nil {
 			return nil, err
 		}
@@ -734,33 +738,45 @@ func loadFiles(paths []string) (map[string]string, error) {
 	return m, nil
 }
 
-func applyCommit(commit Commit) error {
+func applyCommit(ctx context.Context, commit Commit) error {
 	for path, change := range commit.Changes {
+		absPath, err := resolvePathWithinWorkspace(ctx, path)
+		if err != nil {
+			return err
+		}
+		absMovePath := ""
+		if change.MovePath != "" {
+			absMovePath, err = resolvePathWithinWorkspace(ctx, change.MovePath)
+			if err != nil {
+				return err
+			}
+		}
+
 		switch change.Type {
 		case PatchActionDelete:
-			if err := os.Remove(path); err != nil {
+			if err := os.Remove(absPath); err != nil {
 				return err
 			}
 		case PatchActionAdd:
 			if change.NewContent == "" {
-				return fmt.Errorf("add change for %s has no content", path)
+				return fmt.Errorf("add change for %s has no content", absPath)
 			}
-			if err := writeFile(path, change.NewContent); err != nil {
+			if err := writeFile(absPath, change.NewContent); err != nil {
 				return err
 			}
 		case PatchActionUpdate:
 			if change.NewContent == "" {
-				return fmt.Errorf("update change for %s has no new content", path)
+				return fmt.Errorf("update change for %s has no new content", absPath)
 			}
-			target := path
-			if change.MovePath != "" {
-				target = change.MovePath
+			target := absPath
+			if absMovePath != "" {
+				target = absMovePath
 			}
 			if err := writeFile(target, change.NewContent); err != nil {
 				return err
 			}
-			if change.MovePath != "" {
-				if err := os.Remove(path); err != nil {
+			if absMovePath != "" {
+				if err := os.Remove(absPath); err != nil {
 					return err
 				}
 			}
@@ -783,7 +799,7 @@ func deleteAfterEndPatch(s string) string {
 	return s
 }
 
-func processPatch(text string) error {
+func processPatch(ctx context.Context, text string) error {
 	text = deleteBeforeBeginPatch(text)
 	text = deleteAfterEndPatch(text)
 
@@ -792,7 +808,7 @@ func processPatch(text string) error {
 			PatchSentinelBeginPatch))
 	}
 	need := identifyFilesNeeded(text)
-	orig, err := loadFiles(need)
+	orig, err := loadFiles(ctx, need)
 	if err != nil {
 		return err
 	}
@@ -804,7 +820,7 @@ func processPatch(text string) error {
 	if err != nil {
 		return err
 	}
-	if err := applyCommit(commit); err != nil {
+	if err := applyCommit(ctx, commit); err != nil {
 		return err
 	}
 	return nil

@@ -8,4 +8,6 @@ import "errors"
 
 var (
 	ErrProxyNotConfigured = errors.New("no proxy configured")
+	ErrWorkspacePwdNotSet = errors.New("workspace pwd not set")
+	ErrPathOutsideWorkspace = errors.New("path is outside workspace")
 )
