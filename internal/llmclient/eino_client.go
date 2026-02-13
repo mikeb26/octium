@@ -212,10 +212,6 @@ func defineTools(ctx context.Context, vendor string, approver am.Approver,
 		tools.NewFilePatchTool(approver),
 		tools.NewReadFileTool(approver),
 		tools.NewDeleteFileTool(approver),
-		tools.NewPwdTool(approver),
-		tools.NewChdirTool(approver),
-		tools.NewEnvGetTool(approver),
-		tools.NewEnvSetTool(approver),
 		tools.NewRetrieveUrlTool(approver),
 	}
 	if depth <= internal.MaxDepth {
