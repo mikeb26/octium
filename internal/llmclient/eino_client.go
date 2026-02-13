@@ -171,7 +171,7 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ChatModel
 	}
 	config := &react.AgentConfig{
 		Model:   chatModel,
-		MaxStep: 250,
+		MaxStep: 1000,
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: baseTools,
 		},
