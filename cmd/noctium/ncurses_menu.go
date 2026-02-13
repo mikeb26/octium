@@ -587,7 +587,7 @@ func confirmDiscardThreadWorkspaceIfDirtyOrAhead(
 	}
 
 	if ok {
-		_ = tvUI.ws.Reset(ctx)
+		_ = tvUI.ws.Reset()
 	}
 	return ok, nil
 }
