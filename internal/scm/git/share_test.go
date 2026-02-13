@@ -9,8 +9,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/mikeb26/octium/internal"
 )
 
 func TestShareRepo_SetsCoreSharedRepository(t *testing.T) {
@@ -24,7 +22,7 @@ func TestShareRepo_SetsCoreSharedRepository(t *testing.T) {
 
 	logs := readMockGitLog(t, logPath)
 	joined := strings.Join(logs, "\n")
-	want := "config core.sharedRepository " + internal.CliSandboxGroupname
+	want := "config core.sharedRepository " + "true"
 	if !strings.Contains(joined, want) {
 		t.Fatalf("expected %q in logs, got %#v", want, logs)
 	}
