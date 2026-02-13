@@ -589,7 +589,7 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	tvUI.redrawThreadView(ctx)
 	err = tvUI.setupWorkspace(ctx, false)
 	if err != nil && !errors.Is(err, ErrWorkspaceNotConfigured) && !errors.Is(err, ErrWorkspaceSetupCancelled) {
-		_ = tvUI.cliCtx.ui.Confirm(fmt.Sprintf("Workspace setup failed:\n%v", err))
+		_ = tvUI.cliCtx.ui.Confirm(friendlyWorkspaceSetupErr(err))
 	}
 	err = nil
 	needRedraw := true

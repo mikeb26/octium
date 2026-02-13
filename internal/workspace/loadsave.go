@@ -44,6 +44,9 @@ func (ws *Workspace) Save() error {
 		return err
 	}
 	if err := os.MkdirAll(baseSandboxDir, 0o770|os.ModeSetgid); err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("%w %v: %w", ErrSandboxParentDirPermission, baseSandboxDir, err)
+		}
 		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirCreate, baseSandboxDir, err)
 	}
 	if err := fixupSharedDirPerms(baseSandboxDir); err != nil {

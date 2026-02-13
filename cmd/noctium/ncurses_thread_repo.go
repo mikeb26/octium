@@ -14,10 +14,28 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/scm"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/mikeb26/octium/internal/workspace"
 )
+
+func friendlyWorkspaceSetupErr(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, workspace.ErrSandboxParentDirPermission) {
+		return fmt.Sprintf(
+			"Workspace setup failed: %v\n\nYour current login session does not have the updated supplementary groups (it was started before you were added to '%s'). Linux determines a process's group list when you start a login session, and running processes don't automatically re-check /etc/group.\n\nFix: log out completely and log back in (or run 'newgrp %s' in your shell) so new processes include the '%s' group, then retry.",
+			err,
+			internal.CliSandboxGroupname,
+			internal.CliSandboxGroupname,
+			internal.CliSandboxGroupname,
+		)
+	}
+
+	return err.Error()
+}
 
 //go:embed amd.template
 var agentsMdTmplText string

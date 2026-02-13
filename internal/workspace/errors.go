@@ -11,6 +11,7 @@ var (
 	ErrScratchDirNotSet               = fmt.Errorf("scratch dir not set")
 	ErrScratchDirCreate               = fmt.Errorf("failed to create scratch dir")
 	ErrSandboxParentDirCreate         = fmt.Errorf("failed to create sandbox parent dir")
+	ErrSandboxParentDirPermission     = fmt.Errorf("permission denied creating workspace sandbox parent dir")
 	ErrSandboxParentDirChmod          = fmt.Errorf("failed to chmod sandbox parent dir")
 	ErrSandboxDirChmod                = fmt.Errorf("failed to chmod sandbox dir/subdirs")
 	ErrSandboxDirCreate               = fmt.Errorf("failed to create sandbox dir")

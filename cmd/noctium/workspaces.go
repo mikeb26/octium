@@ -26,7 +26,7 @@ func (tvUI *threadViewUI) launchWorkspaceModalFromThreadView(ctx context.Context
 			if errors.Is(err, ErrWorkspaceSetupCancelled) || errors.Is(err, ErrWorkspaceNotConfigured) {
 				return nil
 			}
-			_ = tvUI.cliCtx.ui.Confirm(fmt.Sprintf("Workspace setup failed:\n%v", err))
+			_ = tvUI.cliCtx.ui.Confirm(friendlyWorkspaceSetupErr(err))
 			return err
 		}
 	}
