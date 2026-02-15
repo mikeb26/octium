@@ -88,7 +88,7 @@ func (ws *Workspace) Sratch() string {
 
 func (ws *Workspace) ResetSandbox(ctx context.Context) error {
 	if ws.persisted.OriginRepo == "" {
-		return fmt.Errorf("%w", ErrWorkspaceNoOriginSet)
+		return fmt.Errorf("%w (reset)", ErrWorkspaceNoOriginSet)
 	}
 
 	if ws.persisted.SboxRepo != "" {

@@ -255,7 +255,7 @@ func (ws *Workspace) PushSandbox(ctx context.Context, dstBranch string) error {
 	// Validate the origin repository state before pushing (the push will target
 	// the sandbox's configured "origin" remote).
 	if ws.persisted.OriginRepo == "" {
-		return fmt.Errorf("%w", ErrWorkspaceNoOriginSet)
+		return fmt.Errorf("%w (push)", ErrWorkspaceNoOriginSet)
 	}
 
 	st, err := ws.scmClient.RepoSyncStatus(ctx, ws.persisted.OriginRepo)
@@ -286,7 +286,7 @@ func (ws *Workspace) PushSandbox(ctx context.Context, dstBranch string) error {
 // the origin's current branch.
 func (ws *Workspace) MergeSandbox(ctx context.Context) error {
 	if ws.persisted.OriginRepo == "" {
-		return fmt.Errorf("%w", ErrWorkspaceNoOriginSet)
+		return fmt.Errorf("%w (merge)", ErrWorkspaceNoOriginSet)
 	}
 	if ws.persisted.SboxRepo == "" {
 		return fmt.Errorf("%w", ErrWorkspaceNoSandboxSet)

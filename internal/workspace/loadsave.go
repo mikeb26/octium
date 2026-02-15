@@ -136,6 +136,9 @@ func (ws *Workspace) Load(ctx context.Context) error {
 		}
 	}
 
+	loaded.ScratchDir = scratchDir
+	ws.persisted = loaded
+
 	if loaded.SboxRepo != "" {
 		if loaded.OriginRepo == "" {
 			return fmt.Errorf("%w", ErrWorkspaceSandboxSetOriginEmpty)
@@ -147,9 +150,6 @@ func (ws *Workspace) Load(ctx context.Context) error {
 			return fmt.Errorf("%w: %w", ErrSandboxRepoInvalid, err)
 		}
 	}
-
-	loaded.ScratchDir = scratchDir
-	ws.persisted = loaded
 
 	return nil
 }
