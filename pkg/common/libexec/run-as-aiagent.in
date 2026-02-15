@@ -331,7 +331,6 @@ run_via_systemd() {
 		--property=CapabilityBoundingSet= \
 		--property=AmbientCapabilities= \
 		--property=LockPersonality=yes \
-		--property=MemoryDenyWriteExecute=yes \
 		--property=RestrictNamespaces=yes \
 		--property=RestrictRealtime=yes \
 		--property=RestrictSUIDSGID=yes \
