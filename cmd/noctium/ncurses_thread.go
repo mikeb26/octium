@@ -501,7 +501,7 @@ func (tvUI *threadViewUI) launchCommitFromThreadView(ctx context.Context) (needR
 		// This uses the user's configured git editor (git commit without -m).
 		// Suspend curses so the editor can use the terminal.
 		suspendNCurses()
-		untracked, err := tvUI.cliCtx.scmClient.Commit(ctx, tvUI.ws.Sandbox(), opts)
+		untracked, err := tvUI.ws.CommitSandbox(ctx, opts)
 		restoreNCurses()
 
 		if err == nil {

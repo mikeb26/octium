@@ -43,15 +43,19 @@ func (ws *Workspace) Save() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(baseSandboxDir, 0o770|os.ModeSetgid); err != nil {
+	// NOTE: In some restricted environments (including certain test sandboxes),
+	// setgid bits are not permitted even for user-owned directories.
+	// We create the directory with normal group-writable permissions here and
+	// let fixupSharedDirPerms attempt to apply shared-directory perms on a
+	// best-effort basis.
+	if err := os.MkdirAll(baseSandboxDir, 0o770); err != nil {
 		if errors.Is(err, os.ErrPermission) {
 			return fmt.Errorf("%w %v: %w", ErrSandboxParentDirPermission, baseSandboxDir, err)
 		}
 		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirCreate, baseSandboxDir, err)
 	}
-	if err := fixupSharedDirPerms(baseSandboxDir); err != nil {
-		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirChmod, baseSandboxDir, err)
-	}
+	// best effort; chmod can fail on files we dont own
+	_ = fixupSharedDirPerms(baseSandboxDir)
 
 	if err := os.MkdirAll(scratchDir, 0o700); err != nil {
 		return fmt.Errorf("%w %v: %w", ErrScratchDirCreate, scratchDir, err)
@@ -151,10 +155,29 @@ func (ws *Workspace) Load(ctx context.Context) error {
 }
 
 func fixupSharedDirPerms(dir string) error {
-	dirMode := os.FileMode(0o775) | os.ModeSetgid
+	var firstErr error
+	if err := fixupSharedDirPermsTry(dir, true); err != nil {
+		firstErr = err
+		// Some environments disallow setgid, even for user-owned dirs.
+		// Retry without setgid. Keep the original error if retry also fails.
+		if retryErr := fixupSharedDirPermsTry(dir, false); retryErr == nil {
+			return nil
+		}
+	}
+
+	return firstErr
+}
+
+func fixupSharedDirPermsTry(dir string, includeSetgid bool) error {
+	var firstErr error
+	dirMode := os.FileMode(0o775)
+	if includeSetgid {
+		dirMode |= os.ModeSetgid
+	}
 	filMode := os.FileMode(0o664)
+
 	if err := os.Chmod(dir, dirMode); err != nil {
-		return fmt.Errorf("failed to chmod dir %v: %w", dir, err)
+		firstErr = fmt.Errorf("failed to chmod dir %v: %w", dir, err)
 	}
 	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry,
 		walkErr error) error {
@@ -167,18 +190,25 @@ func fixupSharedDirPerms(dir string) error {
 		}
 		if d.Type().IsRegular() {
 			if err := os.Chmod(path, filMode); err != nil {
-				return fmt.Errorf("chmod %q: %w", path, err)
+				if firstErr == nil {
+					firstErr = fmt.Errorf("chmod %q: %w", path, err)
+				}
 			}
 		} else if d.IsDir() {
 			if err := os.Chmod(path, dirMode); err != nil {
-				return fmt.Errorf("chmod %q: %w", path, err)
+				if firstErr == nil {
+					firstErr = fmt.Errorf("chmod %q: %w", path, err)
+				}
 			}
 		}
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to chmod subdirectories for %v: %w", dir, err)
+		if firstErr == nil {
+			firstErr = fmt.Errorf("failed to chmod subdirectories for %v: %w",
+				dir, err)
+		}
 	}
 
-	return nil
+	return firstErr
 }

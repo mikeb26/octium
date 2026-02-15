@@ -173,12 +173,12 @@ func (ws *Workspace) createNewSandboxWithValidOrigin(ctx context.Context,
 		return "", err
 	}
 
-	err = fixupSharedDirPerms(sboxDir)
+	err = ws.scmClient.ShareRepo(ctx, sboxDir)
 	if err != nil {
 		_ = os.RemoveAll(sboxDir)
 		return "", fmt.Errorf("%w: %w", ErrSandboxDirChmod, err)
 	}
-	err = ws.scmClient.ShareRepo(ctx, sboxDir)
+	err = fixupSharedDirPerms(sboxDir)
 	if err != nil {
 		_ = os.RemoveAll(sboxDir)
 		return "", fmt.Errorf("%w: %w", ErrSandboxDirChmod, err)
@@ -235,7 +235,14 @@ func (ws *Workspace) SyncSandbox(ctx context.Context, merge bool) error {
 	//
 	// We intentionally do not specify a remote/branch here; SCM implementations
 	// should use the branch's configured upstream.
-	return ws.scmClient.Merge(ctx, ws.persisted.SboxRepo, "", "")
+	err = ws.scmClient.Merge(ctx, ws.persisted.SboxRepo, "", "")
+	if err != nil {
+		return err
+	}
+	// best effort; chmod can fail on files we dont own
+	_ = fixupSharedDirPerms(ws.persisted.SboxRepo)
+
+	return nil
 }
 
 // PushSandbox pushes commited changes from the the sandbox repository to the
@@ -324,6 +331,21 @@ func (ws *Workspace) MergeSandbox(ctx context.Context) error {
 	}
 
 	return ws.scmClient.Merge(ctx, ws.persisted.OriginRepo, remoteName, sboxSt.LocalBranch)
+}
+
+// CommitSandbox commits uncommitted local changes in the workspace sandbox
+func (ws *Workspace) CommitSandbox(ctx context.Context,
+	opts scm.CommitOptions) (*scm.UntrackedFiles, error) {
+
+	untracked, err := ws.scmClient.Commit(ctx, ws.Sandbox(), opts)
+	if err != nil {
+		return untracked, err
+	}
+
+	// best effort; chmod can fail on files we dont own
+	_ = fixupSharedDirPerms(ws.Sandbox())
+
+	return untracked, nil
 }
 
 func randRemoteName() (string, error) {
