@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/cloudwego/eino/components/tool/utils"
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsparanoid"
 	"github.com/mikeb26/octium/internal/types"
 )
 
@@ -256,7 +256,17 @@ func (t RetrieveUrlTool) Invoke(ctx context.Context,
 			ret.Error = rerr.Error()
 			return ret, nil
 		}
-		werr := writeTextFile(absOut, bodyText)
+		ws, werr := getWorkspacePwdFromCtx(ctx)
+		if werr != nil {
+			ret.Error = werr.Error()
+			return ret, nil
+		}
+		relOut, rerr := filepath.Rel(ws, absOut)
+		if rerr != nil {
+			ret.Error = rerr.Error()
+			return ret, nil
+		}
+		werr = fsparanoid.WriteFile(ws, relOut, []byte(bodyText), 0o644)
 		if werr != nil {
 			ret.Error = werr.Error()
 			return ret, nil
@@ -323,15 +333,4 @@ func renderVisibleText(ctx context.Context, pageURL string) (string, error) {
 	}
 
 	return pageText, nil
-}
-
-func writeTextFile(filename, content string) error {
-	path := filepath.Clean(filename)
-	dir := filepath.Dir(path)
-	if dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
-	}
-	return os.WriteFile(path, []byte(content), 0o644)
 }

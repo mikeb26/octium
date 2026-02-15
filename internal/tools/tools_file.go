@@ -8,12 +8,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsparanoid"
 	"github.com/mikeb26/octium/internal/types"
 )
 
@@ -333,7 +335,34 @@ func (t CreateFileTool) Invoke(ctx context.Context,
 	}
 	req.Filename = filename
 
-	err = os.WriteFile(filename, []byte(req.Content), 0644)
+	ws, werr := getWorkspacePwdFromCtx(ctx)
+	if werr != nil {
+		ret.Error = werr.Error()
+		return ret, nil
+	}
+	rel, rerr := filepath.Rel(ws, filename)
+	if rerr != nil {
+		ret.Error = rerr.Error()
+		return ret, nil
+	}
+
+	// Ensure parent directories exist (within workspace) without following
+	// symlinks; we rely on openat2 to enforce RESOLVE_NO_SYMLINKS.
+	if dir := path.Dir(rel); dir != "." {
+		if mkerr := fsparanoid.MkdirAll(ws, dir, 0o755); mkerr != nil {
+			ret.Error = mkerr.Error()
+			return ret, nil
+		}
+	}
+
+	f, oerr := fsparanoid.Open(ws, rel, fsparanoid.OpenHow{Flags: fsparanoid.OpenWrite | fsparanoid.OpenCreate | fsparanoid.OpenTrunc, Perm: 0o644})
+	if oerr != nil {
+		ret.Error = oerr.Error()
+		return ret, nil
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(req.Content)
 	if err != nil {
 		ret.Error = err.Error()
 	}
@@ -359,7 +388,18 @@ func (t AppendFileTool) Invoke(ctx context.Context,
 	}
 	req.Filename = filename
 
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0644)
+	ws, werr := getWorkspacePwdFromCtx(ctx)
+	if werr != nil {
+		ret.Error = werr.Error()
+		return ret, nil
+	}
+	rel, rerr := filepath.Rel(ws, filename)
+	if rerr != nil {
+		ret.Error = rerr.Error()
+		return ret, nil
+	}
+
+	file, err := fsparanoid.Open(ws, rel, fsparanoid.OpenHow{Flags: fsparanoid.OpenWrite | fsparanoid.OpenAppend, Perm: 0o644})
 	if err != nil {
 		ret.Error = err.Error()
 		return ret, nil
@@ -391,7 +431,18 @@ func (t ReadFileTool) Invoke(ctx context.Context,
 	}
 	req.Filename = filename
 
-	f, err := os.Open(filename)
+	ws, werr := getWorkspacePwdFromCtx(ctx)
+	if werr != nil {
+		ret.Error = werr.Error()
+		return ret, nil
+	}
+	rel, rerr := filepath.Rel(ws, filename)
+	if rerr != nil {
+		ret.Error = rerr.Error()
+		return ret, nil
+	}
+
+	f, err := fsparanoid.Open(ws, rel, fsparanoid.OpenHow{Flags: fsparanoid.OpenRead})
 	if err != nil {
 		ret.Error = err.Error()
 		return ret, nil
@@ -425,7 +476,18 @@ func (t DeleteFileTool) Invoke(ctx context.Context,
 	}
 	req.Filename = filename
 
-	err = os.Remove(filename)
+	ws, werr := getWorkspacePwdFromCtx(ctx)
+	if werr != nil {
+		ret.Error = werr.Error()
+		return ret, nil
+	}
+	rel, rerr := filepath.Rel(ws, filename)
+	if rerr != nil {
+		ret.Error = rerr.Error()
+		return ret, nil
+	}
+
+	err = fsparanoid.Remove(ws, rel)
 	if err != nil {
 		ret.Error = err.Error()
 	}

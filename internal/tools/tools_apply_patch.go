@@ -9,8 +9,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -18,6 +16,7 @@ import (
 	"github.com/cloudwego/eino/components/tool/utils"
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsparanoid"
 	"github.com/mikeb26/octium/internal/types"
 )
 
@@ -723,30 +722,54 @@ func commonRootDir(paths []string) string {
 }
 
 func loadFiles(ctx context.Context, paths []string) (map[string]string, error) {
+	ws, err := getWorkspacePwdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	m := make(map[string]string)
 	for _, p := range paths {
 		abs, err := resolvePathWithinWorkspace(ctx, p)
 		if err != nil {
 			return nil, err
 		}
-		content, err := openFile(abs)
+		rel, err := filepath.Rel(ws, abs)
 		if err != nil {
 			return nil, err
 		}
-		m[p] = content
+		b, err := fsparanoid.ReadFile(ws, rel)
+		if err != nil {
+			return nil, err
+		}
+		m[p] = string(b)
 	}
 	return m, nil
 }
 
 func applyCommit(ctx context.Context, commit Commit) error {
+	ws, err := getWorkspacePwdFromCtx(ctx)
+	if err != nil {
+		return err
+	}
+
 	for path, change := range commit.Changes {
 		absPath, err := resolvePathWithinWorkspace(ctx, path)
 		if err != nil {
 			return err
 		}
+		relPath, err := filepath.Rel(ws, absPath)
+		if err != nil {
+			return err
+		}
+
 		absMovePath := ""
+		relMovePath := ""
 		if change.MovePath != "" {
 			absMovePath, err = resolvePathWithinWorkspace(ctx, change.MovePath)
+			if err != nil {
+				return err
+			}
+			relMovePath, err = filepath.Rel(ws, absMovePath)
 			if err != nil {
 				return err
 			}
@@ -754,29 +777,29 @@ func applyCommit(ctx context.Context, commit Commit) error {
 
 		switch change.Type {
 		case PatchActionDelete:
-			if err := os.Remove(absPath); err != nil {
+			if err := fsparanoid.Remove(ws, relPath); err != nil {
 				return err
 			}
 		case PatchActionAdd:
 			if change.NewContent == "" {
 				return fmt.Errorf("add change for %s has no content", absPath)
 			}
-			if err := writeFile(absPath, change.NewContent); err != nil {
+			if err := fsparanoid.WriteFile(ws, relPath, []byte(change.NewContent), 0o644); err != nil {
 				return err
 			}
 		case PatchActionUpdate:
 			if change.NewContent == "" {
 				return fmt.Errorf("update change for %s has no new content", absPath)
 			}
-			target := absPath
-			if absMovePath != "" {
-				target = absMovePath
+			targetRel := relPath
+			if relMovePath != "" {
+				targetRel = relMovePath
 			}
-			if err := writeFile(target, change.NewContent); err != nil {
+			if err := fsparanoid.WriteFile(ws, targetRel, []byte(change.NewContent), 0o644); err != nil {
 				return err
 			}
-			if absMovePath != "" {
-				if err := os.Remove(absPath); err != nil {
+			if relMovePath != "" {
+				if err := fsparanoid.Remove(ws, relPath); err != nil {
 					return err
 				}
 			}
@@ -824,20 +847,4 @@ func processPatch(ctx context.Context, text string) error {
 		return err
 	}
 	return nil
-}
-
-func openFile(path string) (string, error) {
-	b, err := ioutil.ReadFile(path)
-	return string(b), err
-}
-
-func writeFile(path, content string) error {
-	target := filepath.Clean(path)
-	dir := filepath.Dir(target)
-	if dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
-	}
-	return ioutil.WriteFile(target, []byte(content), 0644)
 }

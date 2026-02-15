@@ -13,7 +13,7 @@ import (
 	"github.com/mikeb26/octium/internal/types"
 )
 
-func workspacePwdFromContext(ctx context.Context) (string, error) {
+func getWorkspacePwdFromCtx(ctx context.Context) (string, error) {
 	ws, ok := types.GetWorkspacePwd(ctx)
 	if !ok || strings.TrimSpace(ws) == "" {
 		return "", ErrWorkspacePwdNotSet
@@ -21,17 +21,21 @@ func workspacePwdFromContext(ctx context.Context) (string, error) {
 	ws = filepath.Clean(ws)
 	if !filepath.IsAbs(ws) {
 		// We intentionally avoid using the Go process's working directory.
-		return "", fmt.Errorf("%w: %q is not absolute", ErrWorkspacePwdNotSet, ws)
+		return "", fmt.Errorf("%w: %q", ErrWorkspacePwdNotAbs, ws)
 	}
 	return ws, nil
 }
 
 func resolvePathWithinWorkspace(ctx context.Context, p string) (string, error) {
-	ws, err := workspacePwdFromContext(ctx)
+	ws, err := getWorkspacePwdFromCtx(ctx)
 	if err != nil {
 		return "", err
 	}
 
+	// Note: this function performs a lexical containment check only.
+	// File tools must still open paths using fsparanoid.Open (openat2 with
+	// RESOLVE_BENEATH/RESOLVE_NO_SYMLINKS) to defend against symlink-based escapes
+	// and TOCTOU races in hostile workspaces.
 	abs := p
 	if filepath.IsAbs(p) {
 		abs = filepath.Clean(p)

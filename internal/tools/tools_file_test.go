@@ -220,3 +220,35 @@ func Test_ReadFileTool_Invoke_ReadsContent_WithEOFError(t *testing.T) {
 		t.Fatalf("did not expect truncation")
 	}
 }
+
+func Test_ReadFileTool_Invoke_RefusesSymlinkEscape(t *testing.T) {
+	tmp := t.TempDir()
+	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+
+	// Create a file outside the workspace.
+	outsideDir := t.TempDir()
+	secretPath := filepath.Join(outsideDir, "secret.txt")
+	if err := os.WriteFile(secretPath, []byte("secret"), 0o644); err != nil {
+		t.Fatalf("WriteFile(secret): %v", err)
+	}
+
+	// Create a symlink inside the workspace pointing to outsideDir.
+	linkPath := filepath.Join(tmp, "leak")
+	if err := os.Symlink(outsideDir, linkPath); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
+	tool := ReadFileTool{approver: fa}
+
+	resp, err := tool.Invoke(ctx, &ReadFileReq{Filename: "leak/secret.txt", StartOffset: 0, NumBytes: 100})
+	if err != nil {
+		t.Fatalf("expected err=nil; got %v", err)
+	}
+	if resp.Error == "" {
+		t.Fatalf("expected resp.Error to be set due to symlink escape")
+	}
+	if strings.Contains(resp.Content.Content, "secret") {
+		t.Fatalf("expected secret not to be read via symlink")
+	}
+}
