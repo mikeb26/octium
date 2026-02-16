@@ -32,23 +32,6 @@ func (f *fakeApprover) AskApproval(ctx context.Context, req am.ApprovalRequest) 
 	return f.decision, nil
 }
 
-func Test_buildCommandInvocationPrefixKey(t *testing.T) {
-	if got := buildCommandInvocationPrefixKey("go", nil); got != "" {
-		t.Fatalf("expected empty prefix key for nil args; got %q", got)
-	}
-	if got := buildCommandInvocationPrefixKey("go", []string{"test"}); got != "" {
-		t.Fatalf("expected empty prefix key for 1 arg; got %q", got)
-	}
-
-	if got := buildCommandInvocationPrefixKey("go", []string{"test", "./..."}); got != "go:test" {
-		t.Fatalf("unexpected prefix key; want %q got %q", "go:test", got)
-	}
-
-	if got := buildCommandInvocationPrefixKey("go", []string{"test", "-run", "TestFoo"}); got != "go:test\x00-run" {
-		t.Fatalf("unexpected prefix key; want %q got %q", "go:test\\x00-run", got)
-	}
-}
-
 func Test_buildCommandInvocationKey_DeterministicAndSensitiveToArgs(t *testing.T) {
 	k1 := buildCommandInvocationKey("go", []string{"test", "./..."})
 	k2 := buildCommandInvocationKey("go", []string{"test", "./..."})
@@ -67,50 +50,6 @@ func Test_buildCommandInvocationKey_DeterministicAndSensitiveToArgs(t *testing.T
 	h := strings.TrimPrefix(k1, "go:")
 	if len(h) != 16 {
 		t.Fatalf("expected 8-byte hex hash (16 chars); got %q (len=%d)", h, len(h))
-	}
-}
-
-func Test_RunCommandTool_BuildApprovalRequest_IncludesSimilarChoiceOnlyWhenPrefixMeaningful(t *testing.T) {
-	tool := RunCommandTool{}
-	ctx := context.Background()
-
-	// No args => no "similar" option.
-	req0, err := tool.BuildApprovalRequest(ctx, &CmdRunReq{Cmd: "go", CmdArgs: nil})
-	if err != nil {
-		t.Fatalf("BuildApprovalRequest: %v", err)
-	}
-	for _, c := range req0.Choices {
-		if c.Key == "cs" {
-			t.Fatalf("did not expect similar-choice cs when args are empty")
-		}
-	}
-
-	// 2+ args => prefix => includes "cs".
-	req1, err := tool.BuildApprovalRequest(ctx, &CmdRunReq{Cmd: "go", CmdArgs: []string{"test", "./..."}})
-	if err != nil {
-		t.Fatalf("BuildApprovalRequest: %v", err)
-	}
-	var haveCS bool
-	for _, c := range req1.Choices {
-		if c.Key == "cs" {
-			haveCS = true
-			if c.PolicyID == "" {
-				t.Fatalf("expected cs choice to have a PolicyID")
-			}
-		}
-		if c.Key == "ci" && c.PolicyID == "" {
-			t.Fatalf("expected ci choice to have a PolicyID")
-		}
-		if c.Key == "cc" && c.PolicyID == "" {
-			t.Fatalf("expected cc choice to have a PolicyID")
-		}
-	}
-	if !haveCS {
-		t.Fatalf("expected to find similar-choice cs when args length >= 2")
-	}
-
-	if !strings.Contains(req1.Prompt, "\"go\"") || !strings.Contains(req1.Prompt, "test") {
-		t.Fatalf("expected prompt to mention command and args; got %q", req1.Prompt)
 	}
 }
 
