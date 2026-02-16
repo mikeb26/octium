@@ -1,1 +1,10 @@
+# Installed by packaging into: /usr/share/octium/bashprofile
+#
+# This file is owned by the octium package.
+# It is intended to be sourced from octium's ~/.bash_profile
+# (via a managed block inserted by the package post-install scripts).
+#
+# Put user customizations in ~/.bashrc.
+
+# Ensure group-writable files by default in shared workspaces.
 umask 002

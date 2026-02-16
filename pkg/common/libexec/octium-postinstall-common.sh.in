@@ -138,3 +138,104 @@ ensure_root_executable() {
 		chmod 0755 "${path}" 2>/dev/null || true
 	fi
 }
+
+sandbox_home_dir() {
+	# Determine @CLI_SANDBOX_USERNAME@'s home directory.
+	# Prefer getent when available; fall back to /home/@CLI_SANDBOX_USERNAME@.
+	if command -v getent >/dev/null 2>&1; then
+		home="$(getent passwd @CLI_SANDBOX_USERNAME@ | cut -d: -f6 || true)"
+		if [ -n "${home:-}" ]; then
+			echo "$home"
+			return 0
+		fi
+	fi
+	echo "/home/@CLI_SANDBOX_USERNAME@"
+	return 0
+}
+
+render_octium_bash_profile_snippet() {
+	cat <<'SNIPPET'
+# >>> @CLI_TOOL_NAME@ managed >>>
+# This block is managed by the @CLI_TOOL_NAME@ package.
+#
+# - It is safe to edit ~/.bash_profile outside this block.
+# - Put user customizations in ~/.bashrc (sourced below).
+
+if [ -f /usr/share/@CLI_TOOL_NAME@/bashprofile ]; then
+	. /usr/share/@CLI_TOOL_NAME@/bashprofile
+fi
+
+# Source .bashrc for interactive shells.
+case "$-" in
+	*i*)
+		if [ -f "$HOME/.bashrc" ]; then
+			. "$HOME/.bashrc"
+		fi
+		;;
+esac
+
+# <<< @CLI_TOOL_NAME@ managed <<<
+SNIPPET
+}
+
+replace_managed_block_in_file() {
+	path="$1"
+	marker_start="$2"
+	marker_end="$3"
+	tmp="$4"
+
+	awk -v ms="$marker_start" -v me="$marker_end" '
+		BEGIN { inblock=0 }
+		$0 == ms { inblock=1; next }
+		$0 == me { inblock=0; next }
+		inblock == 0 { print }
+	' "$path" >"$tmp"
+}
+
+ensure_sandbox_bash_profile() {
+	# Ensure @CLI_SANDBOX_USERNAME@'s ~/.bash_profile sources our packaged
+	# profile snippet, without overwriting any user customizations.
+	#
+	# This is intentionally implemented as an in-place managed block so upgrades
+	# can update the @CLI_TOOL_NAME@ portion without destroying edits elsewhere.
+
+	sbhome="$(sandbox_home_dir)"
+	profile="${sbhome}/.bash_profile"
+	tmp=""
+
+	# Ensure the home directory exists (best-effort).
+	if [ ! -d "${sbhome}" ]; then
+		mkdir -p "${sbhome}" || return 0
+		chown @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@ "${sbhome}" 2>/dev/null || true
+		chmod 0750 "${sbhome}" 2>/dev/null || true
+	fi
+
+	# Create the file if it doesn't exist.
+	if [ ! -f "${profile}" ]; then
+		render_octium_bash_profile_snippet >"${profile}" || return 0
+		chown @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@ "${profile}" 2>/dev/null || true
+		chmod 0644 "${profile}" 2>/dev/null || true
+		return 0
+	fi
+
+	# If the managed block exists, replace it; otherwise append it.
+	marker_start="# >>> @CLI_TOOL_NAME@ managed >>>"
+	marker_end="# <<< @CLI_TOOL_NAME@ managed <<<"
+	if grep -q "^${marker_start}$" "${profile}" 2>/dev/null; then
+		tmp="$(mktemp)" || return 0
+		replace_managed_block_in_file "${profile}" "${marker_start}" "${marker_end}" "${tmp}" || { rm -f "${tmp}"; return 0; }
+		# Ensure a trailing newline before appending the managed snippet.
+		printf '\n' >>"${tmp}" 2>/dev/null || true
+		render_octium_bash_profile_snippet >>"${tmp}" || { rm -f "${tmp}"; return 0; }
+		cat "${tmp}" >"${profile}" || { rm -f "${tmp}"; return 0; }
+		rm -f "${tmp}" || true
+	else
+		# Append (idempotent based on the marker).
+		printf '\n' >>"${profile}" 2>/dev/null || true
+		render_octium_bash_profile_snippet >>"${profile}" || return 0
+	fi
+
+	chown @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@ "${profile}" 2>/dev/null || true
+	chmod 0644 "${profile}" 2>/dev/null || true
+	return 0
+}

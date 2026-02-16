@@ -34,10 +34,15 @@ case "$1" in
 				/usr/share/@CLI_TOOL_NAME@/gitconfig \
 				"/home/@CLI_SANDBOX_USERNAME@/.gitconfig" || true
 		fi
-		if [ -f /usr/share/@CLI_TOOL_NAME@/bashprofile ]; then
-			install -o @CLI_SANDBOX_USERNAME@ -g @CLI_SANDBOX_USERNAME@ -m 0755 \
-				/usr/share/@CLI_TOOL_NAME@/bashprofile \
-				"/home/@CLI_SANDBOX_USERNAME@/.bash_profile" || true
+		# Manage the sandbox user's ~/.bash_profile without overwriting edits.
+		#
+		# We keep a package-managed block inside ~/.bash_profile that sources the
+		# packaged /usr/share/@CLI_TOOL_NAME@/bashprofile and then ~/.bashrc.
+		# This lets upgrades update the package behavior while allowing end-user
+		# customizations to live in ~/.bashrc.
+		if [ -x /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
+			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
+			ensure_sandbox_bash_profile || true
 		fi
 		;;
 esac
