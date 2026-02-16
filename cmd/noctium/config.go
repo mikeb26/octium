@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
 	"slices"
@@ -18,8 +19,41 @@ import (
 	"strings"
 
 	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/am"
 	"github.com/mikeb26/octium/internal/types"
 )
+
+// First-time setup default: allow file read/write operations within
+// the user's sandbox repo directory tree.
+func setupDefaultApprovals() error {
+	policyPath, err := getApprovePolicyPath()
+	if err != nil {
+		return err
+	}
+	// Only apply this default on first-time setup, when there is no
+	// approvals.json yet.
+	if _, err := os.Stat(policyPath); err == nil {
+		return nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		return err
+	}
+
+	domain := filepath.Join(internal.CliSandboxRepoHome, usr.Username)
+	policyID := am.ApprovalPolicyID(am.ApprovalSubsysTools, am.ApprovalGroupFileIO,
+		am.ApprovalTargetDir, domain)
+
+	store, err := am.NewJSONApprovalPolicyStore(policyPath)
+	if err != nil {
+		return err
+	}
+	store.Save(policyID, []am.ApprovalAction{am.ApprovalActionRead, am.ApprovalActionWrite})
+	return nil
+}
 
 func (octiumCtx *CliContext) loadPrefs() error {
 	vendor := internal.DefaultVendor
@@ -214,6 +248,10 @@ func configMain(ctx context.Context, octiumCtx *CliContext) error {
 
 	err = octiumCtx.savePrefs()
 	if err != nil {
+		return err
+	}
+
+	if err := setupDefaultApprovals(); err != nil {
 		return err
 	}
 
