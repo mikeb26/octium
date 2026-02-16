@@ -215,7 +215,6 @@ func (t RunCommandTool) Invoke(ctx context.Context,
 	args = append(args, req.CmdArgs...)
 
 	cmd := exec.CommandContext(ctx, "sudo", args...)
-	cmd.Env = os.Environ()
 	cmd.Stdin = os.Stdin
 	var stdoutSb strings.Builder
 	var stderrSb strings.Builder
