@@ -42,6 +42,16 @@ type threadViewAsyncChatState struct {
 	lastStatusPrefix string
 }
 
+func formatSecondsMinSec(nseconds int) string {
+	if nseconds <= 60 {
+		return fmt.Sprintf("%vs", nseconds)
+	}
+
+	minutes := nseconds / 60
+	seconds := nseconds % 60
+	return fmt.Sprintf("%vm%vs", minutes, seconds)
+}
+
 func (tvUI *threadViewUI) beginAsyncChat(
 	ctx context.Context,
 ) (prompt string, ok bool) {
@@ -126,7 +136,7 @@ func (running *threadViewAsyncChatState) formatStatusPrefix(now time.Time) strin
 
 	stepSec := int(now.Sub(running.stepStartedAt).Seconds())
 
-	return fmt.Sprintf("%v(%vs)...", prefix, stepSec)
+	return fmt.Sprintf("%v(%v)...", prefix, formatSecondsMinSec(stepSec))
 }
 
 func (running *threadViewAsyncChatState) formatStatusSuffix(now time.Time) string {
@@ -135,8 +145,8 @@ func (running *threadViewAsyncChatState) formatStatusSuffix(now time.Time) strin
 	}
 
 	totalSec := int(now.Sub(running.startedAt).Seconds())
-	return fmt.Sprintf("[totaltime:%vs requests:%v toolcalls:%v]",
-		totalSec, running.requestCount, running.toolCalls)
+	return fmt.Sprintf("[totaltime:%v requests:%v toolcalls:%v] ",
+		formatSecondsMinSec(totalSec), running.requestCount, running.toolCalls)
 }
 
 func (running *threadViewAsyncChatState) formatStatus(now time.Time) string {
