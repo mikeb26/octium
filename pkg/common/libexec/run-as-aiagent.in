@@ -333,7 +333,6 @@ run_via_systemd() {
 		--property=LockPersonality=yes \
 		--property=RestrictNamespaces=yes \
 		--property=RestrictRealtime=yes \
-		--property=RestrictSUIDSGID=yes \
 		--property=RestrictAddressFamilies="AF_INET AF_INET6" \
 		--property=IPAddressAllow=127.0.0.1/32 \
 		--property=IPAddressAllow=::1/128 \
