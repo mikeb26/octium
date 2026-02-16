@@ -6,6 +6,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/mikeb26/octium/internal/ui"
 	gc "github.com/rthornton128/goncurses"
 )
@@ -20,10 +22,45 @@ const (
 // separates the history pane from the input area. The editable content
 // for the input area itself is now managed by an internal/ui.Frame
 // instance owned by runThreadView.
-//
-// statusText, when non-empty, is appended after the label and can be used
-// to display transient thread state (e.g. "Processing...", "LLM: thinking").
-func drawThreadInputLabel(cliCtx *CliContext, statusText string) {
+func (tvUI *threadViewUI) threadInputLabelText(now time.Time) string {
+	if tvUI == nil {
+		return ""
+	}
+
+	if tvUI.running.state != nil {
+		return tvUI.running.formatStatus(now)
+	}
+
+	if tvUI.isArchived {
+		return asyncStatusArchived
+	}
+
+	return asyncStatusIdle
+}
+
+func (tvUI *threadViewUI) threadInputLabelTexts(now time.Time) (prefix, suffix string) {
+	if tvUI == nil {
+		return "", ""
+	}
+
+	if tvUI.running.state != nil {
+		return tvUI.running.formatStatusPrefix(now), tvUI.running.formatStatusSuffix(now)
+	}
+
+	if tvUI.isArchived {
+		return asyncStatusArchived, ""
+	}
+
+	return asyncStatusIdle, ""
+}
+
+func drawThreadInputLabel(tvUI *threadViewUI) {
+	if tvUI == nil {
+		return
+	}
+
+	cliCtx := tvUI.cliCtx
+	prefixText, suffixText := tvUI.threadInputLabelTexts(time.Now())
 	maxY, maxX := cliCtx.rootWin.MaxYX()
 	inputHeight := threadInputHeight
 	startY := maxY - menuStatusHeight - inputHeight
@@ -31,20 +68,19 @@ func drawThreadInputLabel(cliCtx *CliContext, statusText string) {
 		startY = menuHeaderHeight
 	}
 
-	// Reserve the last 2 cells for the terminating 'O₂' so the label row always
-	// has a visual end-cap.
-	maxTextWidth := maxX
-	if maxTextWidth > 1 {
-		maxTextWidth = maxX - 2
-	}
-	if len([]rune(statusText)) > maxTextWidth {
-		statusText = string([]rune(statusText)[:maxTextWidth])
-	}
 	var sepAttr gc.Char = gc.A_NORMAL
 	if cliCtx.toggles.useColors {
 		sepAttr = gc.ColorPair(menuColorStatus)
 	}
 	_ = cliCtx.rootWin.AttrSet(sepAttr)
+
+	// Reserve the last 2 cells for the terminating 'O₂' so the label row always
+	// has a visual end-cap.
+	endX := maxX - 2
+	if endX < 0 {
+		endX = 0
+	}
+
 	// NOTE:
 	// - We intentionally avoid mvwhline()/HLine here. Even when embedding
 	//   attributes into the chtype, some terminals/curses combos still do not
@@ -52,17 +88,37 @@ func drawThreadInputLabel(cliCtx *CliContext, statusText string) {
 	//   can make the status background look "truncated".
 	// - Writing each cell explicitly ensures the full row is touched and uses
 	//   the desired background attributes.
-	// Print the label/status text first, then explicitly touch the remainder of
-	// the row so the background attribute is applied consistently.
-	printedRunes := []rune(statusText)
-	cliCtx.rootWin.MovePrint(startY, 0, statusText)
-	x := len(printedRunes)
-	endX := maxX - 2
-	if endX < 0 {
-		endX = 0
-	}
-	for ; x < endX; x++ {
+	// Fill the row (excluding the end-cap) with spaces so the background
+	// attribute is applied consistently.
+	for x := 0; x < endX; x++ {
 		cliCtx.rootWin.MoveAddChar(startY, x, gc.Char(' ')|sepAttr)
+	}
+
+	// Right-justify the status suffix so it ends immediately before the 'O₂'
+	// end-cap.
+	prefixRunes := []rune(prefixText)
+	suffixRunes := []rune(suffixText)
+	widthBeforeCap := endX
+	if widthBeforeCap < 0 {
+		widthBeforeCap = 0
+	}
+	if len(suffixRunes) > widthBeforeCap {
+		// Keep the tail of the suffix so the most relevant counters remain visible.
+		suffixRunes = suffixRunes[len(suffixRunes)-widthBeforeCap:]
+	}
+	suffixStart := endX - len(suffixRunes)
+	if suffixStart < 0 {
+		suffixStart = 0
+	}
+
+	if len(prefixRunes) > suffixStart {
+		prefixRunes = prefixRunes[:suffixStart]
+	}
+	if len(prefixRunes) > 0 {
+		cliCtx.rootWin.MovePrint(startY, 0, string(prefixRunes))
+	}
+	if len(suffixRunes) > 0 && suffixStart < endX {
+		cliCtx.rootWin.MovePrint(startY, suffixStart, string(suffixRunes))
 	}
 	if maxX > 1 {
 		cliCtx.rootWin.MovePrint(startY, endX, "O₂")

@@ -78,7 +78,6 @@ func (tvUI *threadViewUI) beginAsyncChat(
 
 func (tvUI *threadViewUI) setRunningState(state *threads.RunningThreadState) {
 	now := time.Now()
-	tvUI.statusText = asyncStatusProcessing
 	tvUI.running.lastStatusPrefix = asyncStatusProcessing
 	tvUI.running.toolCalls = 0
 	tvUI.running.requestCount = 0
@@ -93,14 +92,10 @@ func (tvUI *threadViewUI) setRunningState(state *threads.RunningThreadState) {
 }
 
 func (tvUI *threadViewUI) clearRunningState() {
-	tvUI.statusText = asyncStatusIdle
-	if tvUI.isArchived {
-		tvUI.statusText = asyncStatusArchived
-	}
 	tvUI.running = threadViewAsyncChatState{}
 }
 
-func (running *threadViewAsyncChatState) formatStatus(now time.Time) string {
+func (running *threadViewAsyncChatState) formatStatusPrefix(now time.Time) string {
 	if running == nil {
 		return ""
 	}
@@ -108,13 +103,29 @@ func (running *threadViewAsyncChatState) formatStatus(now time.Time) string {
 	prefix := running.lastStatusPrefix
 
 	stepSec := int(now.Sub(running.stepStartedAt).Seconds())
-	totalSec := int(now.Sub(running.startedAt).Seconds())
 
-	return fmt.Sprintf("%v(%vs of %vs)... [requests:%v toolcalls:%v]",
-		prefix, stepSec, totalSec, running.requestCount, running.toolCalls)
+	return fmt.Sprintf("%v(%vs)...", prefix, stepSec)
 }
 
-func (s *threadViewAsyncChatState) statusFromProgress(ev types.ProgressEvent) string {
+func (running *threadViewAsyncChatState) formatStatusSuffix(now time.Time) string {
+	if running == nil {
+		return ""
+	}
+
+	totalSec := int(now.Sub(running.startedAt).Seconds())
+	return fmt.Sprintf("[totaltime:%vs requests:%v toolcalls:%v]",
+		totalSec, running.requestCount, running.toolCalls)
+}
+
+func (running *threadViewAsyncChatState) formatStatus(now time.Time) string {
+	if running == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%v %v", running.formatStatusPrefix(now), running.formatStatusSuffix(now))
+}
+
+func (s *threadViewAsyncChatState) updateStatusFromProgress(ev types.ProgressEvent) {
 	now := time.Now()
 	s.stepStartedAt = now
 	s.lastStatusUpdate = now
@@ -139,8 +150,6 @@ func (s *threadViewAsyncChatState) statusFromProgress(ev types.ProgressEvent) st
 			s.lastStatusPrefix = asyncStatusProcessing
 		}
 	}
-
-	return s.formatStatus(now)
 }
 
 func (tvUI *threadViewUI) tickStatus() bool {
@@ -153,15 +162,10 @@ func (tvUI *threadViewUI) tickStatus() bool {
 		return false
 	}
 
-	needRedraw := false
 	tvUI.running.lastStatusUpdate = now
-	newStatusText := tvUI.running.formatStatus(now)
-	if tvUI.statusText != newStatusText {
-		tvUI.statusText = newStatusText
-		needRedraw = true
-	}
-
-	return needRedraw
+	// The input label now formats its own status text from the underlying
+	// running state; we only need to trigger a redraw.
+	return true
 }
 
 func (tvUI *threadViewUI) processAsyncChat() bool {
@@ -215,7 +219,7 @@ func (tvUI *threadViewUI) processAsyncChatEvents() (done bool, needRedraw bool) 
 				tvUI.running.progressCh = nil
 				continue
 			}
-			tvUI.statusText = tvUI.running.statusFromProgress(ev)
+			tvUI.running.updateStatusFromProgress(ev)
 			needRedraw = true
 		case res, ok := <-tvUI.running.resultCh:
 			if !ok {

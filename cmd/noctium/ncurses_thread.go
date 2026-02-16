@@ -75,7 +75,6 @@ type threadViewUI struct {
 	thread       threads.Thread
 	isArchived   bool
 	running      threadViewAsyncChatState
-	statusText   string
 	inputFrame   *ui.Frame
 	historyFrame *ui.Frame
 	focusedFrame *ui.Frame
@@ -117,8 +116,6 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 	if tvUI != nil {
 		if tvUI.isArchived {
 			tvUI.clearRunningState()
-		} else if tvUI.running.state == nil && tvUI.statusText == "" {
-			tvUI.statusText = asyncStatusIdle
 		}
 
 		return tvUI
@@ -261,7 +258,7 @@ func (tvUI *threadViewUI) redrawThreadView(ctx context.Context) {
 	// position so we don't steal focus from whichever frame is active.
 	curY, curX := gc.StdScr().CursorYX()
 	tvUI.drawThreadHeader(ctx)
-	drawThreadInputLabel(tvUI.cliCtx, tvUI.statusText)
+	drawThreadInputLabel(tvUI)
 	drawNavbar(tvUI.cliCtx, tvUI.getFocus(), tvUI.isArchived)
 	gc.StdScr().Move(curY, curX)
 
