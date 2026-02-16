@@ -75,7 +75,9 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 		},
 	).Times(1)
 
-	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
+	ictx := types.InternalContext{ASettings: types.ApproveSettings{
+		BaseApprover: noopApprover{},
+	}}
 	// Inject a mock client into the active thread so ChatOnceAsync uses it.
 	thrImpl.llmClient = mockClient
 	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
@@ -127,7 +129,9 @@ func TestChatOnceAsyncRequiresSystemMessage(t *testing.T) {
 	}
 	thrImpl := threads[0].(*thread)
 
-	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
+	ictx := types.InternalContext{ASettings: types.ApproveSettings{
+		BaseApprover: noopApprover{},
+	}}
 	state, err := thrImpl.ChatOnceAsync(context.Background(), &ictx, "hi", false, "")
 	assert.Error(t, err)
 	assert.Nil(t, state)
@@ -171,7 +175,9 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 		&types.StreamResult{InvocationID: invocationID, Stream: sr}, nil,
 	).Times(1)
 
-	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
+	ictx := types.InternalContext{ASettings: types.ApproveSettings{
+		BaseApprover: noopApprover{},
+	}}
 	// Inject a mock client into the active thread so ChatOnceAsync uses it.
 	thrImpl.llmClient = mockClient
 	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
@@ -247,7 +253,9 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 		},
 	).Times(1)
 
-	ictx := types.InternalContext{LlmBaseApprover: noopApprover{}}
+	ictx := types.InternalContext{ASettings: types.ApproveSettings{
+		BaseApprover: noopApprover{},
+	}}
 	thrImpl.llmClient = mockClient
 	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
 	assert.NoError(t, err)

@@ -38,20 +38,14 @@ func (t PromptRunTool) GetOp() types.ToolCallOp {
 	return types.PromptRun
 }
 
-func (t PromptRunTool) RequiresUserApproval() bool {
+func (t PromptRunTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return false
 }
 func newPromptRunTool(ctxIn context.Context, vendor string,
 	approver am.Approver, apiKey string, model string,
 	depthIn int) types.LlmTool {
 
-	ictx := &types.InternalContext{
-		LlmVendor:       vendor,
-		LlmModel:        model,
-		LlmApiKey:       apiKey,
-		LlmAuditLogPath: "", // disabled for nested prompt_run
-		LlmBaseApprover: approver,
-	}
+	ictx := types.NewIctx(vendor, model, apiKey, "", approver, nil, nil, nil)
 
 	t := &PromptRunTool{
 		ctx:      ctxIn,

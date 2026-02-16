@@ -11,4 +11,5 @@ var (
 	ErrWorkspacePwdNotSet   = errors.New("workspace pwd not set")
 	ErrWorkspacePwdNotAbs   = errors.New("workspace pwd is not an absolute path")
 	ErrPathOutsideWorkspace = errors.New("path is outside workspace")
+	ErrMissingIctx          = errors.New("missing internal context in tool invocation")
 )

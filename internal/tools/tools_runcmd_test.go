@@ -78,8 +78,8 @@ func Test_setContent_TruncatesAndSetsMetadata(t *testing.T) {
 func Test_RunCommandTool_Invoke_ApproverError_SkipsExecution(t *testing.T) {
 	fa := &fakeApprover{err: fmt.Errorf("approver failure")}
 	tool := RunCommandTool{approver: fa}
-
-	resp, err := tool.Invoke(context.Background(), &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess"}, TruncateSize: 1024})
+	ctx := types.WithIctx(context.Background(), &types.InternalContext{})
+	resp, err := tool.Invoke(ctx, &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess"}, TruncateSize: 1024})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -91,8 +91,8 @@ func Test_RunCommandTool_Invoke_ApproverError_SkipsExecution(t *testing.T) {
 func Test_RunCommandTool_Invoke_DeniedApproval_SkipsExecution(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: false}}
 	tool := RunCommandTool{approver: fa}
-
-	resp, err := tool.Invoke(context.Background(), &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess", "--", "stdout", "DENIED", "0"}, TruncateSize: 1024})
+	ctx := types.WithIctx(context.Background(), &types.InternalContext{})
+	resp, err := tool.Invoke(ctx, &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess", "--", "stdout", "DENIED", "0"}, TruncateSize: 1024})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}
@@ -209,8 +209,8 @@ func Test_RunCommandTool_Invoke_TruncatesStdoutAndStderr(t *testing.T) {
 func Test_RunCommandTool_Invoke_ProxyNotConfigured_ReturnsErrorAndSkipsExecution(t *testing.T) {
 	ta := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := RunCommandTool{approver: ta}
-
-	resp, err := tool.Invoke(context.Background(), &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess"}})
+	ctx := types.WithIctx(context.Background(), &types.InternalContext{})
+	resp, err := tool.Invoke(ctx, &CmdRunReq{Cmd: os.Args[0], CmdArgs: []string{"-test.run=TestHelperProcess"}})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
 	}

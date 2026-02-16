@@ -36,7 +36,7 @@ func (g CreateFileTool) GetOp() types.ToolCallOp {
 	return types.CreateFile
 }
 
-func (t CreateFileTool) RequiresUserApproval() bool {
+func (t CreateFileTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 
@@ -159,7 +159,7 @@ type AppendFileResp struct {
 func (t AppendFileTool) GetOp() types.ToolCallOp {
 	return types.AppendFile
 }
-func (t AppendFileTool) RequiresUserApproval() bool {
+func (t AppendFileTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 
@@ -194,7 +194,7 @@ func (t ReadFileTool) GetOp() types.ToolCallOp {
 	return types.ReadFile
 }
 
-func (t ReadFileTool) RequiresUserApproval() bool {
+func (t ReadFileTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 
@@ -229,7 +229,7 @@ func (t DeleteFileTool) GetOp() types.ToolCallOp {
 	return types.DeleteFile
 }
 
-func (t DeleteFileTool) RequiresUserApproval() bool {
+func (t DeleteFileTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 

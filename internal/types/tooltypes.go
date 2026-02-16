@@ -23,6 +23,6 @@ const (
 
 type Tool interface {
 	GetOp() ToolCallOp
-	RequiresUserApproval() bool
+	RequiresUserApproval(ictx *InternalContext) bool
 	Define() LlmTool
 }

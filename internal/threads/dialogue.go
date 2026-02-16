@@ -35,11 +35,11 @@ func (thr *thread) setRunning(ctx context.Context,
 	// Create the async approver and LLM client per-thread (and only once per
 	// thread).
 	if thr.asyncApprover == nil {
-		thr.asyncApprover = NewAsyncApprover(ictx.LlmBaseApprover)
+		thr.asyncApprover = NewAsyncApprover(ictx.ASettings.BaseApprover)
 	}
 	if thr.llmClient == nil {
 		approver := am.NewPolicyStoreApprover(thr.asyncApprover,
-			ictx.LlmPolicyStore)
+			ictx.ASettings.PolicyStore)
 		thr.llmClient = llmclient.NewEINOClient(ctx, ictx, approver, 0)
 	}
 

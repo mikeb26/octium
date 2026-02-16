@@ -40,6 +40,7 @@ func requireChoiceKey(t *testing.T, keys map[string]am.ApprovalChoice, key strin
 func Test_ReadFileTool_BuildApprovalRequest_NormalizesRelativePathsAndIncludesReadChoices(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 
 	reqPath := "foo.txt" // relative
 	tool := ReadFileTool{}
@@ -76,6 +77,7 @@ func Test_ReadFileTool_BuildApprovalRequest_NormalizesRelativePathsAndIncludesRe
 func Test_CreateFileTool_BuildApprovalRequest_DoesNotIncludeReadOnlyChoices(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	filename := filepath.Join(tmp, "bar.txt")
 
 	tool := CreateFileTool{}
@@ -100,6 +102,7 @@ func Test_CreateFileTool_BuildApprovalRequest_DoesNotIncludeReadOnlyChoices(t *t
 func Test_CreateFileTool_Invoke_DeniedApproval_DoesNotWriteFile(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	filename := filepath.Join(tmp, "deny.txt")
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: false}}
@@ -120,6 +123,7 @@ func Test_CreateFileTool_Invoke_DeniedApproval_DoesNotWriteFile(t *testing.T) {
 func Test_CreateFileTool_Invoke_AllowsApproval_WritesFile(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	filename := filepath.Join(tmp, "ok.txt")
 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
@@ -144,6 +148,7 @@ func Test_CreateFileTool_Invoke_AllowsApproval_WritesFile(t *testing.T) {
 func Test_AppendFileTool_Invoke_AppendsToExistingFile(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	filename := filepath.Join(tmp, "append.txt")
 	if err := os.WriteFile(filename, []byte("a"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -172,6 +177,7 @@ func Test_AppendFileTool_Invoke_AppendsToExistingFile(t *testing.T) {
 func Test_DeleteFileTool_Invoke_DeletesFile(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	filename := filepath.Join(tmp, "del.txt")
 	if err := os.WriteFile(filename, []byte("x"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -195,6 +201,7 @@ func Test_DeleteFileTool_Invoke_DeletesFile(t *testing.T) {
 func Test_ReadFileTool_Invoke_ReadsContent_WithEOFError(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	filename := filepath.Join(tmp, "read.txt")
 	if err := os.WriteFile(filename, []byte("hello"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -224,6 +231,7 @@ func Test_ReadFileTool_Invoke_ReadsContent_WithEOFError(t *testing.T) {
 func Test_ReadFileTool_Invoke_RefusesSymlinkEscape(t *testing.T) {
 	tmp := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), tmp)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 
 	// Create a file outside the workspace.
 	outsideDir := t.TempDir()

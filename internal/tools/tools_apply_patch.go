@@ -36,7 +36,7 @@ func (g FilePatchTool) GetOp() types.ToolCallOp {
 	return types.FilePatch
 }
 
-func (t FilePatchTool) RequiresUserApproval() bool {
+func (t FilePatchTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 

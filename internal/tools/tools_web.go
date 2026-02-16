@@ -62,7 +62,7 @@ func (t RetrieveUrlTool) GetOp() types.ToolCallOp {
 	return types.RetrieveUrl
 }
 
-func (t RetrieveUrlTool) RequiresUserApproval() bool {
+func (t RetrieveUrlTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 

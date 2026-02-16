@@ -13,19 +13,22 @@ import (
 	"github.com/mikeb26/octium/internal/httpproxy"
 )
 
+type ApproveSettings struct {
+	BaseApprover am.Approver
+	PolicyStore  am.ApprovalPolicyStore
+}
+
+type LlmSettings struct {
+	Vendor          string
+	Model           string
+	ApiKey          string
+	AuditLogPath    string
+	ReasoningEffort laclopenai.ReasoningEffortLevel
+}
+
 type InternalContext struct {
-	LlmVendor       string
-	LlmModel        string
-	LlmApiKey       string
-	LlmAuditLogPath string
-	// LlmReasoningEffort is a best-effort hint to the LLM client about how much
-	// reasoning to apply. Expected values are "low", "medium", or "high".
-	//
-	// This is interpreted by llmclient.NewEINOClient and may be ignored by some
-	// vendors/models.
-	LlmReasoningEffort laclopenai.ReasoningEffortLevel
-	LlmBaseApprover    am.Approver
-	LlmPolicyStore     am.ApprovalPolicyStore
+	LlmSettings LlmSettings
+	ASettings   ApproveSettings
 
 	HttpProxy *httpproxy.HttpProxy
 	Afs       fsatomic.AtomicFS
@@ -65,4 +68,25 @@ func GetWorkspacePwd(ctx context.Context) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func NewIctx(vendor, model, apiKey, auditPath string, approver am.Approver,
+	policyStore am.ApprovalPolicyStore, proxy *httpproxy.HttpProxy,
+	afs fsatomic.AtomicFS) *InternalContext {
+
+	return &InternalContext{
+		LlmSettings: LlmSettings{
+			Vendor:          vendor,
+			Model:           model,
+			ApiKey:          apiKey,
+			AuditLogPath:    auditPath,
+			ReasoningEffort: laclopenai.ReasoningEffortLevelMedium,
+		},
+		ASettings: ApproveSettings{
+			BaseApprover: approver,
+			PolicyStore:  policyStore,
+		},
+		HttpProxy: proxy,
+		Afs:       afs,
+	}
 }

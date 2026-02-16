@@ -77,7 +77,7 @@ func TestPromptRunTool_Invoke_CallsClient(t *testing.T) {
 		am.NewMemoryApprovalPolicyStore(),
 	)
 
-	ctx := context.Background()
+	ctx := types.WithIctx(context.Background(), &types.InternalContext{})
 
 	req := &PromptRunReq{Dialogue: []*types.ThreadMessage{{Role: schema.User, Content: "hi"}}}
 	respMsg := &types.ThreadMessage{Role: schema.Assistant, Content: "ok"}

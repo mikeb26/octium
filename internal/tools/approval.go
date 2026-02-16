@@ -18,7 +18,11 @@ import (
 func GetUserApproval(ctx context.Context, approver am.Approver,
 	t types.Tool, arg any) error {
 
-	if !t.RequiresUserApproval() {
+	ictx, ok := types.GetIctx(ctx)
+	if !ok || ictx == nil {
+		return ErrMissingIctx
+	}
+	if !t.RequiresUserApproval(ictx) {
 		return nil
 	}
 

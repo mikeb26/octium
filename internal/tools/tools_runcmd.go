@@ -46,7 +46,7 @@ func (t RunCommandTool) GetOp() types.ToolCallOp {
 	return types.RunCommand
 }
 
-func (t RunCommandTool) RequiresUserApproval() bool {
+func (t RunCommandTool) RequiresUserApproval(ictx *types.InternalContext) bool {
 	return true
 }
 

@@ -23,6 +23,7 @@ func Test_RetrieveUrlTool_Invoke_RequiresExactlyOneOfTruncateSizeOrRespBodyFilen
 	tool := RetrieveUrlTool{approver: fa}
 
 	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: "http://example.invalid"})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
@@ -45,6 +46,7 @@ func Test_RetrieveUrlTool_Invoke_ApprovalOnly_RequestsApprovalAndDoesNotHitNetwo
 	tool := RetrieveUrlTool{approver: fa}
 
 	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, ApprovalOnly: true})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
@@ -64,6 +66,7 @@ func Test_RetrieveUrlTool_Invoke_TruncateSizeAndRespBodyFilenameAreMutuallyExclu
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true}}
 	tool := RetrieveUrlTool{approver: fa}
 	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{
 		Url:              "http://example.invalid",
@@ -90,6 +93,7 @@ func Test_RetrieveUrlTool_Invoke_DeniedApproval_DoesNotHitNetwork(t *testing.T) 
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: false}}
 	tool := RetrieveUrlTool{approver: fa}
 	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, TruncateSize: 10})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
@@ -115,6 +119,7 @@ func Test_RetrieveUrlTool_Invoke_TruncatesBodyAndSetsMetadata(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RetrieveUrlTool{approver: fa}
 	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, TruncateSize: 5})
 	if err != nil {
 		t.Fatalf("expected err=nil; got %v", err)
@@ -152,6 +157,7 @@ func Test_RetrieveUrlTool_Invoke_RespBodyFilename_WritesFullBodyAndReturnsEmptyB
 
 	ws := t.TempDir()
 	ctx := types.WithWorkspacePwd(context.Background(), ws)
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 	out := filepath.Join(ws, "sub", "out.txt")
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{Url: srv.URL, RespBodyFilename: out})
 	if err != nil {
@@ -204,6 +210,7 @@ func Test_RetrieveUrlTool_Invoke_POST_SendsBodyAndHeaders(t *testing.T) {
 	fa := &fakeApprover{decision: am.ApprovalDecision{Allowed: true, Choice: am.ApprovalChoice{Key: "y", Scope: am.ApprovalScopeOnce}}}
 	tool := RetrieveUrlTool{approver: fa}
 	ctx := types.WithWorkspacePwd(context.Background(), t.TempDir())
+	ctx = types.WithIctx(ctx, &types.InternalContext{})
 
 	resp, err := tool.Invoke(ctx, &RetrieveUrlReq{
 		Url:          srv.URL,

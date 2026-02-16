@@ -72,11 +72,11 @@ func SetInvocationID(ctx context.Context, threadId string,
 func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
 	approver am.Approver, depth int) types.AIClient {
 
-	vendor := ictx.LlmVendor
-	apiKey := ictx.LlmApiKey
-	modelName := ictx.LlmModel
-	enableAuditLog := ictx.LlmAuditLogPath != ""
-	auditLogPath := ictx.LlmAuditLogPath
+	vendor := ictx.LlmSettings.Vendor
+	apiKey := ictx.LlmSettings.ApiKey
+	modelName := ictx.LlmSettings.Model
+	enableAuditLog := ictx.LlmSettings.AuditLogPath != ""
+	auditLogPath := ictx.LlmSettings.AuditLogPath
 
 	var client types.AIClient
 	switch vendor {
@@ -93,7 +93,7 @@ func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
 		panic("unsupported vendor")
 	}
 
-	client.SetReasoning(ictx.LlmReasoningEffort)
+	client.SetReasoning(ictx.LlmSettings.ReasoningEffort)
 
 	return client
 }

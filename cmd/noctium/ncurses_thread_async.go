@@ -64,7 +64,7 @@ func (tvUI *threadViewUI) beginAsyncChat(
 	// workspace sandbox.
 	ctx = types.WithWorkspacePwd(ctx, tvUI.ws.GetPwd(ctx))
 
-	state, err := tvUI.thread.ChatOnceAsync(ctx, &tvUI.cliCtx.ictx, prompt,
+	state, err := tvUI.thread.ChatOnceAsync(ctx, tvUI.cliCtx.ictx, prompt,
 		tvUI.cliCtx.toggles.summary, tvUI.getSystemPrompt())
 	if err != nil {
 		_, _ = showErrorRetryModal(tvUI.cliCtx.ui, err.Error())

@@ -11,11 +11,11 @@ import (
 	"io"
 	"os"
 
-	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	gc "github.com/rthornton128/goncurses"
 
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/fsatomic"
 	"github.com/mikeb26/octium/internal/fsatomic/local"
 	"github.com/mikeb26/octium/internal/httpproxy"
 	"github.com/mikeb26/octium/internal/scm"
@@ -52,7 +52,8 @@ type Toggles struct {
 }
 
 type CliContext struct {
-	ictx types.InternalContext
+	ictx *types.InternalContext
+	Afs  fsatomic.AtomicFS
 
 	ui          *ui.NcursesUI
 	rootWin     *gc.Window
@@ -104,9 +105,9 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 		threadGroupsDirLocal = "/tmp"
 	}
 
-	cliCtx.ictx.Afs = local.New()
+	cliCtx.Afs = local.New()
 	cliCtx.threadGroupSet = threads.NewThreadGroupSet(threadGroupsDirLocal,
-		[]string{MainThreadGroupName, ArchiveThreadGroupName}, cliCtx.ictx.Afs)
+		[]string{MainThreadGroupName, ArchiveThreadGroupName}, cliCtx.Afs)
 
 	return cliCtx, nil
 }
@@ -134,9 +135,12 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 		}
 	}
 
-	auditLogPath, err := getAuditLogPath()
-	if err != nil {
-		return err
+	auditLogPath := ""
+	if cliCtx.prefs.EnableAuditLog {
+		auditLogPath, err = getAuditLogPath()
+		if err != nil {
+			return err
+		}
 	}
 
 	policyPath, err := getApprovePolicyPath()
@@ -148,21 +152,14 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 		return err
 	}
 
-	cliCtx.ictx.LlmPolicyStore = policyStore
-	cliCtx.ictx.LlmVendor = cliCtx.prefs.Vendor
-	cliCtx.ictx.LlmModel = cliCtx.prefs.Model
-	cliCtx.ictx.LlmApiKey = keyText
-	cliCtx.ictx.LlmReasoningEffort = laclopenai.ReasoningEffortLevelMedium
-	if cliCtx.prefs.EnableAuditLog {
-		cliCtx.ictx.LlmAuditLogPath = auditLogPath
-	}
-	cliCtx.ictx.LlmBaseApprover = ui.NewUIApprover(cliCtx.ui)
+	cliCtx.ictx = types.NewIctx(cliCtx.prefs.Vendor, cliCtx.prefs.Model,
+		keyText, auditLogPath, ui.NewUIApprover(cliCtx.ui), policyStore,
+		httpproxy.New(policyStore), cliCtx.Afs)
 
 	err = cliCtx.threadGroupSet.Load(ctx)
 	if err != nil {
 		return err
 	}
-	cliCtx.ictx.HttpProxy = httpproxy.New(cliCtx.ictx.LlmPolicyStore)
 	err = cliCtx.ictx.HttpProxy.ListenAndServe()
 	if err != nil {
 		return fmt.Errorf("%v: Failed to start http proxy: %w\n", internal.CliToolName, err)
