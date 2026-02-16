@@ -31,6 +31,7 @@ func (octiumCtx *CliContext) loadPrefs() error {
 		SummarizePrior: false,
 		Vendor:         vendor,
 		Model:          model,
+		RunCmdApproval: false,
 		EnableAuditLog: true,
 	}
 
@@ -190,6 +191,16 @@ func configMain(ctx context.Context, octiumCtx *CliContext) error {
 		return err
 	}
 	octiumCtx.prefs.EnableAuditLog = enableAudit
+
+	runCmdApprovalPrompt := fmt.Sprintf("Require approvals for running shell commands?\n\nNote that it is safe to accept the default(no) since all shell commands are run in a restricted sandbox environment without access to your $HOME or sensitive files on your system. Shell commands can only access files which you later explicitly share in your workspace. See %v if you would like to audit.",
+		internal.CliRunAsScriptPath())
+
+	defaultRunCmdApproval := false
+	runCmdApproval, err := octiumCtx.ui.SelectBool(runCmdApprovalPrompt, trueOpt, falseOpt, &defaultRunCmdApproval)
+	if err != nil {
+		return err
+	}
+	octiumCtx.prefs.RunCmdApproval = runCmdApproval
 	if octiumCtx.prefs.EnableAuditLog {
 		logsDir, err := getLogsDir()
 		if err != nil {

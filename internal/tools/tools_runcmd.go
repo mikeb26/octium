@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool/utils"
@@ -47,7 +46,7 @@ func (t RunCommandTool) GetOp() types.ToolCallOp {
 }
 
 func (t RunCommandTool) RequiresUserApproval(ictx *types.InternalContext) bool {
-	return true
+	return ictx.ASettings.RunCmdNeedsApproval
 }
 
 // BuildApprovalRequest implements ToolWithCustomApproval for
@@ -160,11 +159,7 @@ func (t RunCommandTool) Invoke(ctx context.Context,
 		return resp, nil
 	}
 
-	// see pkg/common/libexec/run-as-aiagent.in
-	runAsPath := filepath.Join(internal.CliLibexecDir, internal.CliToolName,
-		fmt.Sprintf("run-as-%s", internal.CliSandboxUsername))
-
-	args := []string{runAsPath, "--proxy-addr", proxyAddr}
+	args := []string{internal.CliRunAsScriptPath(), "--proxy-addr", proxyAddr}
 	if pwd, ok := types.GetWorkspacePwd(ctx); ok {
 		pwd = strings.TrimSpace(pwd)
 		if pwd != "" {

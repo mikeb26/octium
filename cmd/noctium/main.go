@@ -42,6 +42,7 @@ type Prefs struct {
 	SummarizePrior bool   `json:"summarize_prior"`
 	Vendor         string `json:"vendor"`
 	Model          string `json:"model"`
+	RunCmdApproval bool   `json:"run_cmd_approval"`
 	EnableAuditLog bool   `json:"enable_audit_log"`
 }
 
@@ -91,6 +92,7 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 			SummarizePrior: false,
 			Vendor:         internal.DefaultVendor,
 			Model:          model,
+			RunCmdApproval: false,
 			EnableAuditLog: true,
 		},
 		threadGroupSet: nil,
@@ -155,6 +157,7 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 	cliCtx.ictx = types.NewIctx(cliCtx.prefs.Vendor, cliCtx.prefs.Model,
 		keyText, auditLogPath, ui.NewUIApprover(cliCtx.ui), policyStore,
 		httpproxy.New(policyStore), cliCtx.Afs)
+	cliCtx.ictx.ASettings.RunCmdNeedsApproval = cliCtx.prefs.RunCmdApproval
 
 	err = cliCtx.threadGroupSet.Load(ctx)
 	if err != nil {

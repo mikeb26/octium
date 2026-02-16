@@ -4,7 +4,10 @@
  */
 package internal
 
-import "path/filepath"
+import (
+	"fmt"
+	"path/filepath"
+)
 
 const MaxDepth = 3
 
@@ -29,3 +32,15 @@ var (
 	CliSandboxHome     = filepath.Join(string(filepath.Separator), "home", CliSandboxUsername)
 	CliSandboxRepoHome = filepath.Join(CliSandboxHome, CliSandboxShared)
 )
+
+// CliRunAsScriptPath returns the absolute path to the privileged wrapper
+// script used for executing commands inside the sandbox.
+//
+// This is computed dynamically so tests can override CliLibexecDir and other
+// variables without needing to also update a precomputed path.
+//
+// see pkg/common/libexec/run-as-aiagent.in
+func CliRunAsScriptPath() string {
+	return filepath.Join(CliLibexecDir, CliToolName,
+		fmt.Sprintf("run-as-%s", CliSandboxUsername))
+}

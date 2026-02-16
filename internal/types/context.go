@@ -14,8 +14,9 @@ import (
 )
 
 type ApproveSettings struct {
-	BaseApprover am.Approver
-	PolicyStore  am.ApprovalPolicyStore
+	BaseApprover        am.Approver
+	PolicyStore         am.ApprovalPolicyStore
+	RunCmdNeedsApproval bool
 }
 
 type LlmSettings struct {
@@ -83,8 +84,9 @@ func NewIctx(vendor, model, apiKey, auditPath string, approver am.Approver,
 			ReasoningEffort: laclopenai.ReasoningEffortLevelMedium,
 		},
 		ASettings: ApproveSettings{
-			BaseApprover: approver,
-			PolicyStore:  policyStore,
+			BaseApprover:        approver,
+			PolicyStore:         policyStore,
+			RunCmdNeedsApproval: false,
 		},
 		HttpProxy: proxy,
 		Afs:       afs,
