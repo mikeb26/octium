@@ -124,9 +124,13 @@ func commonFileBuildApprovalRequest(ctx context.Context, t types.Tool, arg any, 
 		Scope: am.ApprovalScopeDeny,
 	})
 
+	requiredActions := []am.ApprovalAction{am.ApprovalActionRead}
+	if writeRequired {
+		requiredActions = append(requiredActions, am.ApprovalActionWrite)
+	}
 	return am.ApprovalRequest{
 		Prompt:          promptBuilder.String(),
-		RequiredActions: []am.ApprovalAction{am.ApprovalActionWrite},
+		RequiredActions: requiredActions,
 		Choices:         choices,
 	}, nil
 }
