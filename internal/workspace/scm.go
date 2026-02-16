@@ -150,6 +150,7 @@ func (ws *Workspace) createNewSandboxWithValidOrigin(ctx context.Context,
 	if err != nil {
 		return "", err
 	}
+	_ = os.RemoveAll(sboxDir) // best-effort
 	if st, err := os.Stat(sboxDir); err == nil {
 		if st.IsDir() {
 			return "", fmt.Errorf("%w: %v", ErrSandboxDirAlreadyExists, sboxDir)

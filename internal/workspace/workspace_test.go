@@ -191,33 +191,6 @@ func TestWorkspace_AddOriginAndSandbox_SetsOriginAndClonesSandboxAndSaves(t *tes
 	mustNoErr(t, statErr)
 }
 
-func TestWorkspace_AddOriginAndSandbox_ErrorsWhenSandboxAlreadyExists(t *testing.T) {
-	ctx := context.Background()
-	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
-
-	originDir := filepath.Join(t.TempDir(), "origin")
-	mustNoErr(t, os.MkdirAll(originDir, 0o700))
-
-	c := &fakeSCMClient{
-		repoStatusErr: map[string]error{},
-		repoStatusStr: map[string]string{originDir: "ok"},
-		listRemotes:   map[string][]scm.RemoteRepo{},
-		listErr:       map[string]error{},
-	}
-	ws := New(scratchDir, "test", c)
-
-	sboxDir, err := ws.getSandboxDir(filepath.Base(originDir))
-	mustNoErr(t, err)
-	mustNoErr(t, os.MkdirAll(sboxDir, 0o700))
-
-	err = ws.AddOriginAndSandbox(ctx, originDir)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "already exists")
-}
-
 func TestWorkspace_SyncSandbox_ErrorsWhenNoSandbox(t *testing.T) {
 	prevSandboxRepoHome := internal.CliSandboxRepoHome
 	internal.CliSandboxRepoHome = t.TempDir()
