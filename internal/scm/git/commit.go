@@ -27,6 +27,15 @@ import (
 // This method is intended for interactive/UI-triggered use. It does not apply
 // Client.Timeout when ctx has no deadline.
 func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions) (*scm.UntrackedFiles, error) {
+	// Interactive commits (`git commit` without -m) are not compatible with the
+	// sandbox execution mode.
+	//
+	// The sandbox wrapper executes the command inside a transient systemd unit
+	// without a pty/tty, and git editors typically require a usable terminal.
+	if opts.RunAs == scm.ExecAsSandboxUser && opts.Message == "" {
+		return nil, scm.ErrInteractiveCommitUnsupported
+	}
+
 	untracked, err := c.untrackedFiles(ctx, dir)
 	if err != nil {
 		return nil, err
@@ -45,8 +54,10 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 		}
 	}
 
+	var runOpts RunOptions
+	runOpts.RunAs = opts.RunAs
 	// Stage tracked changes.
-	if _, _, err := c.run(ctx, nil, buildGitArgs(dir, "add", "-u")...); err != nil {
+	if _, _, err := c.run(ctx, &runOpts, buildGitArgs(dir, "add", "-u")...); err != nil {
 		return nil, err
 	}
 
@@ -54,7 +65,9 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 	if len(untracked.Filename) > 0 {
 		for _, f := range untracked.Filename {
 			if opts.IncludeUntracked[f] {
-				if _, _, err := c.run(ctx, nil, buildGitArgs(dir, "add", "--", f)...); err != nil {
+				// Stage this specific untracked file (do not use -u, which only updates
+				// tracked files).
+				if _, _, err := c.run(ctx, &runOpts, buildGitArgs(dir, "add", "--", f)...); err != nil {
 					return nil, err
 				}
 			}
@@ -78,10 +91,10 @@ func (c *Client) Commit(ctx context.Context, dir string, opts scm.CommitOptions)
 		//
 		// We wire stdio through so that terminal-based editors work, and so that git
 		// can prompt/confirm as needed.
-		_, _, err = c.run(ctx, &RunOptions{Stdin: os.Stdin, Stdout: os.Stdout,
+		_, _, err = c.run(ctx, &RunOptions{RunAs: opts.RunAs, Stdin: os.Stdin, Stdout: os.Stdout,
 			Stderr: os.Stderr}, buildGitArgs(dir, "commit")...)
 	} else {
-		_, _, err = c.run(ctx, nil, buildGitArgs(dir, "commit", "--no-edit",
+		_, _, err = c.run(ctx, &runOpts, buildGitArgs(dir, "commit", "--no-edit",
 			"-m", opts.Message)...)
 	}
 	if err != nil {

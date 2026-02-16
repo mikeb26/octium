@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/mikeb26/octium/internal/prompts"
@@ -487,12 +488,51 @@ func (tvUI *threadViewUI) launchDiffToolFromThreadView(ctx context.Context) (nee
 	return true
 }
 
+func (tvUI *threadViewUI) getCommitMessage(ctx context.Context) string {
+	// use tvUI.cliCtx.llmClient.CreateChatCompletion(), tvUI.thread.Dialogue(),
+	// and prompts.GitSummarizeMsg
+	// else fall back to just "work in progress commit"
+	const fallback = "work in progress commit"
+
+	dialogue := tvUI.thread.Dialogue()
+	filtered := make([]*types.ThreadMessage, 0, len(dialogue)+1)
+	for _, msg := range dialogue {
+		if msg == nil {
+			continue
+		}
+		// Backwards compatibility: old threads may have persisted the system
+		// message in the dialogue.
+		if msg.Role == types.LlmRoleSystem {
+			continue
+		}
+		filtered = append(filtered, msg)
+	}
+
+	req := make([]*types.ThreadMessage, 0, len(filtered)+1)
+	req = append(req, &types.ThreadMessage{Role: types.LlmRoleSystem,
+		Content: prompts.GitSummarizeMsg})
+	req = append(req, filtered...)
+
+	msg, err := tvUI.cliCtx.llmClient.CreateChatCompletion(ctx, req)
+	if err != nil || msg == nil {
+		return fallback
+	}
+
+	commitMsg := strings.TrimSpace(msg.Content)
+	if commitMsg == "" {
+		return fallback
+	}
+
+	return commitMsg
+}
+
 func (tvUI *threadViewUI) launchCommitFromThreadView(ctx context.Context) (needRedraw bool) {
 	if tvUI.ws.Sandbox() == "" {
 		return false
 	}
 
 	opts := scm.CommitOptions{}
+	opts.Message = tvUI.getCommitMessage(ctx)
 
 	for {
 		// This uses the user's configured git editor (git commit without -m).

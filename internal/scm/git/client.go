@@ -13,6 +13,9 @@ import (
 	"io"
 	"os/exec"
 	"time"
+
+	"github.com/mikeb26/octium/internal"
+	"github.com/mikeb26/octium/internal/scm"
 )
 
 // Client is a small abstraction over calling the git executable.
@@ -42,6 +45,7 @@ type RunOptions struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+	RunAs  scm.ExecAs
 }
 
 func NewClient() *Client {
@@ -59,7 +63,17 @@ func (c *Client) runWithTimeout(ctx context.Context, opts *RunOptions, args ...s
 }
 
 func (c *Client) run(ctx context.Context, opts *RunOptions, args ...string) (string, string, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+
+	var cmd *exec.Cmd
+	if opts != nil && opts.RunAs == scm.ExecAsSandboxUser {
+		runAs := internal.CliRunAsScriptPath()
+		wrapperArgs := []string{runAs, "--proxy-addr", "127.0.0.1:1", "--", "git"}
+		wrapperArgs = append(wrapperArgs, args...)
+
+		cmd = exec.CommandContext(ctx, "sudo", wrapperArgs...)
+	} else {
+		cmd = exec.CommandContext(ctx, "git", args...)
+	}
 
 	var out bytes.Buffer
 	var errBuf bytes.Buffer
@@ -67,9 +81,9 @@ func (c *Client) run(ctx context.Context, opts *RunOptions, args ...string) (str
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
 	if opts != nil {
-		cmd.Stderr = opts.Stderr
 		cmd.Stdout = opts.Stdout
 		cmd.Stdin = opts.Stdin
+		cmd.Stderr = opts.Stderr
 	}
 
 	outStr := ""

@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 
+	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	gc "github.com/rthornton128/goncurses"
 
 	"github.com/mikeb26/octium/internal"
@@ -18,6 +19,7 @@ import (
 	"github.com/mikeb26/octium/internal/fsatomic"
 	"github.com/mikeb26/octium/internal/fsatomic/local"
 	"github.com/mikeb26/octium/internal/httpproxy"
+	"github.com/mikeb26/octium/internal/llmclient"
 	"github.com/mikeb26/octium/internal/scm"
 	"github.com/mikeb26/octium/internal/scm/git"
 	"github.com/mikeb26/octium/internal/threads"
@@ -64,6 +66,9 @@ type CliContext struct {
 	prefs   Prefs
 	toggles Toggles
 
+	// llmClient for non-persistent, fast 1-shot low latency completions.
+	// for persistent, slower, long dialogues see internal/threads/thread.llmClient
+	llmClient      types.AIClient
 	threadGroupSet *threads.ThreadGroupSet
 	curThreadGroup string
 
@@ -154,8 +159,9 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 		return err
 	}
 
+	approver := ui.NewUIApprover(cliCtx.ui)
 	cliCtx.ictx = types.NewIctx(cliCtx.prefs.Vendor, cliCtx.prefs.Model,
-		keyText, auditLogPath, ui.NewUIApprover(cliCtx.ui), policyStore,
+		keyText, auditLogPath, approver, policyStore,
 		httpproxy.New(policyStore), cliCtx.Afs)
 	cliCtx.ictx.ASettings.RunCmdNeedsApproval = cliCtx.prefs.RunCmdApproval
 
@@ -167,6 +173,8 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%v: Failed to start http proxy: %w\n", internal.CliToolName, err)
 	}
+	cliCtx.llmClient = llmclient.NewEINOClient(ctx, cliCtx.ictx, approver, 0)
+	cliCtx.llmClient.SetReasoning(laclopenai.ReasoningEffortLevelLow)
 	cliCtx.toggles.needConfig = false
 
 	return nil

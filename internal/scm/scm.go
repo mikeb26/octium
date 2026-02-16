@@ -87,8 +87,26 @@ type RemoteRepo struct {
 	PushURL  string
 }
 
+// ExecAs controls which OS user should be used to execute an SCM operation.
+//
+// ExecAsCurrentUser runs the SCM command as the current OS user.
+// ExecAsSandboxUser runs the SCM command as octium's sandbox/AI-agent user
+// (see internal.CliSandboxUsername).
+//
+// Not all SCM backends or operations necessarily support all values.
+type ExecAs int
+
+const (
+	ExecAsCurrentUser ExecAs = iota
+	ExecAsSandboxUser
+)
+
 // CommitOptions controls the behavior of Client.Commit.
 type CommitOptions struct {
+	// If Exec.RunAs is left as the zero-value (ExecAsCurrentUser), commits are
+	// performed as the current OS user.
+	RunAs ExecAs
+
 	// IncludeUntracked lists all untracked files currently present in the repo
 	// and whether each should be included in the commit.
 	//

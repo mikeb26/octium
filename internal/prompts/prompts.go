@@ -21,3 +21,8 @@ const SummarizeMsg = `Please summarize the entire prior conversation
 history. The resulting summary should be optimized for consumption by a more
 recent version of an LLM than yourself. The purpose of the summary is to manage
 the limited size of the context window.`
+
+const GitSummarizeMsg = `Please produce an appropriate git commit message by
+summarizing the entire prior conversation history. The commit message should
+adhere to best practices containing 1 short subject line, 1 empty line, and a
+short paragraph description of the change being committed.`

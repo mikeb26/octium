@@ -338,6 +338,7 @@ func (ws *Workspace) MergeSandbox(ctx context.Context) error {
 func (ws *Workspace) CommitSandbox(ctx context.Context,
 	opts scm.CommitOptions) (*scm.UntrackedFiles, error) {
 
+	opts.RunAs = scm.ExecAsSandboxUser
 	untracked, err := ws.scmClient.Commit(ctx, ws.Sandbox(), opts)
 	if err != nil {
 		return untracked, err
