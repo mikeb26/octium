@@ -235,6 +235,18 @@ func (httpProxy *HttpProxy) handleConnect(w http.ResponseWriter, r *http.Request
 		target += ":443"
 	}
 
+	// For HTTP/1.x CONNECT requests, net/http requires hijacking. If the
+	// ResponseWriter can't be hijacked, fail early (and importantly, avoid
+	// dialing the upstream).
+	//
+	// For HTTP/2, Hijacker is not supported; in that case we tunnel bytes via
+	// the request/response bodies.
+	hj, ok := w.(http.Hijacker)
+	if !ok && r.ProtoMajor < 2 {
+		http.Error(w, "hijacking not supported", http.StatusInternalServerError)
+		return
+	}
+
 	up, err := net.DialTimeout("tcp", target, 30*time.Second)
 	if err != nil {
 		http.Error(w, "bad gateway", http.StatusBadGateway)
@@ -246,17 +258,10 @@ func (httpProxy *HttpProxy) handleConnect(w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	// For HTTP/1.x CONNECT requests, net/http requires hijacking.
-	// For HTTP/2, Hijacker is not supported; in that case we tunnel bytes via
-	// the request/response bodies.
-	hj, ok := w.(http.Hijacker)
 	if !ok {
-		if r.ProtoMajor >= 2 {
-			httpProxy.handleConnectStream(r.Context(), w, r, up)
-			up = nil
-			return
-		}
-		http.Error(w, "hijacking not supported", http.StatusInternalServerError)
+		// HTTP/2 streaming path.
+		httpProxy.handleConnectStream(r.Context(), w, r, up)
+		up = nil
 		return
 	}
 
