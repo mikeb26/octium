@@ -64,8 +64,6 @@ cmd/$(NCLI_TOOL_NAME)/version.txt:
 mocks: vendor
 	cd internal/types; go generate
 
-TESTPKGS=github.com/mikeb26/octium/cmd/$(NCLI_TOOL_NAME) github.com/mikeb26/octium/internal github.com/mikeb26/octium/internal/prompts github.com/mikeb26/octium/internal/ui github.com/mikeb26/octium/internal/am github.com/mikeb26/octium/internal/llmclient github.com/mikeb26/octium/internal/threads github.com/mikeb26/octium/internal/scm github.com/mikeb26/octium/internal/scm/git github.com/mikeb26/octium/internal/tools github.com/mikeb26/octium/internal/workspace github.com/mikeb26/octium/internal/fsatomic github.com/mikeb26/octium/internal/fsparanoid
-
 # Enable the race detector by default for `make test`. You can disable with:
 #   make test RACE=0
 RACE ?= 1
@@ -76,10 +74,10 @@ endif
 
 .PHONY: test
 test: vendor mocks
-	go test $(GO_TAG_FLAGS) $(TESTFLAGS) $(TESTPKGS)
+	go test $(GO_TAG_FLAGS) $(TESTFLAGS) ./...
 
 unit-tests.xml: vendor mocks FORCE
-	gotestsum --junitfile unit-tests.xml -- $(GO_TAG_FLAGS) $(TESTFLAGS) $(TESTPKGS)
+	gotestsum --junitfile unit-tests.xml -- $(GO_TAG_FLAGS) $(TESTFLAGS) ./...
 
 .PHONY: lint
 lint:
