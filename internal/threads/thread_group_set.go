@@ -181,7 +181,62 @@ func (tgs *ThreadGroupSet) Load(ctx context.Context) error {
 		return err
 	}
 
-	return tgs.loadThreadGroups(ctx)
+	if err := tgs.loadThreadGroups(ctx); err != nil {
+		return err
+	}
+
+	// Ensure ThreadNum never lags behind the highest on-disk thread id.
+	//
+	// The thread_group_set.json file can be missing/reset (e.g. user deletes it,
+	// old versions didn't create it, restoring from backup, etc.).
+	return tgs.reconcileThreadNumFromLoadedThreads(ctx)
+}
+
+func (tgs *ThreadGroupSet) reconcileThreadNumFromLoadedThreads(ctx context.Context) error {
+	assert.Locked(&tgs.mu, "attempt to reconcile thread group set %v without holding mutex",
+		tgs.dir)
+
+	found := make(map[int64]*ThreadGroup)
+	maxID := tgs.persisted.ThreadNum
+	for _, tg := range tgs.threadGrps {
+		tg.mu.RLock()
+		for id := range tg.threads {
+			n, err := strconv.ParseInt(id, 10, 64)
+			if err != nil {
+				continue
+			}
+			_, ok := found[n]
+			if ok {
+				panic("duplicate thread id")
+			}
+			found[n] = tg
+			if n > maxID {
+				maxID = n
+			}
+		}
+		tg.mu.RUnlock()
+	}
+
+	if maxID <= tgs.persisted.ThreadNum {
+		return nil
+	}
+
+	// CAS loop in case another process updates thread_group_set.json while we're
+	// loading.
+	for {
+		tgs.persisted.ThreadNum = maxID
+		err := tgs.save(ctx, false)
+		if errors.Is(err, fsatomic.ErrConflict) {
+			if err := tgs.readPersisted(ctx); err != nil {
+				return err
+			}
+			if tgs.persisted.ThreadNum >= maxID {
+				return nil
+			}
+			continue
+		}
+		return err
+	}
 }
 
 func (tgs *ThreadGroupSet) readPersisted(ctx context.Context) error {

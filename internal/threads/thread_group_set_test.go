@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 	"testing"
 
 	"github.com/mikeb26/octium/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/types"
 )
 
 func TestThreadGroupSet_Save(t *testing.T) {
@@ -139,5 +141,65 @@ func TestThreadGroupSet_NonIdleThreadCount_SumsAcrossGroups(t *testing.T) {
 
 	if got := tgs.NonIdleThreadCount(); got != 2 {
 		t.Fatalf("expected NonIdleThreadCount=2, got %v", got)
+	}
+}
+
+func TestThreadGroupSet_Load_ReconcilesThreadNumFromDisk(t *testing.T) {
+	root := t.TempDir()
+
+	// Create a thread_group_set.json with a stale ThreadNum.
+	content, err := json.Marshal(&persistedThreadGroupSet{ThreadNum: 0})
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	path := filepath.Join(root, threadGroupSetFileName)
+	if err := os.WriteFile(path, content, 0600); err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+
+	// Create an on-disk thread with id=5 under the "main" group.
+	grpDir := filepath.Join(root, "main")
+	thrDir := filepath.Join(grpDir, "5")
+	if err := os.MkdirAll(thrDir, 0o700); err != nil {
+		t.Fatalf("mkdir failed: %v", err)
+	}
+	base := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+	thr := persistedThread{
+		Name:       "existing",
+		CreateTime: base,
+		AccessTime: base,
+		ModTime:    base,
+		Dialogue:   []*types.ThreadMessage{},
+		Id:         "5",
+	}
+	thrJSON, err := json.Marshal(&thr)
+	if err != nil {
+		t.Fatalf("marshal thread failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(thrDir, ThreadFileName), thrJSON, 0600); err != nil {
+		t.Fatalf("write thread failed: %v", err)
+	}
+
+	tgs := NewThreadGroupSet(root, []string{"main"}, local.New())
+	if err := tgs.Load(context.Background()); err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+
+	// After load, new ids should start after the max on-disk id.
+	if err := tgs.NewThread(context.Background(), "main", "new"); err != nil {
+		t.Fatalf("NewThread failed: %v", err)
+	}
+
+	// Ensure the new thread's id is "6" (not "1").
+	mainGrp := tgs.threadGrps[0]
+	mainGrp.mu.RLock()
+	_, has5 := mainGrp.threads["5"]
+	_, has6 := mainGrp.threads["6"]
+	mainGrp.mu.RUnlock()
+	if !has5 {
+		t.Fatalf("expected loaded thread id=5 to exist")
+	}
+	if !has6 {
+		t.Fatalf("expected NewThread to allocate id=6")
 	}
 }
