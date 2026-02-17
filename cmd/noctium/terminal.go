@@ -17,7 +17,7 @@ import (
 	"github.com/mikeb26/octium/internal"
 )
 
-func (tvUI *threadViewUI) launchTerminalFromThreadView(ctx context.Context) error {
+func (tvUI *threadViewUI) workspaceTerm(ctx context.Context) error {
 	if tvUI.ws.Sandbox() == "" {
 		return nil
 	}
