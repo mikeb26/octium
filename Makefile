@@ -44,19 +44,24 @@ CLI_DEB_VERSION = $(shell \
 .PHONY: build
 build: cmd/$(NCLI_TOOL_NAME)
 
+
 cmd/$(NCLI_TOOL_NAME): vendor FORCE
 	go build $(GO_TAG_FLAGS) -ldflags "$(GO_LDFLAGS)" -o $(NCLI_TOOL_NAME) ./cmd/$(NCLI_TOOL_NAME)
 
-vendor: go.mod
-	go mod download
-	go mod vendor
+.PHONY: vendor
+vendor: vendor/modules.txt
+
+vendor/modules.txt: go.mod go.sum
+	# Ensure we can (re)generate vendor/ even when GOFLAGS forces -mod=vendor.
+	GOFLAGS=-mod=mod go mod download
+	GOFLAGS=-mod=mod go mod vendor
 
 cmd/$(NCLI_TOOL_NAME)/version.txt:
 	git describe --tags --always > cmd/$(NCLI_TOOL_NAME)/version.txt
 	truncate -s -1 cmd/$(NCLI_TOOL_NAME)/version.txt
 
 .PHONY: mocks
-mocks:
+mocks: vendor
 	cd internal/types; go generate
 
 TESTPKGS=github.com/mikeb26/octium/cmd/$(NCLI_TOOL_NAME) github.com/mikeb26/octium/internal github.com/mikeb26/octium/internal/prompts github.com/mikeb26/octium/internal/ui github.com/mikeb26/octium/internal/am github.com/mikeb26/octium/internal/llmclient github.com/mikeb26/octium/internal/threads github.com/mikeb26/octium/internal/scm github.com/mikeb26/octium/internal/scm/git github.com/mikeb26/octium/internal/tools github.com/mikeb26/octium/internal/workspace github.com/mikeb26/octium/internal/fsatomic github.com/mikeb26/octium/internal/fsparanoid
@@ -70,10 +75,10 @@ TESTFLAGS += -race
 endif
 
 .PHONY: test
-test: mocks
+test: vendor mocks
 	go test $(GO_TAG_FLAGS) $(TESTFLAGS) $(TESTPKGS)
 
-unit-tests.xml: mocks FORCE
+unit-tests.xml: vendor mocks FORCE
 	gotestsum --junitfile unit-tests.xml -- $(GO_TAG_FLAGS) $(TESTFLAGS) $(TESTPKGS)
 
 .PHONY: lint
