@@ -20,15 +20,8 @@ import (
 // launchWorkspaceModalFromThreadView opens a selection modal for workspace
 // operations.
 func (tvUI *threadViewUI) launchWorkspaceModalFromThreadView(ctx context.Context) error {
-	if tvUI.ws.Origin() == "" {
-		err := tvUI.setupWorkspace(ctx, true)
-		if err != nil {
-			if errors.Is(err, ErrWorkspaceSetupCancelled) || errors.Is(err, ErrWorkspaceNotConfigured) {
-				return nil
-			}
-			_ = tvUI.cliCtx.ui.Confirm(friendlyWorkspaceSetupErr(err))
-			return err
-		}
+	if !tvUI.ensureWorkspaceReady(ctx) {
+		return nil
 	}
 
 	choices := []types.UIOption{
@@ -64,6 +57,28 @@ func (tvUI *threadViewUI) launchWorkspaceModalFromThreadView(ctx context.Context
 	}
 
 	return err
+}
+
+// ensureWorkspaceReady performs best-effort workspace setup before running
+// workspace operations.
+//
+// It returns false if the user cancels setup or chooses not to configure a
+// workspace right now.
+func (tvUI *threadViewUI) ensureWorkspaceReady(ctx context.Context) bool {
+	if tvUI.ws.Origin() != "" {
+		return true
+	}
+
+	err := tvUI.setupWorkspace(ctx, true)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, ErrWorkspaceSetupCancelled) || errors.Is(err, ErrWorkspaceNotConfigured) {
+		return false
+	}
+
+	_ = tvUI.cliCtx.ui.Confirm(friendlyWorkspaceSetupErr(err))
+	return false
 }
 
 func workspaceSync(ctx context.Context, tvUI *threadViewUI) error {

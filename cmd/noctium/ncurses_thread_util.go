@@ -79,6 +79,9 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool) {
 		segments = append(segments, []statusSegment{
 			{text: " Workspace:", bold: false},
 			{text: "w", bold: true},
+			// we intentionally do not display each workspace hotkey
+			// for space savings. all are accessible under the workspace
+			// menu
 		}...)
 	}
 	segments = append(segments, []statusSegment{

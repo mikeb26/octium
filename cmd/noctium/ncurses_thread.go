@@ -348,6 +348,34 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		if isHistory {
 			return false, tvUI.launchDiffToolFromThreadView(ctx)
 		} // else do not return; inputFrame needs to process 'd' as
+	case 'm':
+		if isHistory {
+			if tvUI.ensureWorkspaceReady(ctx) {
+				_ = workspaceMerge(ctx, tvUI)
+			}
+			return false, true
+		}
+	case 'p':
+		if isHistory {
+			if tvUI.ensureWorkspaceReady(ctx) {
+				_ = workspacePush(ctx, tvUI)
+			}
+			return false, true
+		}
+	case 'r':
+		if isHistory {
+			if tvUI.ensureWorkspaceReady(ctx) {
+				_ = workspaceReset(ctx, tvUI)
+			}
+			return false, true
+		}
+	case 's':
+		if isHistory {
+			if tvUI.ensureWorkspaceReady(ctx) {
+				_ = workspaceSync(ctx, tvUI)
+			}
+			return false, true
+		}
 	case 'w':
 		if isHistory {
 			_ = tvUI.launchWorkspaceModalFromThreadView(ctx)
