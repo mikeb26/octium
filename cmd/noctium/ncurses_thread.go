@@ -390,6 +390,13 @@ func (tvUI *threadViewUI) processThreadViewKey(
 			}
 			return false, true
 		}
+	case 't':
+		if isHistory {
+			if tvUI.ensureWorkspaceReady(ctx) {
+				_ = tvUI.launchTerminalFromThreadView(ctx)
+			}
+			return false, true
+		}
 	case 'w':
 		if isHistory {
 			_ = tvUI.launchWorkspaceModalFromThreadView(ctx)

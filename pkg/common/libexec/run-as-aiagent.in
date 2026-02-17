@@ -32,7 +32,7 @@ require_root() {
 
 require_args() {
 	if [ "$#" -lt 1 ]; then
-		log "usage: $(basename "$0") [--proxy-addr <host:port>] [--cwd <dir>] <command> [args...]"
+		log "usage: $(basename "$0") [--proxy-addr <host:port> | --full-network] [--cwd <dir>] <command> [args...]"
 		exit 2
 	fi
 }
@@ -294,9 +294,12 @@ run_via_systemd() {
 	# NOTE: ProtectHome=yes makes /home inaccessible and causes CHDIR failures
 	# on some systems even when ReadWritePaths is set.
 	#
-	# Networking model:
+	# Networking model (default):
 	# - Allow loopback TCP/IPv4+IPv6 (for httpproxy on 127.0.0.1/::1).
 	# - Deny all other IP ranges (best-effort, systemd feature-dependent).
+	#
+	# If --full-network was provided, we do not set any IPAddressAllow/Deny rules
+	# and we do not inject proxy environment variables.
 	#
 	# IMPORTANT: This is NOT a cryptographic/airtight guarantee that the process
 	# can only reach the proxy port. systemd can restrict destination IP ranges,
@@ -310,6 +313,13 @@ run_via_systemd() {
 	memmax_prop=""
 	if [ -n "${memmax_kb:-}" ]; then
 		memmax_prop="--property=MemoryMax=${memmax_kb}K"
+	fi
+
+	net_props=""
+	env_proxy_vars=""
+	if [ "${FULL_NETWORK:-0}" -eq 0 ]; then
+		net_props="--property=IPAddressAllow=127.0.0.1/32 --property=IPAddressAllow=::1/128 --property=IPAddressDeny=any"
+		env_proxy_vars="http_proxy=http://$PROXY_ADDR https_proxy=http://$PROXY_ADDR HTTP_PROXY=http://$PROXY_ADDR HTTPS_PROXY=http://$PROXY_ADDR no_proxy=localhost,127.0.0.1,::1 NO_PROXY=localhost,127.0.0.1,::1"
 	fi
 
 	systemd-run \
@@ -334,9 +344,7 @@ run_via_systemd() {
 		--property=RestrictNamespaces=yes \
 		--property=RestrictRealtime=yes \
 		--property=RestrictAddressFamilies="AF_INET AF_INET6" \
-		--property=IPAddressAllow=127.0.0.1/32 \
-		--property=IPAddressAllow=::1/128 \
-		--property=IPAddressDeny=any \
+		$net_props \
 		--property=ProtectSystem=strict \
 		--property=ProtectHome=tmpfs \
 		--property=BindPaths="$sbhome:$sbhome" \
@@ -347,12 +355,7 @@ run_via_systemd() {
 		--property=UMask=0077 \
 		--property=WorkingDirectory="$wd" \
 			-- /usr/bin/env -i HOME="$sbhome" PATH="$fpath" USER=@CLI_SANDBOX_USERNAME@ LOGNAME=@CLI_SANDBOX_USERNAME@ \
-				http_proxy="http://$PROXY_ADDR" \
-				https_proxy="http://$PROXY_ADDR" \
-				HTTP_PROXY="http://$PROXY_ADDR" \
-				HTTPS_PROXY="http://$PROXY_ADDR" \
-				no_proxy="localhost,127.0.0.1,::1" \
-				NO_PROXY="localhost,127.0.0.1,::1" \
+				$env_proxy_vars \
 				/bin/bash --login -c 'exec "$@"' -- "$@"
 }
 
@@ -361,10 +364,16 @@ main() {
 	require_systemd_run
 
 	PROXY_ADDR="$DEFAULT_PROXY_ADDR"
+	PROXY_ADDR_WAS_SET=0
 	CWD=""
+	FULL_NETWORK=0
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
 			--proxy-addr)
+				if [ "$FULL_NETWORK" -ne 0 ]; then
+					log "--proxy-addr is mutually exclusive with --full-network"
+					exit 2
+				fi
 				shift
 				if [ "$#" -lt 1 ]; then
 					log "--proxy-addr requires a value"
@@ -372,12 +381,26 @@ main() {
 				fi
 				validate_proxy_addr "$1"
 				PROXY_ADDR="$1"
+				PROXY_ADDR_WAS_SET=1
 				shift
 				;;
 			--proxy-addr=*)
+				if [ "$FULL_NETWORK" -ne 0 ]; then
+					log "--proxy-addr is mutually exclusive with --full-network"
+					exit 2
+				fi
 				p="${1#--proxy-addr=}"
 				validate_proxy_addr "$p"
 				PROXY_ADDR="$p"
+				PROXY_ADDR_WAS_SET=1
+				shift
+				;;
+			--full-network)
+				if [ "$PROXY_ADDR_WAS_SET" -ne 0 ]; then
+					log "--full-network is mutually exclusive with --proxy-addr"
+					exit 2
+				fi
+				FULL_NETWORK=1
 				shift
 				;;
 			--cwd)

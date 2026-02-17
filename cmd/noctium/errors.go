@@ -11,6 +11,7 @@ import (
 
 var (
 	ErrTTYRequired                 = errors.New("A terminal is required to run octium")
+	ErrTerminalNotConfigured       = errors.New("TERMINAL environment variable is not set")
 	ErrUnknownReasoningEffort      = errors.New("Unknown reasoning effort")
 	ErrEmptyMenuText               = errors.New("Empty menu text")
 	ErrNilScreen                   = errors.New("Nil screen returned")
