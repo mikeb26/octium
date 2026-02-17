@@ -239,6 +239,45 @@ func TestMoveThreadInvalidIndex(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not exist")
 }
 
+func TestMoveThreadReturnsErrorWhenAlreadyInDestinationGroup(t *testing.T) {
+	root := t.TempDir()
+	setDir := root + "/set"
+	srcDir := root + "/src"
+	dstDir := root + "/dst"
+	assert.NoError(t, os.MkdirAll(setDir, 0o700))
+	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
+	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
+
+	set := NewThreadGroupSet(setDir, nil, local.New())
+	srcGrp := newThreadGroup(set, "S", srcDir)
+	dstGrp := newThreadGroup(set, "D", dstDir)
+
+	base := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+	thr := &thread{persisted: persistedThread{
+		Name:       "move-me",
+		CreateTime: base,
+		AccessTime: base,
+		ModTime:    base,
+		Dialogue:   []*types.ThreadMessage{},
+		Id:         "3",
+	}}
+	thr.state = ThreadStateIdle
+	thr.dirName = thr.persisted.Id
+	thr.parentDir = srcDir
+	thr.mu.Lock()
+	assert.NoError(t, thr.save())
+	thr.mu.Unlock()
+
+	// Register the same thread id in both groups to simulate a bad state.
+	srcGrp.addThread(thr)
+	dup := *thr
+	dstGrp.addThread(&dup)
+
+	err := srcGrp.MoveThread(thr, dstGrp)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
+}
+
 func TestMoveThreadNonIdleThreadReturnsErrorAndDoesNotMove(t *testing.T) {
 	root := t.TempDir()
 	setDir := root + "/set"

@@ -34,29 +34,6 @@ func (ws *Workspace) Save() error {
 	scratchDir := ws.persisted.ScratchDir
 	assert.NotEmpty(scratchDir)
 
-	// Ensure the sandbox parent directory exists even before a sandbox is set.
-	//
-	// This is intentionally done here (rather than during sandbox creation)
-	// so callers can rely on Workspace.GetPwd() returning an existing directory
-	// for the sandbox parent when no sandbox is present.
-	baseSandboxDir, err := ws.getSandboxDir("")
-	if err != nil {
-		return err
-	}
-	// NOTE: In some restricted environments (including certain test sandboxes),
-	// setgid bits are not permitted even for user-owned directories.
-	// We create the directory with normal group-writable permissions here and
-	// let fixupSharedDirPerms attempt to apply shared-directory perms on a
-	// best-effort basis.
-	if err := os.MkdirAll(baseSandboxDir, 0o770); err != nil {
-		if errors.Is(err, os.ErrPermission) {
-			return fmt.Errorf("%w %v: %w", ErrSandboxParentDirPermission, baseSandboxDir, err)
-		}
-		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirCreate, baseSandboxDir, err)
-	}
-	// best effort; chmod can fail on files we dont own
-	_ = fixupSharedDirPerms(baseSandboxDir)
-
 	if err := os.MkdirAll(scratchDir, 0o700); err != nil {
 		return fmt.Errorf("%w %v: %w", ErrScratchDirCreate, scratchDir, err)
 	}

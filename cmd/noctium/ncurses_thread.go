@@ -115,8 +115,25 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 
 	tvUI := lookupThreadViewUI(cliCtx, thread)
 	if tvUI != nil {
+		// Thread view UIs are cached per-thread so we can preserve async state
+		// between detach/reattach. However, archive/unarchive can move the thread
+		// between groups (changing its scratch dir) and can also change whether the
+		// thread should be treated as archived.
+		//
+		// Always refresh these derived fields from the menu entry we were launched
+		// from so we don't get stuck in a stale "archived" state after unarchiving
+		// from search results.
+		tvUI.isArchived = isArchivedIn
 		if tvUI.isArchived {
+			// If the thread is archived, ensure we don't carry over any in-flight
+			// async run state from when it was active.
 			tvUI.clearRunningState()
+		}
+		if tvUI.ws == nil || tvUI.ws.Sratch() != thread.ScratchDir() {
+			// The thread's scratch dir is derived from its parent thread group.
+			// Moving between groups updates thread.ScratchDir(), but the cached
+			// workspace instance needs to follow it.
+			tvUI.ws = workspace.New(thread.ScratchDir(), thread.Id(), cliCtx.scmClient)
 		}
 
 		return tvUI

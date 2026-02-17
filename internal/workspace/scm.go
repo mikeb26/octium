@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -142,6 +143,34 @@ func (ws *Workspace) getSandboxDir(base string) (string, error) {
 		ws.persisted.Id, base), nil
 }
 
+func (ws *Workspace) createSandboxParent() error {
+	// Ensure the sandbox parent directory exists even before a sandbox is set.
+	//
+	// This is intentionally done here (rather than during sandbox creation)
+	// so callers can rely on Workspace.GetPwd() returning an existing directory
+	// for the sandbox parent when no sandbox is present.
+	baseSandboxDir, err := ws.getSandboxDir("")
+	if err != nil {
+		return err
+	}
+	// NOTE: In some restricted environments (including certain test sandboxes),
+	// setgid bits are not permitted even for user-owned directories.
+	// We create the directory with normal group-writable permissions here and
+	// let fixupSharedDirPerms attempt to apply shared-directory perms on a
+	// best-effort basis.
+	if err := os.MkdirAll(baseSandboxDir, 0o770); err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("%w %v: %w", ErrSandboxParentDirPermission, baseSandboxDir, err)
+		}
+		return fmt.Errorf("%w %v: %w", ErrSandboxParentDirCreate, baseSandboxDir, err)
+	}
+	// best effort; chmod can fail on files we dont own
+	_ = fixupSharedDirPerms(baseSandboxDir)
+	ws.sandboxParentCreated = true
+
+	return err
+}
+
 func (ws *Workspace) createNewSandboxWithValidOrigin(ctx context.Context,
 	originDir string) (string, error) {
 
@@ -151,6 +180,10 @@ func (ws *Workspace) createNewSandboxWithValidOrigin(ctx context.Context,
 		return "", err
 	}
 	_ = os.RemoveAll(sboxDir) // best-effort
+	err = ws.createSandboxParent()
+	if err != nil {
+		return "", err
+	}
 	if st, err := os.Stat(sboxDir); err == nil {
 		if st.IsDir() {
 			return "", fmt.Errorf("%w: %v", ErrSandboxDirAlreadyExists, sboxDir)

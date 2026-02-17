@@ -15,8 +15,9 @@ import (
 )
 
 type Workspace struct {
-	persisted persistedWorkspace
-	scmClient scm.Client
+	persisted            persistedWorkspace
+	scmClient            scm.Client
+	sandboxParentCreated bool
 }
 
 func New(scratchDirIn string, idIn string, scmClientIn scm.Client) *Workspace {
@@ -67,6 +68,11 @@ func (ws *Workspace) Reset() error {
 	if ws.persisted.SboxRepo != "" {
 		// best effort
 		_ = os.RemoveAll(ws.persisted.SboxRepo)
+	}
+	// best effort
+	if baseSandboxDir, err := ws.getSandboxDir(""); err == nil {
+		_ = os.RemoveAll(baseSandboxDir)
+		ws.sandboxParentCreated = false
 	}
 	ws.persisted.OriginRepo = ""
 	ws.persisted.SboxRepo = ""
@@ -155,8 +161,16 @@ func (ws *Workspace) GetPwd(ctx context.Context) string {
 	if ws.persisted.SboxRepo != "" {
 		return ws.persisted.SboxRepo
 	}
-	// When no sandbox is set, return the sandbox parent directory.
-	// Save() is responsible for ensuring it exists.
+
+	if !ws.sandboxParentCreated {
+		if err := ws.createSandboxParent(); err != nil {
+			// If we can't ensure the sandbox parent exists, return an empty
+			// pwd so callers can handle it as "no working directory".
+			return ""
+		}
+	}
+
+	// When no sandbox is set, return the sandbox parent directory
 	dir, err := ws.getSandboxDir("")
 	if err != nil {
 		// Keep GetPwd side-effect-free; callers should handle empty results.

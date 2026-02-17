@@ -96,10 +96,10 @@ func (tgs *ThreadGroupSet) MoveThread(thr Thread, srcThrGrpName, dstThrGrpName s
 	}
 
 	if srcThrGrp == nil {
-		fmt.Errorf("No such thread group %v", srcThrGrpName)
+		return fmt.Errorf("No such thread group %v", srcThrGrpName)
 	}
 	if dstThrGrp == nil {
-		fmt.Errorf("No such thread group %v", dstThrGrpName)
+		return fmt.Errorf("No such thread group %v", dstThrGrpName)
 	}
 
 	return srcThrGrp.MoveThread(thr, dstThrGrp)

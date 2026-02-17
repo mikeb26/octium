@@ -306,6 +306,10 @@ func (srcThrGrp *ThreadGroup) MoveThread(thr Thread, dstThrGrp *ThreadGroup) err
 		return fmt.Errorf("thread %q does not exist in group %q", thrId,
 			srcThrGrp.name)
 	}
+	if _, exists := dstThrGrp.threads[thrId]; exists {
+		return fmt.Errorf("thread %q already exists in destination group %q",
+			thrId, dstThrGrp.name)
+	}
 
 	thread := srcThrGrp.threads[thrId]
 	thread.mu.Lock()

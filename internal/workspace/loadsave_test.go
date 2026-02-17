@@ -250,7 +250,7 @@ func TestWorkspace_Load_SucceedsWithOriginAndSandboxAndRemoteMatch(t *testing.T)
 	assert.Equal(t, sboxDir, ws.persisted.SboxRepo)
 }
 
-func TestWorkspace_Save_CreatesSandboxParentDir(t *testing.T) {
+func TestWorkspace_GetPwd_CreatesSandboxParentDir(t *testing.T) {
 	scratchDir := t.TempDir()
 	prevSandboxRepoHome := internal.CliSandboxRepoHome
 	internal.CliSandboxRepoHome = t.TempDir()
@@ -258,6 +258,7 @@ func TestWorkspace_Save_CreatesSandboxParentDir(t *testing.T) {
 
 	ws := New(scratchDir, "test", &fakeSCMClient{})
 	mustNoErr(t, ws.Save())
+	_ = ws.GetPwd(context.Background())
 
 	parentDir, err := ws.getSandboxDir("")
 	mustNoErr(t, err)
