@@ -30,7 +30,7 @@ func TestSplitBlocks(t *testing.T) {
 		{
 			name:   "single code block",
 			text:   "```\ncode block\n```",
-			blocks: []string{"", "```\ncode block\n"},
+			blocks: []string{"", "```\ncode block\n```"},
 		},
 		{
 			name:   "text with code blocks",
@@ -45,12 +45,12 @@ func TestSplitBlocks(t *testing.T) {
 		{
 			name:   "multiline code block",
 			text:   "```\nline1\nline2\nline3\n```",
-			blocks: []string{"", "```\nline1\nline2\nline3\n"},
+			blocks: []string{"", "```\nline1\nline2\nline3\n```"},
 		},
 		{
 			name:   "code block at start and end",
 			text:   "```\nstart\n``` text in between ```\nend\n```",
-			blocks: []string{"", "```\nstart\n```", " text in between ", "```\nend\n"},
+			blocks: []string{"", "```\nstart\n```", " text in between ", "```\nend\n```"},
 		},
 	}
 

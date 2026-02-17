@@ -19,24 +19,24 @@ const (
 	CodeBlockDelimNewline = "```\n"
 )
 
-// RenderBlockKind identifies the semantic type of a block of text in a
-// thread dialogue. This is UI-agnostic so that different frontends
-// (classic CLI, ncurses, etc.) can render the same logical content with
-// their own styling.
-type RenderBlockKind int
+// RenderBlockSource identifies who produced a block of text.
+//
+// This is UI-agnostic so that different frontends (classic CLI, ncurses,
+// etc.) can render the same logical content with their own styling.
+type RenderBlockSource int
 
 const (
-	RenderBlockUserPrompt RenderBlockKind = iota
-	RenderBlockAssistantText
-	RenderBlockAssistantCode
+	RenderBlockSourceUser RenderBlockSource = iota
+	RenderBlockSourceAssistant
 )
 
 // RenderBlock represents a contiguous span of text with a particular
 // semantic role. It does not contain any ANSI color or formatting
 // information; callers are expected to style it appropriately.
 type RenderBlock struct {
-	Kind RenderBlockKind
-	Text string
+	Source RenderBlockSource
+	IsCode bool
+	Text   string
 }
 
 // RenderBlocks flattens the thread dialogue into a sequence of
@@ -67,24 +67,17 @@ func RenderBlocksFromDialogue(dialogue []*types.ThreadMessage) []RenderBlock {
 			continue
 		}
 
-		switch msg.Role {
-		case types.LlmRoleUser:
+		parts := splitBlocks(msg.Content)
+		src := RenderBlockSourceUser
+		if msg.Role == types.LlmRoleAssistant {
+			src = RenderBlockSourceAssistant
+		}
+		for idx, p := range parts {
 			blocks = append(blocks, RenderBlock{
-				Kind: RenderBlockUserPrompt,
-				Text: msg.Content,
+				IsCode: idx%2 == 1,
+				Source: src,
+				Text:   p,
 			})
-		case types.LlmRoleAssistant:
-			parts := splitBlocks(msg.Content)
-			for idx, p := range parts {
-				kind := RenderBlockAssistantText
-				if idx%2 == 1 {
-					kind = RenderBlockAssistantCode
-				}
-				blocks = append(blocks, RenderBlock{
-					Kind: kind,
-					Text: p,
-				})
-			}
 		}
 	}
 
@@ -117,11 +110,22 @@ func splitBlocks(text string) []string {
 	}
 	if len(text) > 0 {
 		if inBlock {
+			// Unclosed code fence: render it as literal text by re-attaching the
+			// opening delimiter.
 			text = text + CodeBlockDelim
 		} else if numBlocks != 0 {
+			// We consumed a closing delimiter; attach it to the preceding code
+			// segment so the fence is preserved in the rendered output.
 			blocks[numBlocks-1] = blocks[numBlocks-1] + CodeBlockDelim
 		}
 		blocks = append(blocks, text)
+		return blocks
+	}
+
+	// If the message ended immediately after a closing delimiter, we still need
+	// to re-attach that delimiter to the preceding segment.
+	if !inBlock && numBlocks != 0 {
+		blocks[numBlocks-1] = blocks[numBlocks-1] + CodeBlockDelim
 	}
 
 	return blocks

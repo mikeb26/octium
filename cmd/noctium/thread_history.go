@@ -12,9 +12,22 @@ import (
 	gc "github.com/rthornton128/goncurses"
 )
 
+func historySourceLabel(src threads.RenderBlockSource) string {
+	switch src {
+	case threads.RenderBlockSourceUser:
+		return "You:"
+	case threads.RenderBlockSourceAssistant:
+		return "LLM:"
+	default:
+		return ""
+	}
+}
+
 // buildHistoryLines converts the logical RenderBlocks for a thread
-// into a flat slice of ui.FrameLine values, applying prefixes ("You:",
-// "LLM:") and soft wrapping with a trailing '\\' on wrapped
+// into a flat slice of ui.FrameLine values, inserting a standalone
+// source label line ("You:" / "LLM:") when switching between
+// user and assistant content, and then rendering the block text with no
+// indentation. Lines are soft-wrapped with a trailing '\\' on wrapped
 // segments. The resulting slice is suitable for direct line-by-line
 // rendering in the history pane via a ui.Frame.
 func buildHistoryLines(cliCtx *CliContext, blocks []threads.RenderBlock,
@@ -37,35 +50,71 @@ func buildHistoryLines(cliCtx *CliContext, blocks []threads.RenderBlock,
 	if textWidth < 1 {
 		textWidth = 1
 	}
-	for _, b := range blocks {
-		var prefix string
-		attr := gc.A_NORMAL
 
-		switch b.Kind {
-		case threads.RenderBlockUserPrompt:
-			prefix = "You: "
+	var prevSource threads.RenderBlockSource
+	havePrevSource := false
+	for _, b := range blocks {
+		showLabel := !havePrevSource || prevSource != b.Source
+		baseStyle := gc.A_NORMAL
+		baseColor := gc.A_NORMAL
+
+		switch b.Source {
+		case threads.RenderBlockSourceUser:
+			baseStyle = gc.A_NORMAL
+			baseColor = gc.A_NORMAL
+		case threads.RenderBlockSourceAssistant:
+			baseStyle = gc.A_NORMAL
 			if cliCtx.toggles.useColors {
-				attr = gc.ColorPair(threadColorUser)
+				baseColor = gc.ColorPair(threadColorAssistant)
 			} else {
-				attr = gc.A_BOLD
-			}
-		case threads.RenderBlockAssistantText:
-			prefix = "LLM: "
-			if cliCtx.toggles.useColors {
-				attr = gc.ColorPair(threadColorAssistant)
-			} else {
-				attr = gc.A_NORMAL
-			}
-		case threads.RenderBlockAssistantCode:
-			prefix = "LLM: "
-			if cliCtx.toggles.useColors {
-				attr = gc.ColorPair(threadColorCode)
-			} else {
-				attr = gc.A_BOLD
+				baseStyle = gc.A_BOLD
+				baseColor = gc.A_NORMAL
 			}
 		}
 
-		lines = append(lines, ui.WrapTextWithPrefix(prefix, b.Text, textWidth, attr)...)
+		attrBase := baseStyle | baseColor
+
+		// Insert a blank line when switching between user/assistant sources.
+		if showLabel {
+			if havePrevSource {
+				lines = append(lines, ui.FrameLine{Runes: []rune{}, Attr: gc.A_NORMAL})
+			}
+			label := historySourceLabel(b.Source)
+			// The label line is styled based on its source (e.g. assistant color/bold),
+			// but should not inherit code styling from the first block.
+			lines = append(lines, ui.FrameLine{Runes: []rune(label), Attr: attrBase | gc.A_UNDERLINE})
+		}
+
+		attrText := attrBase
+		if b.IsCode {
+			attrText = baseStyle | ui.AttrItalic()
+			if cliCtx.toggles.useColors {
+				switch b.Source {
+				case threads.RenderBlockSourceAssistant:
+					attrText |= gc.ColorPair(threadColorAssistantCode)
+					// On terminals that only support 8 colors, bold often maps to
+					// "bright" versions of the base colors.
+					if gc.Colors() < 16 {
+						attrText |= gc.A_BOLD
+					}
+				case threads.RenderBlockSourceUser:
+					attrText |= gc.ColorPair(threadColorUserCode)
+					// If we only have 8 colors, fall back to dim white to approximate
+					// grey.
+					if gc.Colors() < 16 {
+						attrText |= gc.A_DIM
+					}
+				default:
+					attrText = attrBase | ui.AttrItalic()
+				}
+			} else {
+				attrText = attrBase | ui.AttrItalic()
+			}
+		}
+
+		lines = append(lines, ui.WrapTextWithPrefix("", b.Text, textWidth, attrText)...)
+		prevSource = b.Source
+		havePrevSource = true
 	}
 
 	return lines
@@ -125,7 +174,11 @@ func (tvUI *threadViewUI) syncHistoryFrameWithCurrentThreadState() {
 func threadViewDisplayBlocks(thread threads.Thread, pendingPrompt string) []threads.RenderBlock {
 	blocks := append([]threads.RenderBlock(nil), thread.RenderBlocks()...)
 	if pendingPrompt != "" {
-		blocks = append(blocks, threads.RenderBlock{Kind: threads.RenderBlockUserPrompt, Text: pendingPrompt})
+		extraBlocks := threads.RenderBlocksFromDialogue([]*types.ThreadMessage{{
+			Role:    types.LlmRoleUser,
+			Content: pendingPrompt,
+		}})
+		blocks = append(blocks, extraBlocks...)
 	}
 	return blocks
 }

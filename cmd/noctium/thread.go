@@ -25,9 +25,9 @@ const (
 	// Additional color pairs for the thread view. These are initialized
 	// alongside the menu colors in initUI so they can be reused by any
 	// ncurses-based views.
-	threadColorUser      int16 = 5
-	threadColorAssistant int16 = 6
-	threadColorCode      int16 = 7
+	threadColorAssistant     int16 = 5
+	threadColorAssistantCode int16 = 6
+	threadColorUserCode      int16 = 7
 )
 
 // threadViewFocus tracks which pane is currently active inside the

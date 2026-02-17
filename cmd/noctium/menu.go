@@ -73,15 +73,69 @@ func (cliCtx *CliContext) initMenuUI() {
 			// view. If any of these fail we still keep the base menu
 			// colors active and fall back to monochrome styling within
 			// the thread view for the affected roles.
-			_ = gc.InitPair(threadColorUser, gc.C_YELLOW, -1)
-			_ = gc.InitPair(threadColorAssistant, gc.C_CYAN, -1)
-			_ = gc.InitPair(threadColorCode, gc.C_GREEN, -1)
+			assistantTextFg := int16(gc.C_BLUE)
+			if defaultTerminalBackgroundIsBlack() {
+				// Blue can be hard to read on terminals that default to a black
+				// background. If we can, use a brighter/lighter blue.
+				if gc.Colors() >= 16 {
+					// Common 16/256-color palette: bright blue == 12.
+					assistantTextFg = 12
+				} else {
+					// Worst-case: fall back to cyan which is typically much more
+					// legible on a dark background.
+					assistantTextFg = int16(gc.C_CYAN)
+				}
+			}
+			_ = gc.InitPair(threadColorAssistant, assistantTextFg, -1)
+
+			assistantCodeFg := int16(gc.C_CYAN)
+			userCodeFg := int16(gc.C_WHITE)
+			if gc.Colors() >= 16 {
+				// Best-effort use of the common 16/256-color palette where
+				// bright blue == 12 and gray == 8.
+				assistantCodeFg = 12
+				userCodeFg = 8
+			}
+			_ = gc.InitPair(threadColorAssistantCode, assistantCodeFg, -1)
+			_ = gc.InitPair(threadColorUserCode, userCodeFg, -1)
 
 			cliCtx.toggles.useColors = true
 		}
 	}
 
 	cliCtx.menu.resetItems()
+}
+
+// defaultTerminalBackgroundIsBlack attempts to detect whether the terminal's
+// default background color is black.
+//
+// This is best-effort only: ncurses' "default" colors (-1) do not provide a
+// reliable query API for the actual RGB value.
+func defaultTerminalBackgroundIsBlack() bool {
+	// Heuristic 1: Linux virtual console (tty). Most setups use a dark/black
+	// background by default.
+	//
+	// This helps when COLORFGBG is not exported (common outside X/Wayland).
+	termEnv := strings.TrimSpace(os.Getenv("TERM"))
+	if strings.HasPrefix(termEnv, "linux") {
+		return true
+	}
+
+	// Heuristic 2: If we're not under a graphical session (X11/Wayland), assume a
+	// dark background.
+	//
+	// This covers Linux TTYs and many SSH sessions where blue is often hard to
+	// read on black.
+	//
+	// Note: we intentionally *don't* try to use COLORFGBG here. Many terminal
+	// emulators export COLORFGBG values that don't reflect the configured theme
+	// (e.g. reporting a black background even when the user has selected a light
+	// scheme).
+	if strings.TrimSpace(os.Getenv("DISPLAY")) == "" && strings.TrimSpace(os.Getenv("WAYLAND_DISPLAY")) == "" {
+		return true
+	}
+
+	return false
 }
 
 func confirmQuitIfNonIdleThreads(octiumCtx *CliContext) (bool, error) {

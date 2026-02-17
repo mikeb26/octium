@@ -22,16 +22,20 @@ func TestRenderBlocksSkipsSystemAndSplitsAssistantCode(t *testing.T) {
 
 	// Expect: user prompt, assistant text before, assistant code, assistant text after
 	if assert.Len(t, blocks, 4) {
-		assert.Equal(t, RenderBlockUserPrompt, blocks[0].Kind)
+		assert.Equal(t, RenderBlockSourceUser, blocks[0].Source)
+		assert.False(t, blocks[0].IsCode)
 		assert.Equal(t, "user prompt", blocks[0].Text)
 
-		assert.Equal(t, RenderBlockAssistantText, blocks[1].Kind)
+		assert.Equal(t, RenderBlockSourceAssistant, blocks[1].Source)
+		assert.False(t, blocks[1].IsCode)
 		assert.Equal(t, "before", blocks[1].Text)
 
-		assert.Equal(t, RenderBlockAssistantCode, blocks[2].Kind)
+		assert.Equal(t, RenderBlockSourceAssistant, blocks[2].Source)
+		assert.True(t, blocks[2].IsCode)
 		assert.Contains(t, blocks[2].Text, "code")
 
-		assert.Equal(t, RenderBlockAssistantText, blocks[3].Kind)
+		assert.Equal(t, RenderBlockSourceAssistant, blocks[3].Source)
+		assert.False(t, blocks[3].IsCode)
 		assert.Equal(t, "after", blocks[3].Text)
 	}
 }
