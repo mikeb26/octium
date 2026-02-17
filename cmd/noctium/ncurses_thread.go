@@ -424,6 +424,11 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		tvUI.inputFrame.Backspace()
 		tvUI.inputFrame.EnsureCursorVisible()
 		return false, true
+	case gc.KEY_DC:
+		// Delete key: remove the character under the cursor (forward delete).
+		tvUI.inputFrame.DeleteForward()
+		tvUI.inputFrame.EnsureCursorVisible()
+		return false, true
 	case gc.KEY_ENTER, gc.KEY_RETURN:
 		tvUI.inputFrame.InsertNewline()
 		tvUI.inputFrame.EnsureCursorVisible()

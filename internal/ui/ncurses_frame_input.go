@@ -106,6 +106,59 @@ func (f *Frame) Backspace() {
 	f.cursorCol = newCol
 }
 
+// DeleteForward removes the rune at the cursor position (i.e. the
+// character "under" the cursor), joining lines as needed.
+//
+// This mirrors typical terminal editor behavior for the Delete key,
+// distinct from Backspace (which removes the rune to the left of the
+// cursor).
+func (f *Frame) DeleteForward() {
+	if !f.HasInput {
+		return
+	}
+	if len(f.lines) == 0 {
+		f.ResetInput()
+		return
+	}
+	if f.cursorLine < 0 {
+		f.cursorLine = 0
+	}
+	if f.cursorLine >= len(f.lines) {
+		f.cursorLine = len(f.lines) - 1
+	}
+	if f.cursorLine < 0 {
+		f.cursorLine = 0
+	}
+
+	line := f.lines[f.cursorLine].Runes
+	if f.cursorCol < 0 {
+		f.cursorCol = 0
+	}
+	if f.cursorCol > len(line) {
+		f.cursorCol = len(line)
+	}
+
+	// If we're in the middle of a line, delete the rune at the cursor.
+	if f.cursorCol < len(line) {
+		line = append(line[:f.cursorCol], line[f.cursorCol+1:]...)
+		f.lines[f.cursorLine].Runes = line
+		return
+	}
+
+	// At end-of-line: if there's a next line, delete the newline by
+	// joining the next line into this one.
+	if f.cursorLine >= len(f.lines)-1 {
+		return
+	}
+	nextLine := f.lines[f.cursorLine+1].Runes
+	joined := append(append([]rune{}, line...), nextLine...)
+	newLines := make([]FrameLine, 0, len(f.lines)-1)
+	newLines = append(newLines, f.lines[:f.cursorLine]...)
+	newLines = append(newLines, FrameLine{Runes: joined, Attr: gc.A_NORMAL})
+	newLines = append(newLines, f.lines[f.cursorLine+2:]...)
+	f.lines = newLines
+}
+
 // InputString flattens the internal multi-line input buffer into a
 // single string using "\n" as the line separator.
 func (f *Frame) InputString() string {
