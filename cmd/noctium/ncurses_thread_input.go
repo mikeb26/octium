@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mikeb26/octium/internal/ui"
+	"github.com/negrel/assert"
 	gc "github.com/rthornton128/goncurses"
 )
 
@@ -149,4 +150,29 @@ func restoreInputFrameContent(inputFrame *ui.Frame, content string, cursorLine, 
 		inputFrame.MoveCursorRight()
 	}
 	inputFrame.EnsureCursorVisible()
+}
+
+func (tvUI *threadViewUI) captureInputDraft() {
+	assert.NotNil(tvUI.inputFrame)
+
+	tvUI.inputDraft = tvUI.inputFrame.InputString()
+	tvUI.inputDraftCursorLine, tvUI.inputDraftCursorCol = tvUI.inputFrame.Cursor()
+}
+
+func (tvUI *threadViewUI) restoreInputDraft() {
+	assert.NotNil(tvUI.inputFrame)
+
+	if tvUI.isArchived {
+		// Keep the draft state cached so it can reappear if/when the thread is
+		// later unarchived, but don't show it in a read-only view.
+		return
+	}
+	restoreInputFrameContent(tvUI.inputFrame, tvUI.inputDraft,
+		tvUI.inputDraftCursorLine, tvUI.inputDraftCursorCol)
+}
+
+func (tvUI *threadViewUI) clearInputDraft() {
+	tvUI.inputDraft = ""
+	tvUI.inputDraftCursorLine = 0
+	tvUI.inputDraftCursorCol = 0
 }

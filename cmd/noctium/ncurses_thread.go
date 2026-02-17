@@ -84,7 +84,12 @@ type threadViewUI struct {
 	inputFrame   *ui.Frame
 	historyFrame *ui.Frame
 	focusedFrame *ui.Frame
-	ws           *workspace.Workspace
+	// inputDraft preserves any unsent user input across detach/reattach of the
+	// thread view (e.g. ESC back to menu and then re-enter the same thread).
+	inputDraft           string
+	inputDraftCursorLine int
+	inputDraftCursorCol  int
+	ws                   *workspace.Workspace
 }
 
 // automatically add AGENTS.md to the system prompt when present in the user's
@@ -218,6 +223,10 @@ func (tvUI *threadViewUI) handleThreadViewResize() (needRedraw bool, err error) 
 	inputLine, inputCol := 0, 0
 	inputContent := tvUI.inputFrame.InputString()
 	inputLine, inputCol = tvUI.inputFrame.Cursor()
+	// Keep draft state in sync so it survives a subsequent detach.
+	tvUI.inputDraft = inputContent
+	tvUI.inputDraftCursorLine = inputLine
+	tvUI.inputDraftCursorCol = inputCol
 
 	resizeScreen(tvUI.cliCtx.rootWin)
 
@@ -392,6 +401,8 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		}
 		prompt, ok := tvUI.beginAsyncChat(ctx)
 		if ok {
+			// Draft has been sent; clear preserved state so we don't restore it.
+			tvUI.clearInputDraft()
 			state := tvUI.running.state
 			blocks := threadViewDisplayBlocks(tvUI.thread, prompt)
 			tvUI.setHistoryFrameFromBlocks(blocks, state.ContentSoFar())
@@ -810,6 +821,9 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	}
 	defer tvUI.closeThreadViewFrames()
 
+	// Restore any in-progress draft input from a prior visit to this thread.
+	tvUI.restoreInputDraft()
+
 	// If we are re-entering a thread that has an in-flight async run, the
 	// persisted thread dialogue won't include the pending user prompt yet.
 	// Initialize history from the running state so the user sees their prompt
@@ -819,6 +833,12 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	tvUI.focusedFrame = tvUI.inputFrame
 	if tvUI.isArchived {
 		tvUI.focusedFrame = tvUI.historyFrame
+	}
+
+	// If this thread is currently running, keep the prompt input locked to the
+	// state the run started with.
+	if tvUI.running.state != nil {
+		tvUI.clearInputDraft()
 	}
 	// Important: draw the thread view at least once before we service any
 	// in-flight async approval requests. Otherwise, if the thread is currently
@@ -872,6 +892,7 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 
 		exit, keyRedraw := tvUI.processThreadViewKey(ctx, ch)
 		if exit {
+			tvUI.captureInputDraft()
 			tvUI.thread.Access()
 			return nil
 		}
