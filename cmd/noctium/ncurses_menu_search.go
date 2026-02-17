@@ -58,7 +58,7 @@ func (ui *threadMenuUI) buildSearchEntries(query string) []threadMenuEntry {
 				continue
 			}
 
-			line := strings.TrimRight(threadHeaderString(t), "\n")
+			line := strings.TrimRight(threadHeaderStringForMenu(t, thrGrp == ArchiveThreadGroupName), "\n")
 			entries = append(entries, threadMenuEntry{
 				label:      line,
 				thread:     t,

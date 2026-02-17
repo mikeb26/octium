@@ -225,7 +225,7 @@ func (ui *threadMenuUI) resetItems() {
 		for _, t := range ui.cliCtx.threadGroupSet.Threads(
 			[]string{ui.cliCtx.curThreadGroup}) {
 
-			line := strings.TrimRight(threadHeaderString(t), "\n")
+			line := strings.TrimRight(threadHeaderStringForMenu(t, ui.cliCtx.isCurArchived()), "\n")
 			entry := threadMenuEntry{
 				label:      line,
 				thread:     t,

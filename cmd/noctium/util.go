@@ -25,6 +25,18 @@ const (
 )
 
 func threadHeaderString(t threads.Thread) string {
+	return threadHeaderStringWithState(t, t.State().String(), false)
+}
+
+func threadHeaderStringForMenu(t threads.Thread, isArchived bool) string {
+	state := t.State().String()
+	if isArchived {
+		state = "archived"
+	}
+	return threadHeaderStringWithState(t, state, isArchived)
+}
+
+func threadHeaderStringWithState(t threads.Thread, state string, isArchived bool) string {
 	now := time.Now()
 
 	aTime := formatHeaderTime(t.AccessTime(), now)
@@ -38,11 +50,11 @@ func threadHeaderString(t threads.Thread) string {
 	//    though no dialogue has been persisted yet.
 	// 2) If the thread has been modified since it was last accessed, also flag it.
 	stateSuffix := ""
-	if t.State() == threads.ThreadStateBlocked || t.ModTime().After(t.AccessTime()) {
+	if !isArchived && (t.State() == threads.ThreadStateBlocked || t.ModTime().After(t.AccessTime())) {
 		stateSuffix = "*"
 	}
 
-	return fmt.Sprintf(RowFmt, t.Id(), t.State().String()+stateSuffix,
+	return fmt.Sprintf(RowFmt, t.Id(), state+stateSuffix,
 		aTime, mTime, cTime, t.Name())
 }
 
