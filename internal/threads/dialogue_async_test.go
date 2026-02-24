@@ -17,6 +17,7 @@ import (
 	"github.com/mikeb26/octium/internal/fsatomic/local"
 	"github.com/mikeb26/octium/internal/llmclient"
 	"github.com/mikeb26/octium/internal/prompts"
+	"github.com/mikeb26/octium/internal/scm/git"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,7 +35,7 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
 	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
@@ -118,7 +119,7 @@ func TestChatOnceAsyncRequiresSystemMessage(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
 	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
@@ -144,7 +145,7 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
 	assert.NoError(t, grp.NewThread(context.Background(), "t1"))
@@ -205,7 +206,7 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "", grpDir)
 	set.mu.Lock()
 	assert.NoError(t, grp.NewThread(context.Background(), "t1"))

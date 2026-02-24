@@ -22,7 +22,8 @@ const gitCommitBodyWrapWidth = 72
 var reNewlines = regexp.MustCompile(`\r\n|\r|\n`)
 
 func (tvUI *threadViewUI) workspaceCommit(ctx context.Context) (needRedraw bool) {
-	if tvUI.ws.Sandbox() == "" {
+	ws := tvUI.thread.Workspace()
+	if ws.Sandbox() == "" {
 		return false
 	}
 
@@ -33,7 +34,7 @@ func (tvUI *threadViewUI) workspaceCommit(ctx context.Context) (needRedraw bool)
 		// This uses the user's configured git editor (git commit without -m).
 		// Suspend curses so the editor can use the terminal.
 		suspendNCurses()
-		untracked, err := tvUI.ws.CommitSandbox(ctx, opts)
+		untracked, err := ws.CommitSandbox(ctx, opts)
 		restoreNCurses()
 
 		if err == nil {

@@ -13,13 +13,14 @@ import (
 	"time"
 
 	"github.com/mikeb26/octium/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/scm/git"
 	"github.com/mikeb26/octium/internal/types"
 )
 
 func TestThreadGroupSet_Save(t *testing.T) {
 	root := t.TempDir()
 
-	tgs := NewThreadGroupSet(root, nil, local.New())
+	tgs := NewThreadGroupSet(root, nil, local.New(), git.NewClient())
 
 	tgs.mu.Lock()
 	err := tgs.save(context.Background(), true)
@@ -37,7 +38,7 @@ func TestThreadGroupSet_Save(t *testing.T) {
 func TestThreadGroupSet_Load_MissingFile(t *testing.T) {
 	root := t.TempDir()
 
-	tgs := NewThreadGroupSet(root, nil, local.New())
+	tgs := NewThreadGroupSet(root, nil, local.New(), git.NewClient())
 	if err := tgs.Load(context.Background()); err != nil {
 		t.Fatalf("load failed: %v", err)
 	}
@@ -61,7 +62,7 @@ func TestThreadGroupSet_Load_RestoresFields(t *testing.T) {
 		t.Fatalf("write failed: %v", err)
 	}
 
-	tgs := NewThreadGroupSet(root, nil, local.New())
+	tgs := NewThreadGroupSet(root, nil, local.New(), git.NewClient())
 	if err := tgs.Load(context.Background()); err != nil {
 		t.Fatalf("load failed: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestThreadGroupSet_NewThreadGroupSet_PrefixRules(t *testing.T) {
 
 	// NewThreadGroupSet no longer returns an error and no longer enforces
 	// prefix validation. Ensure it constructs groups as requested.
-	tgs := NewThreadGroupSet(root, []string{""}, local.New())
+	tgs := NewThreadGroupSet(root, []string{""}, local.New(), git.NewClient())
 	if len(tgs.threadGrps) != 1 {
 		t.Fatalf("expected 1 group, got %v", len(tgs.threadGrps))
 	}
@@ -87,7 +88,7 @@ func TestThreadGroupSet_NewThreadGroupSet_PrefixRules(t *testing.T) {
 func TestThreadGroupSet_NonIdleThreadCount_EmptySet(t *testing.T) {
 	root := t.TempDir()
 
-	tgs := NewThreadGroupSet(root, nil, local.New())
+	tgs := NewThreadGroupSet(root, nil, local.New(), git.NewClient())
 	if got := tgs.NonIdleThreadCount(); got != 0 {
 		t.Fatalf("expected NonIdleThreadCount=0, got %v", got)
 	}
@@ -96,7 +97,7 @@ func TestThreadGroupSet_NonIdleThreadCount_EmptySet(t *testing.T) {
 func TestThreadGroupSet_NonIdleThreadCount_SumsAcrossGroups(t *testing.T) {
 	root := t.TempDir()
 
-	tgs := NewThreadGroupSet(root, []string{"grpA", "grpB"}, local.New())
+	tgs := NewThreadGroupSet(root, []string{"grpA", "grpB"}, local.New(), git.NewClient())
 
 	// Create some threads; new threads start idle.
 	if err := tgs.NewThread(context.Background(), "grpA", "t1"); err != nil {
@@ -180,7 +181,7 @@ func TestThreadGroupSet_Load_ReconcilesThreadNumFromDisk(t *testing.T) {
 		t.Fatalf("write thread failed: %v", err)
 	}
 
-	tgs := NewThreadGroupSet(root, []string{"main"}, local.New())
+	tgs := NewThreadGroupSet(root, []string{"main"}, local.New(), git.NewClient())
 	if err := tgs.Load(context.Background()); err != nil {
 		t.Fatalf("load failed: %v", err)
 	}

@@ -14,11 +14,11 @@ import (
 
 // drawThreadHeader renders a single-line header for the thread view.
 func (tvUI *threadViewUI) drawThreadHeader(ctx context.Context) {
-	_ = tvUI.ws.SyncSandbox(ctx, false) // best effort
+	_ = tvUI.thread.Workspace().SyncSandbox(ctx, false) // best effort
 
 	_, maxX := tvUI.cliCtx.rootWin.MaxYX()
 	header := fmt.Sprintf("Thread: %s", tvUI.thread.Name())
-	wsStatus := tvUI.ws.String(ctx)
+	wsStatus := tvUI.thread.Workspace().String(ctx)
 	if wsStatus != "" {
 		header = fmt.Sprintf("%s | workspace: %s", header, wsStatus)
 	}

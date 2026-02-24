@@ -49,18 +49,19 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	if tvUI.isArchived {
 		return fmt.Errorf("thread is archived")
 	}
-	err := tvUI.ws.Load(ctx)
+	ws := tvUI.thread.Workspace()
+	err := ws.Load(ctx)
 	if errors.Is(err, workspace.ErrOriginRepoInvalid) {
 		// the user likely deleted the original repository, so we have
 		// lost context. just reset.
 		// @todo should prompt user to confirm
-		_ = tvUI.ws.Reset()
+		_ = ws.Reset()
 	} else if errors.Is(err, workspace.ErrSandboxRepoInvalid) {
 		// the user or llm likely directly altered the sandbox, so we
 		// have lost context. reset the sandbox.
 		// @todo should prompt user to confirm
 		suspendNCurses()
-		err = tvUI.ws.ResetSandbox(ctx)
+		err = ws.ResetSandbox(ctx)
 		restoreNCurses()
 	}
 	if err != nil {
@@ -70,11 +71,11 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	// if we have a non-empty origin, that means at this point we've validated
 	// it still exists, the sandbox still exists, and the sandbox points back
 	// to the origin. so the workspace is setup
-	if tvUI.ws.Origin() != "" {
+	if ws.Origin() != "" {
 		return nil
 	}
 
-	if tvUI.ws.IsUnset() && !ignoreUnset {
+	if ws.IsUnset() && !ignoreUnset {
 		return ErrWorkspaceNotConfigured
 	}
 
@@ -97,7 +98,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 			return err
 		}
 		if usePwd.Key == "x" {
-			tvUI.ws.Destroy()
+			ws.Destroy()
 			return ErrWorkspaceSetupCancelled
 		}
 		if usePwd.Key == "y" {
@@ -109,7 +110,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 			}
 			pwd = filepath.Clean(pwd)
 			suspendNCurses()
-			err = tvUI.ws.AddOriginAndSandbox(ctx, pwd)
+			err = ws.AddOriginAndSandbox(ctx, pwd)
 			restoreNCurses()
 			return err
 		}
@@ -189,7 +190,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	}
 
 	suspendNCurses()
-	err = tvUI.ws.AddOriginAndSandbox(ctx, repoDir)
+	err = ws.AddOriginAndSandbox(ctx, repoDir)
 	restoreNCurses()
 
 	return err

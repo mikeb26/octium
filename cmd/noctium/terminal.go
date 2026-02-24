@@ -18,7 +18,8 @@ import (
 )
 
 func (tvUI *threadViewUI) workspaceTerm(ctx context.Context) error {
-	if tvUI.ws.Sandbox() == "" {
+	ws := tvUI.thread.Workspace()
+	if ws.Sandbox() == "" {
 		return nil
 	}
 
@@ -54,7 +55,7 @@ func (tvUI *threadViewUI) workspaceTerm(ctx context.Context) error {
 	if fileContainsString(runAsPath, "--full-network") {
 		runAsArgs = append(runAsArgs, "--full-network")
 	}
-	runAsArgs = append(runAsArgs, "--cwd", tvUI.ws.Sandbox(), "--")
+	runAsArgs = append(runAsArgs, "--cwd", ws.Sandbox(), "--")
 	// Use a login shell for a nicer interactive experience.
 	runAsArgs = append(runAsArgs, shellPath, "-l")
 

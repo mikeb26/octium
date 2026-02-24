@@ -60,6 +60,15 @@ func (ws *Workspace) Destroy() error {
 	return ws.Reset()
 }
 
+// SetScratchDir updates the scratch dir used for persisting ws.json.
+//
+// This is needed when the owning thread moves between thread groups (e.g.
+// archive/unarchive) and its on-disk directory changes.
+func (ws *Workspace) SetScratchDir(scratchDir string) error {
+	ws.persisted.ScratchDir = scratchDir
+	return ws.Save()
+}
+
 func (ws *Workspace) IsUnset() bool {
 	return ws.persisted.RepoExplicitlyUnset
 }
@@ -80,6 +89,15 @@ func (ws *Workspace) Reset() error {
 	return ws.Save()
 }
 
+func (ws *Workspace) ClearSandbox() error {
+	if ws.persisted.SboxRepo != "" {
+		// best effort
+		_ = os.RemoveAll(ws.persisted.SboxRepo)
+	}
+	ws.persisted.SboxRepo = ""
+	return ws.Save()
+}
+
 func (ws *Workspace) Sandbox() string {
 	return ws.persisted.SboxRepo
 }
@@ -95,6 +113,11 @@ func (ws *Workspace) Sratch() string {
 func (ws *Workspace) ResetSandbox(ctx context.Context) error {
 	if ws.persisted.OriginRepo == "" {
 		return fmt.Errorf("%w (reset)", ErrWorkspaceNoOriginSet)
+	}
+	if err := ws.validateScmRepoDir(ctx, "Origin", ws.persisted.OriginRepo); err != nil {
+		// The origin no longer exists / is invalid; we have lost context.
+		_ = ws.Reset()
+		return fmt.Errorf("%w: %w", ErrOriginRepoInvalid, err)
 	}
 
 	if ws.persisted.SboxRepo != "" {

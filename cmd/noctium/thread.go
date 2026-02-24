@@ -17,7 +17,6 @@ import (
 	"github.com/mikeb26/octium/internal/prompts"
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/ui"
-	"github.com/mikeb26/octium/internal/workspace"
 	gc "github.com/rthornton128/goncurses"
 )
 
@@ -55,18 +54,18 @@ type threadViewUI struct {
 	inputDraft           string
 	inputDraftCursorLine int
 	inputDraftCursorCol  int
-	ws                   *workspace.Workspace
 }
 
 // automatically add AGENTS.md to the system prompt when present in the user's
 // repository
 func (tvUI *threadViewUI) getSystemPrompt() string {
-	if tvUI.ws.Origin() == "" {
+	ws := tvUI.thread.Workspace()
+	if ws == nil || ws.Origin() == "" {
 		return prompts.SystemMsg
 	}
 
 	// best effort
-	content, err := os.ReadFile(filepath.Join(tvUI.ws.Origin(), AgentsMD))
+	content, err := os.ReadFile(filepath.Join(ws.Origin(), AgentsMD))
 	if err != nil {
 		return prompts.SystemMsg
 	}
@@ -105,13 +104,7 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 			// async run state from when it was active.
 			tvUI.clearRunningState()
 		}
-		if tvUI.ws == nil || tvUI.ws.Sratch() != thread.ScratchDir() {
-			// The thread's scratch dir is derived from its parent thread group.
-			// Moving between groups updates thread.ScratchDir(), but the cached
-			// workspace instance needs to follow it.
-			tvUI.ws = workspace.New(thread.ScratchDir(), thread.Id(), cliCtx.scmClient)
-		}
-
+		tvUI.thread = thread
 		return tvUI
 	}
 
@@ -120,7 +113,6 @@ func lookupOrCreateThreadViewUI(ctx context.Context, cliCtx *CliContext,
 		cliCtx:     cliCtx,
 		thread:     thread,
 		isArchived: isArchivedIn,
-		ws:         workspace.New(thread.ScratchDir(), tid, cliCtx.scmClient),
 	}
 	tvUI.clearRunningState()
 	cliCtx.threadViews[tid] = tvUI

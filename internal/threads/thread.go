@@ -7,6 +7,7 @@ package threads
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/workspace"
 	"github.com/negrel/assert"
 )
 
@@ -69,7 +71,7 @@ type Thread interface {
 	Dialogue() []*types.ThreadMessage
 	RenderBlocks() []RenderBlock
 	Access() error
-	ScratchDir() string
+	Workspace() *workspace.Workspace
 	ChatOnceAsync(context.Context, *types.InternalContext, string,
 		bool, string) (*RunningThreadState, error)
 }
@@ -89,6 +91,7 @@ type thread struct {
 	// asyncApprover is per-thread and is used to route approvals back to the UI
 	// goroutine servicing this thread.
 	asyncApprover *AsyncApprover
+	ws            *workspace.Workspace
 	mu            sync.RWMutex
 }
 
@@ -133,8 +136,49 @@ func (t *thread) load(ctx context.Context, parentDir string,
 	if loadedDirName != t.dirName {
 		t.oldDirName = loadedDirName
 	}
+	// Only initialize/load the workspace when the thread directory name already
+	// matches the canonical thread id. During legacy directory migration we load
+	// threads from a non-canonical directory name in order to discover their id,
+	// and we later rename the directory. Creating the workspace under the
+	// canonical id before the rename would cause the rename destination to
+	// already exist and migration would fail.
+	if t.oldDirName == "" {
+		t.initWorkspace()
+		t.loadWorkspaceBestEffort(ctx)
+	}
 
 	return nil
+}
+
+func (t *thread) initWorkspace() {
+	assert.Locked(&t.mu, "attempt to init workspace for thread %v without holding thread mutex",
+		t.persisted.Id)
+
+	t.ws = workspace.New(t.scratchDir(), t.persisted.Id, t.parent.parent.scmClient)
+}
+
+func (t *thread) loadWorkspaceBestEffort(ctx context.Context) {
+	assert.Locked(&t.mu, "attempt to load workspace for thread %v without holding thread mutex",
+		t.persisted.Id)
+	assert.NotNil(t.ws, "attempt to load nil workspace for thread %v", t.persisted.Id)
+
+	err := t.ws.Load(ctx)
+	if err == nil {
+		return
+	}
+	// be resilient to invalid origin/sandbox and keep thread loading non-fatal.
+	if errors.Is(err, workspace.ErrOriginRepoInvalid) {
+		_ = t.ws.Reset()
+		return
+	}
+	if errors.Is(err, workspace.ErrSandboxRepoInvalid) {
+		_ = t.ws.ResetSandbox(ctx)
+		return
+	}
+
+	// For any other workspace load errors (corruption, etc.), keep the thread
+	// loadable and ensure a fresh ws.json exists for future operations.
+	_ = t.ws.Save()
 }
 
 // State returns the current thread state. It is primarily intended for UI
@@ -242,8 +286,14 @@ func (t *thread) saveWithDir(parentDir string) error {
 	return nil
 }
 
-func (t *thread) ScratchDir() string {
+func (t *thread) scratchDir() string {
 	return filepath.Join(t.parentDir, t.dirName, ThreadScratchDir)
+}
+
+func (t *thread) Workspace() *workspace.Workspace {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.ws
 }
 
 // remove deletes the thread's persisted dialogue; callers should already hold

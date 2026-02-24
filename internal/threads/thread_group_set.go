@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/mikeb26/octium/internal/fsatomic"
+	"github.com/mikeb26/octium/internal/scm"
 	"github.com/negrel/assert"
 )
 
@@ -41,12 +42,13 @@ type ThreadGroupSet struct {
 	fileName   string
 	threadGrps []*ThreadGroup
 	afs        fsatomic.AtomicFS
+	scmClient  scm.Client
 
 	mu sync.RWMutex
 }
 
 func NewThreadGroupSet(dirIn string, thrGroupNames []string,
-	afsIn fsatomic.AtomicFS) *ThreadGroupSet {
+	afsIn fsatomic.AtomicFS, scmClientIn scm.Client) *ThreadGroupSet {
 
 	set := &ThreadGroupSet{
 		persisted:  persistedThreadGroupSet{ThreadNum: 0},
@@ -54,6 +56,7 @@ func NewThreadGroupSet(dirIn string, thrGroupNames []string,
 		fileName:   threadGroupSetFileName,
 		threadGrps: make([]*ThreadGroup, 0),
 		afs:        afsIn,
+		scmClient:  scmClientIn,
 	}
 
 	for _, thrGroupName := range thrGroupNames {
@@ -81,7 +84,7 @@ func (tgs *ThreadGroupSet) NewThread(ctx context.Context, thrGroupName string,
 	return fmt.Errorf("No such thread group %v", thrGroupName)
 }
 
-func (tgs *ThreadGroupSet) MoveThread(thr Thread, srcThrGrpName, dstThrGrpName string) error {
+func (tgs *ThreadGroupSet) MoveThread(ctx context.Context, thr Thread, srcThrGrpName, dstThrGrpName string) error {
 	tgs.mu.Lock()
 	defer tgs.mu.Unlock()
 
@@ -102,7 +105,7 @@ func (tgs *ThreadGroupSet) MoveThread(thr Thread, srcThrGrpName, dstThrGrpName s
 		return fmt.Errorf("No such thread group %v", dstThrGrpName)
 	}
 
-	return srcThrGrp.MoveThread(thr, dstThrGrp)
+	return srcThrGrp.MoveThread(ctx, thr, dstThrGrp)
 }
 
 // newThreadId generated a new, monotonically increasing, persistent thread id.

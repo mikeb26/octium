@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mikeb26/octium/internal/fsatomic/local"
+	"github.com/mikeb26/octium/internal/scm/git"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,7 +25,7 @@ func TestNewThreadInitializesAndRegistersThread(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "T", grpDir)
 	set.mu.Lock()
 	err := grp.NewThread(context.Background(), "first-thread")
@@ -46,10 +47,17 @@ func TestNewThreadInitializesAndRegistersThread(t *testing.T) {
 		assert.Len(t, d, 0)
 	}
 
-	// NewThread does not persist to disk by itself.
+	// NewThread persists the thread directory to disk.
 	entries, err := os.ReadDir(grpDir)
 	assert.NoError(t, err)
-	assert.Len(t, entries, 0)
+	assert.Len(t, entries, 1)
+	if assert.Len(t, entries, 1) {
+		assert.Equal(t, "1", entries[0].Name())
+		_, err := os.Stat(filepath.Join(grpDir, "1", ThreadFileName))
+		assert.NoError(t, err)
+		_, err = os.Stat(filepath.Join(grpDir, "1", ThreadScratchDir, "ws.json"))
+		assert.NoError(t, err)
+	}
 }
 
 func TestActivateThreadUpdatesAccessTimeAndPersists(t *testing.T) {
@@ -59,7 +67,7 @@ func TestActivateThreadUpdatesAccessTimeAndPersists(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "T", grpDir)
 
 	base := time.Now().Add(-time.Hour)
@@ -107,7 +115,7 @@ func TestActivateThreadInvalidIndex(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	grp := newThreadGroup(set, "T", grpDir)
 
 	// ActivateThread was removed; ensure lookups behave as expected.
@@ -122,7 +130,7 @@ func TestLoadThreadsLoadsAndRenamesStaleFiles(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(setDir, 0o700))
 	assert.NoError(t, os.MkdirAll(grpDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 
 	// Create a thread JSON under a non-canonical directory name.
 	// ThreadGroup.LoadThreads should still load it.
@@ -174,7 +182,7 @@ func TestMoveThreadMovesFileAndReloadsSourceGroup(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 
@@ -198,7 +206,7 @@ func TestMoveThreadMovesFileAndReloadsSourceGroup(t *testing.T) {
 	assert.Equal(t, 1, srcGrp.Count())
 
 	// Move the thread from src to dst.
-	err := srcGrp.MoveThread(thr, dstGrp)
+	err := srcGrp.MoveThread(context.Background(), thr, dstGrp)
 	assert.NoError(t, err)
 
 	// Source has been reloaded from disk and is now empty.
@@ -230,11 +238,11 @@ func TestMoveThreadInvalidIndex(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 
-	err := srcGrp.MoveThread(&thread{persisted: persistedThread{Id: "does-not-exist"}}, dstGrp)
+	err := srcGrp.MoveThread(context.Background(), &thread{persisted: persistedThread{Id: "does-not-exist"}}, dstGrp)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist")
 }
@@ -248,7 +256,7 @@ func TestMoveThreadReturnsErrorWhenAlreadyInDestinationGroup(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 
@@ -273,7 +281,7 @@ func TestMoveThreadReturnsErrorWhenAlreadyInDestinationGroup(t *testing.T) {
 	dup := *thr
 	dstGrp.addThread(&dup)
 
-	err := srcGrp.MoveThread(thr, dstGrp)
+	err := srcGrp.MoveThread(context.Background(), thr, dstGrp)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
 }
@@ -287,7 +295,7 @@ func TestMoveThreadNonIdleThreadReturnsErrorAndDoesNotMove(t *testing.T) {
 	assert.NoError(t, os.MkdirAll(srcDir, 0o700))
 	assert.NoError(t, os.MkdirAll(dstDir, 0o700))
 
-	set := NewThreadGroupSet(setDir, nil, local.New())
+	set := NewThreadGroupSet(setDir, nil, local.New(), git.NewClient())
 	srcGrp := newThreadGroup(set, "S", srcDir)
 	dstGrp := newThreadGroup(set, "D", dstDir)
 
@@ -313,7 +321,7 @@ func TestMoveThreadNonIdleThreadReturnsErrorAndDoesNotMove(t *testing.T) {
 	assert.Equal(t, 1, srcGrp.Count())
 	assert.Equal(t, 0, dstGrp.Count())
 
-	err := srcGrp.MoveThread(thr, dstGrp)
+	err := srcGrp.MoveThread(context.Background(), thr, dstGrp)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrThreadNotIdle)
 

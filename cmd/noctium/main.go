@@ -114,7 +114,7 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 
 	cliCtx.Afs = local.New()
 	cliCtx.threadGroupSet = threads.NewThreadGroupSet(threadGroupsDirLocal,
-		[]string{MainThreadGroupName, ArchiveThreadGroupName}, cliCtx.Afs)
+		[]string{MainThreadGroupName, ArchiveThreadGroupName}, cliCtx.Afs, cliCtx.scmClient)
 
 	return cliCtx, nil
 }

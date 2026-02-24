@@ -34,8 +34,8 @@ func (tvUI *threadViewUI) launchWorkspaceModal(ctx context.Context) error {
 		{Key: "r", Label: "Reset:r Reset the workspace sandbox and/or change which of your repositories this thread works with"},
 		{Key: "t", Label: "Terminal:t Open a terminal in the workspace sandbox"},
 	}
-
-	sel, err := tvUI.cliCtx.ui.SelectOption(tvUI.ws.Detail(), choices)
+	ws := tvUI.thread.Workspace()
+	sel, err := tvUI.cliCtx.ui.SelectOption(ws.Detail(), choices)
 	if err != nil {
 		// cancel
 		return err
@@ -69,7 +69,8 @@ func (tvUI *threadViewUI) launchWorkspaceModal(ctx context.Context) error {
 // It returns false if the user cancels setup or chooses not to configure a
 // workspace right now.
 func (tvUI *threadViewUI) ensureWorkspaceReady(ctx context.Context) bool {
-	if tvUI.ws.Origin() != "" {
+	ws := tvUI.thread.Workspace()
+	if ws.Origin() != "" {
 		return true
 	}
 
@@ -87,7 +88,7 @@ func (tvUI *threadViewUI) ensureWorkspaceReady(ctx context.Context) bool {
 
 func workspaceSync(ctx context.Context, tvUI *threadViewUI) error {
 	suspendNCurses()
-	err := tvUI.ws.SyncSandbox(ctx, true)
+	err := tvUI.thread.Workspace().SyncSandbox(ctx, true)
 	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
@@ -99,7 +100,7 @@ func workspaceSync(ctx context.Context, tvUI *threadViewUI) error {
 func workspacePush(ctx context.Context, tvUI *threadViewUI) error {
 	dstBranch := branchNameFromThread(tvUI.thread)
 	suspendNCurses()
-	err := tvUI.ws.PushSandbox(ctx, dstBranch)
+	err := tvUI.thread.Workspace().PushSandbox(ctx, dstBranch)
 	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(fmt.Sprintf("%v\nDestination branch: %v", err.Error(), dstBranch))
@@ -112,7 +113,7 @@ func workspacePush(ctx context.Context, tvUI *threadViewUI) error {
 
 func workspaceMerge(ctx context.Context, tvUI *threadViewUI) error {
 	suspendNCurses()
-	err := tvUI.ws.MergeSandbox(ctx)
+	err := tvUI.thread.Workspace().MergeSandbox(ctx)
 	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
@@ -157,7 +158,7 @@ func workspaceReset(ctx context.Context, tvUI *threadViewUI) error {
 
 	if sandboxOnly {
 		suspendNCurses()
-		err = tvUI.ws.ResetSandbox(ctx)
+		err = tvUI.thread.Workspace().ResetSandbox(ctx)
 		restoreNCurses()
 		if err != nil {
 			_ = tvUI.cliCtx.ui.Confirm(err.Error())
@@ -165,7 +166,7 @@ func workspaceReset(ctx context.Context, tvUI *threadViewUI) error {
 		return err
 	}
 
-	if err := tvUI.ws.Reset(); err != nil {
+	if err := tvUI.thread.Workspace().Reset(); err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
 		return err
 	}
@@ -201,11 +202,12 @@ func threadViewDiffOptionsFromStatus(st scm.RepoSyncStatus) threadViewDiffOption
 }
 
 func (tvUI *threadViewUI) workspaceDiff(ctx context.Context) (needRedraw bool) {
-	if tvUI.ws.Sandbox() == "" {
+	ws := tvUI.thread.Workspace()
+	if ws.Sandbox() == "" {
 		return false
 	}
 
-	st, err := tvUI.cliCtx.scmClient.RepoSyncStatus(ctx, tvUI.ws.Sandbox())
+	st, err := tvUI.cliCtx.scmClient.RepoSyncStatus(ctx, ws.Sandbox())
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
 		return true
@@ -219,7 +221,7 @@ func (tvUI *threadViewUI) workspaceDiff(ctx context.Context) (needRedraw bool) {
 
 	mode := threadViewDiffModeNone
 	if opts.hasUncommitted && opts.hasSandboxOriginDiff {
-		if tvUI.ws.Origin() == "" {
+		if ws.Origin() == "" {
 			// Uncommitted diffs are still useful even when origin isn't configured.
 			mode = threadViewDiffModeUncommitted
 		} else {
@@ -261,7 +263,7 @@ func (tvUI *threadViewUI) workspaceDiff(ctx context.Context) (needRedraw bool) {
 		}
 		mode = threadViewDiffModeUncommitted
 	} else if opts.hasSandboxOriginDiff {
-		if tvUI.ws.Origin() == "" {
+		if ws.Origin() == "" {
 			_ = tvUI.cliCtx.ui.Confirm("Workspace origin repo is not configured for this thread.\n\nCannot diff sandbox vs origin without an origin repo configured.")
 			return true
 		}
@@ -295,7 +297,7 @@ func (tvUI *threadViewUI) workspaceDiff(ctx context.Context) (needRedraw bool) {
 
 	// Suspend curses so the difftool can use the terminal.
 	suspendNCurses()
-	err = tvUI.cliCtx.scmClient.DiffTool(ctx, tvUI.ws.Sandbox(), spec)
+	err = tvUI.cliCtx.scmClient.DiffTool(ctx, ws.Sandbox(), spec)
 	restoreNCurses()
 	if err != nil {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())

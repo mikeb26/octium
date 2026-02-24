@@ -256,6 +256,19 @@ func (thrGrp *ThreadGroup) NewThread(ctx context.Context, name string) error {
 	}
 	curThread.persisted.Id = id
 	curThread.dirName = id
+	curThread.mu.Lock()
+	curThread.initWorkspace()
+	// Persist both the thread.json and initial ws.json now.
+	err = curThread.save()
+	if err != nil {
+		curThread.mu.Unlock()
+		return err
+	}
+	if err := curThread.ws.Save(); err != nil {
+		curThread.mu.Unlock()
+		return err
+	}
+	curThread.mu.Unlock()
 
 	thrGrp.addThread(curThread)
 
@@ -266,6 +279,10 @@ func (thrGrp *ThreadGroup) addThread(curThread *thread) {
 	if curThread.persisted.Id == "" {
 		panic("missing thread id")
 	}
+	// The thread group's invariants assume the thread's parent points back to
+	// this group and that its parentDir matches the group directory.
+	curThread.parent = thrGrp
+	curThread.parentDir = thrGrp.dir
 	if _, exists := thrGrp.threads[curThread.persisted.Id]; exists {
 		panic(fmt.Sprintf("attempt to add thread id %v to group %v but it already exists",
 			curThread.persisted.Id, thrGrp.name))
@@ -284,7 +301,7 @@ func (thrGrp *ThreadGroup) Count() int {
 	return thrGrp.totThreads
 }
 
-func (srcThrGrp *ThreadGroup) MoveThread(thr Thread, dstThrGrp *ThreadGroup) error {
+func (srcThrGrp *ThreadGroup) MoveThread(ctx context.Context, thr Thread, dstThrGrp *ThreadGroup) error {
 	if srcThrGrp == dstThrGrp {
 		return fmt.Errorf("cannot move thread within the same thread group")
 	}
@@ -314,6 +331,13 @@ func (srcThrGrp *ThreadGroup) MoveThread(thr Thread, dstThrGrp *ThreadGroup) err
 	thread := srcThrGrp.threads[thrId]
 	thread.mu.Lock()
 	defer thread.mu.Unlock()
+	if thread.ws == nil {
+		// In normal operation, all threads have an initialized workspace.
+		// Be resilient to tests / legacy callers that constructed threads
+		// manually without going through load/new.
+		thread.initWorkspace()
+		thread.loadWorkspaceBestEffort(ctx)
+	}
 
 	if thread.state != ThreadStateIdle {
 		// Avoid calling thread.State() while holding thread.mu.
@@ -325,6 +349,15 @@ func (srcThrGrp *ThreadGroup) MoveThread(thr Thread, dstThrGrp *ThreadGroup) err
 	if err != nil {
 		return err
 	}
+
+	// Update workspace scratch dir to the destination location and persist the
+	// (possibly modified) workspace.
+	if err := thread.ws.SetScratchDir(filepath.Join(dstThrGrp.dir, thread.dirName, ThreadScratchDir)); err != nil {
+		// Best effort cleanup of the thread we just saved in the destination.
+		_ = thread.removeWithDir(dstThrGrp.dir)
+		return err
+	}
+
 	err = thread.removeWithDir(srcThrGrp.dir)
 	if err != nil {
 		_ = thread.removeWithDir(dstThrGrp.dir)

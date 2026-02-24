@@ -630,7 +630,7 @@ func handleMenuArchiveUnarchive(ctx context.Context, cliCtx *CliContext, ch gc.K
 		srcThreadGroup = ArchiveThreadGroupName
 	}
 
-	err = cliCtx.threadGroupSet.MoveThread(entry.thread, srcThreadGroup, dstThreadGroup)
+	err = cliCtx.threadGroupSet.MoveThread(ctx, entry.thread, srcThreadGroup, dstThreadGroup)
 	if err != nil {
 		return false, fmt.Errorf("%w: %w", ErrFailedToArchiveThread, err)
 	}
@@ -646,15 +646,12 @@ func confirmDiscardThreadWorkspaceIfDirtyOrAhead(
 	isArchived bool,
 ) (bool, error) {
 
-	// Moving a thread between groups rewrites its persisted directory, which
-	// does not preserve the thread's scratch contents (including any workspace
-	// sandbox). If there is work in the sandbox, warn before proceeding.
-	tvUI := lookupThreadViewUI(cliCtx, thread)
-	if isArchived || tvUI == nil || tvUI.ws.Sandbox() == "" {
+	ws := thread.Workspace()
+	if isArchived || ws.Sandbox() == "" {
 		return true, nil
 	}
 
-	st, err := tvUI.ws.SandboxSyncStatus(ctx)
+	st, err := ws.SandboxSyncStatus(ctx)
 	if err != nil {
 		defaultNo := false
 		prompt := fmt.Sprintf(
@@ -702,7 +699,8 @@ func confirmDiscardThreadWorkspaceIfDirtyOrAhead(
 	}
 
 	if ok {
-		_ = tvUI.ws.Reset()
+		_ = ws.ClearSandbox()
 	}
+
 	return ok, nil
 }
