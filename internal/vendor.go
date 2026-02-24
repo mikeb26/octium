@@ -22,6 +22,13 @@ var vendorInfos = map[string]VendorInfo{
 		SupportedModels: []string{"gemini-3-pro-preview", "gemini-3-flash-preview"},
 		DefaultModel:    "gemini-3-pro-preview",
 	},
+	"openrouter": {
+		Name:            "openrouter",
+		FullName:        "OpenRouter",
+		ApiKeyUrl:       "https://openrouter.ai/keys",
+		SupportedModels: []string{"openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet", "google/gemini-2.5-pro"},
+		DefaultModel:    "openai/gpt-4o-mini",
+	},
 	"anthropic": {
 		Name:      "anthropic",
 		FullName:  "Anthropic",

@@ -12,6 +12,7 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/gemini"
 	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino-ext/components/model/openrouter"
 	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
@@ -28,6 +29,7 @@ import (
 )
 
 type EINOAIClient struct {
+	vendor          string
 	reactAgent      *react.Agent
 	reasoningEffort laclopenai.ReasoningEffortLevel
 	auditHandler    callbacks.Handler
@@ -88,6 +90,9 @@ func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
 			enableAuditLog, auditLogPath)
 	case "google":
 		client = newGoogleEINOClient(ctx, vendor, approver, apiKey, modelName, depth,
+			enableAuditLog, auditLogPath)
+	case "openrouter":
+		client = newOpenRouterEINOClient(ctx, vendor, approver, apiKey, modelName, depth,
 			enableAuditLog, auditLogPath)
 	default:
 		panic("unsupported vendor")
@@ -160,7 +165,24 @@ func newGoogleEINOClient(ctx context.Context, vendor string,
 		enableAuditLog, auditLogPath)
 }
 
-func newEINOClient(ctx context.Context, vendor string, chatModel model.ChatModel,
+func newOpenRouterEINOClient(ctx context.Context, vendor string,
+	approver am.Approver, apiKey string, model string,
+	depth int,
+	enableAuditLog bool, auditLogPath string) types.AIClient {
+
+	chatModel, err := openrouter.NewChatModel(ctx, &openrouter.Config{
+		Model:  model,
+		APIKey: apiKey,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return newEINOClient(ctx, vendor, chatModel, approver, apiKey, model, depth,
+		enableAuditLog, auditLogPath)
+}
+
+func newEINOClient(ctx context.Context, vendor string, chatModel model.ToolCallingChatModel,
 	approver am.Approver, apiKey string, model string,
 	depth int, enableAuditLog bool, auditLogPath string) types.AIClient {
 
@@ -170,8 +192,8 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ChatModel
 		baseTools[ii] = tools[ii]
 	}
 	config := &react.AgentConfig{
-		Model:   chatModel,
-		MaxStep: 1000,
+		ToolCallingModel: chatModel,
+		MaxStep:          1000,
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: baseTools,
 		},
@@ -191,6 +213,7 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ChatModel
 	}
 
 	clientOut := &EINOAIClient{
+		vendor:          vendor,
 		reactAgent:      client,
 		reasoningEffort: laclopenai.ReasoningEffortLevelMedium,
 		auditHandler:    auditHandler,
@@ -227,6 +250,28 @@ func (client *EINOAIClient) SetReasoning(
 	client.reasoningEffort = reasoningEffort
 }
 
+func (client *EINOAIClient) reasoningModelOption() model.Option {
+	switch client.vendor {
+	case "openrouter":
+		return openrouter.WithReasoning(&openrouter.Reasoning{
+			Effort: openRouterEffortFromReasoningEffort(client.reasoningEffort),
+		})
+	default:
+		return laclopenai.WithReasoningEffort(client.reasoningEffort)
+	}
+}
+
+func openRouterEffortFromReasoningEffort(level laclopenai.ReasoningEffortLevel) openrouter.Effort {
+	switch level {
+	case laclopenai.ReasoningEffortLevelLow:
+		return openrouter.EffortOfLow
+	case laclopenai.ReasoningEffortLevelHigh:
+		return openrouter.EffortOfHigh
+	default:
+		return openrouter.EffortOfMedium
+	}
+}
+
 func (client *EINOAIClient) CreateChatCompletion(ctx context.Context,
 	dialogueIn []*types.ThreadMessage) (*types.ThreadMessage, error) {
 
@@ -235,7 +280,7 @@ func (client *EINOAIClient) CreateChatCompletion(ctx context.Context,
 		dialogue[ii] = (*schema.Message)(msg)
 	}
 
-	modelOpt := laclopenai.WithReasoningEffort(client.reasoningEffort)
+	modelOpt := client.reasoningModelOption()
 	composeOpt := compose.WithChatModelOption(modelOpt)
 	agentOpt := agent.WithComposeOptions(composeOpt)
 
@@ -266,7 +311,7 @@ func (client *EINOAIClient) StreamChatCompletion(ctx context.Context,
 		dialogue[ii] = (*schema.Message)(msg)
 	}
 
-	modelOpt := laclopenai.WithReasoningEffort(client.reasoningEffort)
+	modelOpt := client.reasoningModelOption()
 	composeOpt := compose.WithChatModelOption(modelOpt)
 	agentOpt := agent.WithComposeOptions(composeOpt)
 

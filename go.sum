@@ -74,6 +74,8 @@ github.com/cloudwego/eino-ext/components/model/gemini v0.1.28 h1:mb/4GdBCBS9uiZP
 github.com/cloudwego/eino-ext/components/model/gemini v0.1.28/go.mod h1:snXILkr06Zr2jm6WlqcWeytwiCramhNVPfxASgbjH40=
 github.com/cloudwego/eino-ext/components/model/openai v0.1.8 h1:uVCE8nNvbhD37xGFgdKESWjvChDSkCAMA+DodhFRBaM=
 github.com/cloudwego/eino-ext/components/model/openai v0.1.8/go.mod h1:K6g2VgULehhJC5dgFdPW3u7gZNZ1p6DhnfA5UhkRpNY=
+github.com/cloudwego/eino-ext/components/model/openrouter v0.1.2 h1:zDFteouktUsGk4I/7m1b7yT4e9qawy45gWtLoyeHwxI=
+github.com/cloudwego/eino-ext/components/model/openrouter v0.1.2/go.mod h1:v+Xo3hEEBZ9BVGpyjmLrqiP1BCshF3wQrEsxw1SLtF4=
 github.com/cloudwego/eino-ext/libs/acl/openai v0.1.13 h1:z0bI5TH3nE+uDQiRhxBQMvk2HswlDUM3xP38+VSgpSQ=
 github.com/cloudwego/eino-ext/libs/acl/openai v0.1.13/go.mod h1:1xMQZ8eE11pkEoTAEy8UlaAY817qGVMvjpDPGSIO3Ns=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
