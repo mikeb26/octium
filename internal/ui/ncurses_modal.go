@@ -529,8 +529,8 @@ func (n *NcursesUI) selectBoolScrollablePromptModalFrame(userPrompt string,
 	}
 
 	items := []string{
-		fmt.Sprintf("%s - %s", trueOption.Key, trueOption.Label),
-		fmt.Sprintf("%s - %s", falseOption.Key, falseOption.Label),
+		trueOption.Label,
+		falseOption.Label,
 	}
 	selected := 0
 	if defaultOpt != nil && !*defaultOpt {
