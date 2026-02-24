@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/mikeb26/octium/internal/fsatomic/local"
 	"github.com/mikeb26/octium/internal/types"

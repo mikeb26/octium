@@ -8,7 +8,7 @@ package fsparanoid
 import "errors"
 
 var (
-	ErrNotSupported   = errors.New("operation not supported")
+	ErrNotSupported    = errors.New("operation not supported")
 	ErrRootNotAbsolute = errors.New("root path must be absolute")
-	ErrPathNotSecure  = errors.New("path is not secure")
+	ErrPathNotSecure   = errors.New("path is not secure")
 )

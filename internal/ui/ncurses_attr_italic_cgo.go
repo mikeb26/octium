@@ -1,9 +1,9 @@
+//go:build cgo
+
 /* Copyright © 2025-2026 Mike Brown. All Rights Reserved.
  *
  * See LICENSE file at the root of this package for license terms
  */
-
-//go:build cgo
 
 package ui
 

@@ -14,8 +14,6 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
-	"slices"
-	"sort"
 	"strings"
 
 	"github.com/mikeb26/octium/internal"
@@ -75,6 +73,10 @@ func (octiumCtx *CliContext) loadPrefs() error {
 	}
 	prefsFileContent, err := os.ReadFile(filePath)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// First-time run: prefs haven't been created yet. Keep defaults.
+			return nil
+		}
 		return fmt.Errorf("%w: %w", ErrFailedToReadPrefs, err)
 	}
 	err = json.Unmarshal(prefsFileContent, &octiumCtx.prefs)
@@ -110,152 +112,238 @@ func (octiumCtx *CliContext) savePrefs() error {
 }
 
 func configMain(ctx context.Context, octiumCtx *CliContext) error {
-	configDir, err := getConfigDir()
-	if err != nil {
+	if err := ensureConfigDirExists(); err != nil {
 		return err
 	}
-	err = os.MkdirAll(configDir, 0700)
-	if err != nil {
-		return fmt.Errorf("%w %v: %w", ErrCouldNotCreateConfigDir, configDir, err)
-	}
-
-	vendorKeys := internal.GetVendors()
-	sort.Strings(vendorKeys)
-	choices := make([]types.UIOption, 0, len(vendorKeys))
-	for _, v := range vendorKeys {
-		fullName := internal.GetVendorInfo(v).FullName
-		choices = append(choices, types.UIOption{Key: v, Label: fullName})
-	}
-
-	selection, err := octiumCtx.ui.SelectOption("Choose an LLM vendor:", choices)
-	if err != nil {
+	if err := ensureThreadGroupsDirExists(); err != nil {
 		return err
 	}
-	vendor := strings.ToLower(strings.TrimSpace(selection.Key))
-	if !slices.Contains(vendorKeys, vendor) {
-		return fmt.Errorf("%w: %v", ErrUnsupportedVendor, vendor)
-	}
-	octiumCtx.prefs.Vendor = vendor
-	vendorInfo := internal.GetVendorInfo(vendor)
 
-	models := vendorInfo.SupportedModels
-	choices = make([]types.UIOption, 0, len(models))
-	for _, m := range models {
-		choices = append(choices, types.UIOption{Key: m, Label: m})
-	}
-	selection, err = octiumCtx.ui.SelectOption(
-		fmt.Sprintf("Choose an %v model:", vendorInfo.FullName), choices)
-	if err != nil {
-		return err
-	}
-	model := strings.ToLower(strings.TrimSpace(selection.Key))
-	if !slices.Contains(models, model) {
-		return fmt.Errorf("%w: %v", ErrUnsupportedModel, model)
-	}
-	octiumCtx.prefs.Model = model
+	needReload := false
+	for {
+		choices := []types.UIOption{
+			{Key: "llm", Label: fmt.Sprintf("LLM config")},
+			{Key: "prefs", Label: fmt.Sprintf("Preferences")},
+			{Key: "sec", Label: fmt.Sprintf("Security")},
+			{Key: "back", Label: "Back"},
+		}
 
-	keyPath := path.Join(configDir, fmt.Sprintf(KeyFileFmt, vendor))
-	keyBytes, err := os.ReadFile(keyPath)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("%w (%v) %v: %w", ErrCouldNotOpenAPIKeyFile, vendor, keyPath, err)
-	}
-
-	existingKey := strings.TrimSpace(string(keyBytes))
-	keepKey := false
-	if existingKey != "" {
-		keepPrompt := fmt.Sprintf(
-			"An existing %v API key is already configured. Keep using it?",
-			vendorInfo.FullName,
-		)
-		defaultKeep := true
-		trueOpt := types.UIOption{Key: "y", Label: "y"}
-		falseOpt := types.UIOption{Key: "n", Label: "n"}
-		keepKey, err = octiumCtx.ui.SelectBool(keepPrompt, trueOpt, falseOpt, &defaultKeep)
+		sel, err := octiumCtx.ui.SelectOption("Configuration:", choices)
 		if err != nil {
+			if uiWasCancelled(err) {
+				break
+			}
 			return err
 		}
-	}
 
-	if !keepKey {
-		keyPrompt := fmt.Sprintf("Please visit %v to obtain an API key.\nEnter your %v API key: ", vendorInfo.ApiKeyUrl, vendorInfo.FullName)
-		key, err := octiumCtx.ui.Get(keyPrompt)
-		if err != nil {
-			return err
-		}
-		key = strings.TrimSpace(key)
-		err = os.WriteFile(keyPath, []byte(key), 0600)
-		if err != nil {
-			return fmt.Errorf("%w (%v) %v: %w", ErrCouldNotWriteAPIKeyFile, vendor, keyPath, err)
-		}
-	}
-	threadGroupsPath := path.Join(configDir, ThreadGroupsDir)
-	err = os.MkdirAll(threadGroupsPath, 0700)
-	if err != nil {
-		return fmt.Errorf("%w %v: %w", ErrCouldNotCreateThreadsDir,
-			threadGroupsPath, err)
-	}
-
-	summarizePrompt := fmt.Sprintf(
-		"Summarize dialogue when continuing threads? (reduces costs for less precise replies from %v)",
-		vendorInfo.FullName,
-	)
-	defaultSummarize := false
-	trueOpt := types.UIOption{Key: "y", Label: "y"}
-	falseOpt := types.UIOption{Key: "n", Label: "n"}
-
-	summarize, err := octiumCtx.ui.SelectBool(summarizePrompt, trueOpt, falseOpt, &defaultSummarize)
-	if err != nil {
-		return err
-	}
-
-	octiumCtx.prefs.SummarizePrior = summarize
-	octiumCtx.toggles.summary = octiumCtx.prefs.SummarizePrior
-
-	auditLogPath, err := getAuditLogPath()
-	if err != nil {
-		return err
-	}
-	auditPrompt := fmt.Sprintf(
-		"Enable audit logging (logs prompts/tool use) to %v?",
-		auditLogPath,
-	)
-	defaultAudit := true
-	enableAudit, err := octiumCtx.ui.SelectBool(auditPrompt, trueOpt, falseOpt, &defaultAudit)
-	if err != nil {
-		return err
-	}
-	octiumCtx.prefs.EnableAuditLog = enableAudit
-
-	runCmdApprovalPrompt := fmt.Sprintf("Require approvals for running shell commands?\n\nNote that it is safe to accept the default(no) since all shell commands are run in a restricted sandbox environment without access to your $HOME or sensitive files on your system. Shell commands can only access files which you later explicitly share in your workspace. See %v if you would like to audit.",
-		internal.CliRunAsScriptPath())
-
-	defaultRunCmdApproval := false
-	runCmdApproval, err := octiumCtx.ui.SelectBool(runCmdApprovalPrompt, trueOpt, falseOpt, &defaultRunCmdApproval)
-	if err != nil {
-		return err
-	}
-	octiumCtx.prefs.RunCmdApproval = runCmdApproval
-	if octiumCtx.prefs.EnableAuditLog {
-		logsDir, err := getLogsDir()
-		if err != nil {
-			return err
-		}
-		err = os.MkdirAll(logsDir, 0700)
-		if err != nil {
-			return fmt.Errorf("%w %v: %w", ErrCouldNotCreateLogsDir, logsDir, err)
+		switch sel.Key {
+		case "llm":
+			didReload, err := configLLM(octiumCtx)
+			if err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				_ = octiumCtx.ui.Confirm(err.Error())
+				continue
+			}
+			needReload = needReload || didReload
+		case "prefs":
+			if err := configPreferences(octiumCtx); err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				_ = octiumCtx.ui.Confirm(err.Error())
+			}
+		case "sec":
+			didReload, err := configSecurity(octiumCtx)
+			if err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				_ = octiumCtx.ui.Confirm(err.Error())
+				continue
+			}
+			needReload = needReload || didReload
+		case "back":
+			goto done
+		default:
+			_ = octiumCtx.ui.Confirm(fmt.Sprintf("unknown config option: %v", sel.Key))
 		}
 	}
 
-	err = octiumCtx.savePrefs()
-	if err != nil {
-		return err
-	}
-
+done:
 	if err := setupDefaultApprovals(); err != nil {
 		return err
 	}
 
+	if !needReload {
+		return nil
+	}
+	if ok, err := minConfigSatisfied(octiumCtx.prefs.Vendor); err != nil {
+		return err
+	} else if !ok {
+		// Not configured enough to load the full runtime (no API key).
+		return nil
+	}
 	return octiumCtx.load(ctx)
+}
+
+func configPreferences(cliCtx *CliContext) error {
+	for {
+		choices := []types.UIOption{
+			{Key: "sum", Label: fmt.Sprintf("Summarize dialogue when continuing threads [%s]", onOff(cliCtx.prefs.SummarizePrior))},
+			{Key: "back", Label: "Back"},
+		}
+		sel, err := cliCtx.ui.SelectOption("Preferences:", choices)
+		if err != nil {
+			return err
+		}
+
+		switch sel.Key {
+		case "sum":
+			vendorInfo := internal.GetVendorInfo(cliCtx.prefs.Vendor)
+			prompt := fmt.Sprintf(
+				"Summarize dialogue when continuing threads? (reduces costs for less precise replies from %v)",
+				vendorInfo.FullName,
+			)
+			trueOpt := types.UIOption{Key: "y", Label: "Yes"}
+			falseOpt := types.UIOption{Key: "n", Label: "No"}
+			defaultVal := cliCtx.prefs.SummarizePrior
+			summarize, err := cliCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultVal)
+			if err != nil {
+				return err
+			}
+			cliCtx.prefs.SummarizePrior = summarize
+			cliCtx.toggles.summary = summarize
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "back":
+			return nil
+		default:
+			_ = cliCtx.ui.Confirm("Invalid selection")
+		}
+	}
+}
+
+func configSecurity(cliCtx *CliContext) (needReload bool, err error) {
+	for {
+		choices := []types.UIOption{
+			{Key: "cmd", Label: fmt.Sprintf("Require approvals for running shell commands [%s]", onOff(cliCtx.prefs.RunCmdApproval))},
+			{Key: "audit", Label: fmt.Sprintf("Enable audit logging (logs prompts/tool use) [%s]", onOff(cliCtx.prefs.EnableAuditLog))},
+			{Key: "back", Label: "Back"},
+		}
+		sel, err := cliCtx.ui.SelectOption("Security:", choices)
+		if err != nil {
+			return needReload, err
+		}
+
+		switch sel.Key {
+		case "cmd":
+			prompt := fmt.Sprintf(
+				"Require approvals for running shell commands?\n\nNote: it is safe to accept the default (No) since all shell commands are run in a restricted sandbox environment without access to your $HOME or sensitive files on your system. Shell commands can only access files which you later explicitly share in your workspace. See %v if you would like to audit.",
+				internal.CliRunAsScriptPath(),
+			)
+			trueOpt := types.UIOption{Key: "y", Label: "Yes"}
+			falseOpt := types.UIOption{Key: "n", Label: "No"}
+			defaultVal := cliCtx.prefs.RunCmdApproval
+			require, err := cliCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultVal)
+			if err != nil {
+				return needReload, err
+			}
+			cliCtx.prefs.RunCmdApproval = require
+			if cliCtx.ictx != nil {
+				cliCtx.ictx.ASettings.RunCmdNeedsApproval = require
+			}
+			if err := cliCtx.savePrefs(); err != nil {
+				return needReload, err
+			}
+		case "audit":
+			auditLogPath, err := getAuditLogPath()
+			if err != nil {
+				return needReload, err
+			}
+			prompt := fmt.Sprintf(
+				"Enable audit logging (logs prompts/tool use) to %v?",
+				auditLogPath,
+			)
+			trueOpt := types.UIOption{Key: "y", Label: "Yes"}
+			falseOpt := types.UIOption{Key: "n", Label: "No"}
+			defaultVal := cliCtx.prefs.EnableAuditLog
+			enable, err := cliCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultVal)
+			if err != nil {
+				return needReload, err
+			}
+			if enable {
+				logsDir, err := getLogsDir()
+				if err != nil {
+					return needReload, err
+				}
+				if err := os.MkdirAll(logsDir, 0700); err != nil {
+					return needReload, fmt.Errorf("%w %v: %w", ErrCouldNotCreateLogsDir, logsDir, err)
+				}
+			}
+
+			if enable != cliCtx.prefs.EnableAuditLog {
+				needReload = true
+			}
+			cliCtx.prefs.EnableAuditLog = enable
+			if err := cliCtx.savePrefs(); err != nil {
+				return needReload, err
+			}
+		case "back":
+			return needReload, nil
+		default:
+			_ = cliCtx.ui.Confirm("Invalid selection")
+		}
+	}
+}
+
+func ensureConfigDirExists() error {
+	configDir, err := getConfigDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return fmt.Errorf("%w %v: %w", ErrCouldNotCreateConfigDir, configDir, err)
+	}
+	return nil
+}
+
+func ensureThreadGroupsDirExists() error {
+	configDir, err := getConfigDir()
+	if err != nil {
+		return err
+	}
+	threadGroupsPath := path.Join(configDir, ThreadGroupsDir)
+	if err := os.MkdirAll(threadGroupsPath, 0700); err != nil {
+		return fmt.Errorf("%w %v: %w", ErrCouldNotCreateThreadsDir, threadGroupsPath, err)
+	}
+	return nil
+}
+
+func minConfigSatisfied(vendor string) (bool, error) {
+	vendor = strings.TrimSpace(vendor)
+	if vendor == "" {
+		return false, nil
+	}
+	return apiKeyConfigured(vendor)
+}
+
+func onOff(v bool) string {
+	if v {
+		return "on"
+	}
+	return "off"
+}
+
+func uiWasCancelled(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(strings.TrimSpace(err.Error()))
+	// NcursesUI uses these messages today.
+	return strings.Contains(s, "cancel")
 }
 
 func getConfigDir() (string, error) {
@@ -276,14 +364,6 @@ func getConfigDirOld() (string, error) {
 	}
 
 	return filepath.Join(configDir, CliToolNameOld), nil
-}
-
-func getKeyPath(vendor string) (string, error) {
-	configDir, err := getConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configDir, fmt.Sprintf(KeyFileFmt, vendor)), nil
 }
 
 func getPrefsPath() (string, error) {
@@ -340,19 +420,4 @@ func getAuditLogPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(logsDir, AuditLogFile), nil
-}
-
-func loadKey(vendor string) (string, error) {
-	keyPath, err := getKeyPath(vendor)
-	if err != nil {
-		return "", fmt.Errorf("%w (%v): %w", ErrCouldNotLoadAPIKey, vendor, err)
-	}
-	data, err := os.ReadFile(keyPath)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("%w (%v): run `%v config` to configure", ErrAPIKeyNotConfigured, vendor, internal.CliToolName)
-		}
-		return "", fmt.Errorf("%w (%v): %w", ErrCouldNotLoadAPIKey, vendor, err)
-	}
-	return string(data), nil
 }
