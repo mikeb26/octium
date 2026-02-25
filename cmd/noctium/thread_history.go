@@ -6,6 +6,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/mikeb26/octium/internal/ui"
@@ -112,7 +114,23 @@ func buildHistoryLines(cliCtx *CliContext, blocks []threads.RenderBlock,
 			}
 		}
 
-		lines = append(lines, ui.WrapTextWithPrefix("", b.Text, textWidth, attrText)...)
+		// Thread history uses a Frame with render-time wrapping now, so we do not
+		// pre-wrap here. We split only on explicit newlines to preserve the
+		// original logical line structure.
+		//
+		// We rely on per-line WrapMode overrides to keep code blocks hard-wrapped
+		// even when the global mode is word/off.
+		wrapMode := ui.WrapModeInherit
+		if b.IsCode {
+			wrapMode = ui.WrapModeHard
+		}
+		parts := strings.Split(b.Text, "\n")
+		if len(parts) == 0 {
+			parts = []string{""}
+		}
+		for _, part := range parts {
+			lines = append(lines, ui.FrameLine{Runes: []rune(part), Attr: attrText, WrapMode: wrapMode})
+		}
 		prevSource = b.Source
 		havePrevSource = true
 	}

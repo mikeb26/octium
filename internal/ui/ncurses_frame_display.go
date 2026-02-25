@@ -51,12 +51,8 @@ func (f *Frame) totalDisplayLines(textWidth int) int {
 		textWidth = 1
 	}
 
-	total := 0
-	for _, fl := range f.lines {
-		segments, _ := WrapRunesWithContinuation(fl.Runes, textWidth)
-		total += len(segments)
-	}
-	return total
+	display := f.buildDisplayLines(textWidth)
+	return len(display)
 }
 
 // cursorDisplayPos computes where the current logical cursor would land in the
@@ -80,49 +76,41 @@ func (f *Frame) cursorDisplayPos(textWidth int) displayPos {
 		col = len(lineRunes)
 	}
 
-	displayIdx := 0
-	for li := 0; li < len(f.lines); li++ {
-		segments, wrapped := WrapRunesWithContinuation(f.lines[li].Runes, textWidth)
-		start := 0
-		for si, seg := range segments {
-			segEnd := start + len(seg)
-			isLastSeg := !wrapped[si]
-			if li == lineIdx {
-				if col < start {
-					// Cursor is before this segment (shouldn't happen); clamp.
-					pos.displayLineIdx = displayIdx
-					pos.logicalLineIdx = li
-					pos.startCol = start
-					pos.segLen = len(seg)
-					pos.x = 0
-					return pos
-				}
-				if col < segEnd || (isLastSeg && col == segEnd) {
-					pos.displayLineIdx = displayIdx
-					pos.logicalLineIdx = li
-					pos.startCol = start
-					pos.segLen = len(seg)
-					pos.x = col - start
-					return pos
-				}
-			}
-			displayIdx++
-			start = segEnd
+	display := f.buildDisplayLines(textWidth)
+	for di := 0; di < len(display); di++ {
+		dl := display[di]
+		if dl.logicalIdx != lineIdx {
+			continue
 		}
-		if li != lineIdx {
-			displayIdx += 0
+		if col < dl.startCol {
+			continue
+		}
+		segEnd := dl.startCol + dl.segContentLen
+		isLastSeg := !dl.continues
+		if col < segEnd || (isLastSeg && col == segEnd) {
+			pos.displayLineIdx = di
+			pos.logicalLineIdx = dl.logicalIdx
+			pos.startCol = dl.startCol
+			pos.segLen = dl.segContentLen
+			x := col - dl.startCol
+			if x < 0 {
+				x = 0
+			}
+			pos.x = dl.indentLen + x
+			return pos
 		}
 	}
 
 	// Fallback: end of buffer.
-	lastLine := len(f.lines) - 1
-	segments, _ := WrapRunesWithContinuation(f.lines[lastLine].Runes, textWidth)
-	seg := segments[len(segments)-1]
-	pos.displayLineIdx = f.totalDisplayLines(textWidth) - 1
-	pos.logicalLineIdx = lastLine
-	pos.startCol = len(f.lines[lastLine].Runes) - len(seg)
-	pos.segLen = len(seg)
-	pos.x = len(seg)
+	if len(display) > 0 {
+		last := display[len(display)-1]
+		pos.displayLineIdx = len(display) - 1
+		pos.logicalLineIdx = last.logicalIdx
+		pos.startCol = last.startCol
+		pos.segLen = last.segContentLen
+		pos.x = last.indentLen + last.segContentLen
+		return pos
+	}
 	return pos
 }
 
@@ -136,7 +124,8 @@ func (f *Frame) displayIndexToCursor(textWidth, displayLineIdx, x int) (line, co
 		textWidth = 1
 	}
 
-	total := f.totalDisplayLines(textWidth)
+	display := f.buildDisplayLines(textWidth)
+	total := len(display)
 	if total <= 0 {
 		return 0, 0
 	}
@@ -145,24 +134,14 @@ func (f *Frame) displayIndexToCursor(textWidth, displayLineIdx, x int) (line, co
 		x = 0
 	}
 
-	idx := 0
-	for li := 0; li < len(f.lines); li++ {
-		segments, _ := WrapRunesWithContinuation(f.lines[li].Runes, textWidth)
-		start := 0
-		for _, seg := range segments {
-			if idx == displayLineIdx {
-				segLen := len(seg)
-				if x > segLen {
-					x = segLen
-				}
-				return li, start + x
-			}
-			idx++
-			start += len(seg)
-		}
+	dl := display[displayLineIdx]
+	lineIdx := dl.logicalIdx
+	colX := x - dl.indentLen
+	if colX < 0 {
+		colX = 0
 	}
-
-	// Fallback: end of buffer.
-	lastLine := len(f.lines) - 1
-	return lastLine, len(f.lines[lastLine].Runes)
+	if colX > dl.segContentLen {
+		colX = dl.segContentLen
+	}
+	return lineIdx, dl.startCol + colX
 }

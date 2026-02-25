@@ -437,7 +437,7 @@ func showMenu(ctx context.Context, cliCtx *CliContext) error {
 
 	// Keep internal/ui modal selection styling consistent with the menu's
 	// colors (or fall back to reverse-video in monochrome mode).
-	cliCtx.ui.SetTheme(iui.Theme{UseColors: cliCtx.toggles.useColors, SelectedPair: menuColorSelected})
+	cliCtx.ui.SetTheme(iui.Theme{UseColors: cliCtx.toggles.useColors, SelectedPair: menuColorSelected, WrapMode: cliCtx.toggles.wrapMode})
 	lastRefresh := time.Now()
 
 	for {

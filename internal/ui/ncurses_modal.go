@@ -95,6 +95,7 @@ func (n *NcursesUI) newCenteredModal(height, width int, hasCursor, hasInput bool
 	if err != nil {
 		return nil, err
 	}
+	frame.SetWrapMode(n.theme.WrapMode)
 
 	cy, cx, ch, cw := frame.contentBounds()
 

@@ -144,6 +144,7 @@ func (tvUI *threadViewUI) createThreadViewFrames() error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrCreatingHistoryFrame, err)
 	}
+	tvUI.historyFrame.SetWrapMode(tvUI.cliCtx.toggles.wrapMode)
 	tvUI.historyFrame.SetLines(historyLines)
 	// Start with cursor at end of history.
 	tvUI.historyFrame.MoveEnd()
@@ -220,6 +221,12 @@ func (tvUI *threadViewUI) closeThreadViewFrames() {
 }
 
 func (tvUI *threadViewUI) redrawThreadView(ctx context.Context) {
+	// Apply current wrap mode preference.
+	if tvUI.historyFrame != nil {
+		tvUI.historyFrame.SetWrapMode(tvUI.cliCtx.toggles.wrapMode)
+	}
+	tvUI.cliCtx.ui.SetTheme(ui.Theme{UseColors: tvUI.cliCtx.toggles.useColors, SelectedPair: menuColorSelected, WrapMode: tvUI.cliCtx.toggles.wrapMode})
+
 	// Cursor visibility is global ncurses state. Modal dialogs (e.g. tool
 	// approvals) may temporarily hide the cursor and not restore it, which can
 	// leave the thread view without a visible caret after a run.
@@ -261,7 +268,6 @@ func (tvUI *threadViewUI) processThreadViewKey(
 	ctx context.Context,
 	ch gc.Key,
 ) (exit bool, needRedraw bool) {
-
 	if ch == gc.KEY_TAB {
 		if tvUI.getFocus() == focusInput {
 			tvUI.focusedFrame = tvUI.historyFrame

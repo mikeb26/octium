@@ -19,6 +19,11 @@ type Theme struct {
 	// SelectedPair is the ncurses color pair ID to use for selected list
 	// items.
 	SelectedPair int16
+
+	// WrapMode controls wrapping behavior for Frame-backed widgets created by
+	// internal/ui (e.g. Modal). Callers that create Frames directly can set
+	// their own WrapMode via Frame.SetWrapMode.
+	WrapMode WrapMode
 }
 
 // SelectedAttr returns the attribute to use for selected list items.

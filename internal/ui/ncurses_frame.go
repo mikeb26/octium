@@ -17,6 +17,12 @@ import (
 type FrameLine struct {
 	Runes []rune
 	Attr  gc.Char
+	// WrapMode optionally overrides the frame-level wrap mode for this
+	// particular logical line.
+	//
+	// When WrapMode is WrapModeInherit (default), the Frame's WrapMode is
+	// used.
+	WrapMode WrapMode
 }
 
 // Frame represents a logical X-by-Y window region backed by its own
@@ -56,13 +62,21 @@ type Frame struct {
 	HasCursor bool
 	HasInput  bool
 
+	// WrapMode controls how logical lines are displayed when they exceed
+	// the frame's available text width.
+	WrapMode WrapMode
+
 	// Content buffer for the frame. Editable frames mutate the Runes
 	// fields in-place; read-only frames typically replace the entire
 	// slice via SetLines.
 	lines      []FrameLine
 	cursorLine int
 	cursorCol  int
-	scroll     int // first visible logical line index within the content area
+	// scroll is the first visible *display* row index within the content area.
+	//
+	// Since frames render-time wrap logical lines into potentially multiple
+	// display rows, scroll is tracked in display coordinates.
+	scroll     int
 }
 
 // SetLines replaces the frame's backing content with the provided
@@ -130,6 +144,7 @@ func NewFrame(parent *gc.Window, height, width, startY, startX int, hasBorder, h
 		HasBorder: hasBorder,
 		HasCursor: hasCursor,
 		HasInput:  hasInput,
+		WrapMode:  WrapModeHard,
 	}
 	// Wrap the frame's window in a panel so that it participates in the
 	// global panel stack. This allows callers to hide/delete the top
@@ -143,6 +158,11 @@ func NewFrame(parent *gc.Window, height, width, startY, startX int, hasBorder, h
 	}
 
 	return f, nil
+}
+
+// SetWrapMode sets the frame-level wrap mode.
+func (f *Frame) SetWrapMode(mode WrapMode) {
+	f.WrapMode = mode
 }
 
 // Close deletes the underlying ncurses window.
@@ -209,6 +229,12 @@ func (f *Frame) Render(showCursor bool) {
 		return
 	}
 
+	// Frames currently treat HasInput buffers as a distinct UI surface; we keep
+	// them hard-wrapped regardless of the configured WrapMode.
+	if f.HasInput {
+		f.WrapMode = WrapModeHard
+	}
+
 	visibleHeight := contentH
 	// Always reserve last column of the content area for the scrollbar.
 	textWidth := contentW - 1
@@ -216,45 +242,13 @@ func (f *Frame) Render(showCursor bool) {
 		textWidth = 1
 	}
 
-	// Expand the logical lines into display lines with soft wrapping.
-	// This mirrors the thread history behavior: when a line wraps, it
-	// ends with a '\\' marker in the last visible text column.
+	// Expand the logical lines into display lines using the configured wrap
+	// mode.
 	//
 	// NOTE: This is done at render time so that editable frames (input
 	// buffers) can flow visually without mutating their underlying logical
 	// buffer.
-	type displayLine struct {
-		runes      []rune
-		attr       gc.Char
-		logicalIdx int
-		// startCol is the starting logical column (rune index) this display
-		// line represents within the logical line.
-		startCol int
-		// wrapped indicates whether the display line should end with a
-		// continuation marker.
-		wrapped bool
-	}
-
-	var display []displayLine
-	for li, line := range source {
-		attr := line.Attr
-		if attr == 0 {
-			attr = gc.A_NORMAL
-		}
-		segments, wrappedFlags := WrapRunesWithContinuation(line.Runes, textWidth)
-		col := 0
-		for si, seg := range segments {
-			dl := displayLine{
-				runes:      seg,
-				attr:       attr,
-				logicalIdx: li,
-				startCol:   col,
-				wrapped:    wrappedFlags[si],
-			}
-			display = append(display, dl)
-			col += len(seg)
-		}
-	}
+	display := f.buildDisplayLines(textWidth)
 
 	if len(display) == 0 {
 		return
@@ -279,7 +273,7 @@ func (f *Frame) Render(showCursor bool) {
 		_ = f.Win.AttrSet(dl.attr)
 
 		textRunes := dl.runes
-		if dl.wrapped {
+		if dl.showMarker {
 			if textWidth == 1 {
 				textRunes = []rune{'\\'}
 			} else {
@@ -287,7 +281,8 @@ func (f *Frame) Render(showCursor bool) {
 			}
 		}
 		if len(textRunes) > textWidth {
-			// Safety clamp; wrapping helper should prevent this.
+			// In WrapModeOff, dl.runes may contain the full logical line and must be
+			// truncated here. In other modes this is a safety clamp.
 			textRunes = textRunes[:textWidth]
 		}
 		f.Win.MovePrint(contentY+row, contentX, string(textRunes))
@@ -319,12 +314,25 @@ func (f *Frame) Render(showCursor bool) {
 			if col < dl.startCol {
 				continue
 			}
-			segEnd := dl.startCol + len(dl.runes)
+			segEnd := dl.startCol + dl.segContentLen
 			// Include end-of-segment when this is the last segment for the line.
-			isLastSeg := !dl.wrapped
+			isLastSeg := !dl.continues
 			if col < segEnd || (isLastSeg && col == segEnd) {
 				cursorY = di
-				cursorX = col - dl.startCol
+				x := col - dl.startCol
+				if x < 0 {
+					x = 0
+				}
+				cursorX = dl.indentLen + x
+				if cursorX < 0 {
+					cursorX = 0
+				}
+				// Clamp to the last visible cell for this row. (Cursor mapping works in
+				// logical coordinates, but the physical cursor cannot move past the
+				// visible text width.)
+				if cursorX > textWidth-1 {
+					cursorX = textWidth - 1
+				}
 				break
 			}
 		}

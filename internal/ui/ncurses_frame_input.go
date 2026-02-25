@@ -209,71 +209,33 @@ func (f *Frame) EnsureCursorVisible() {
 		return
 	}
 
-	// When the frame is editable, we render with soft wrapping (like the
-	// history view). The scroll offset is therefore tracked in display
-	// (wrapped) rows rather than logical lines. We compute the cursor's
-	// current display row and clamp the viewport accordingly.
-	if f.HasInput {
-		textWidth := f.contentTextWidth()
-		visible := f.visibleContentHeight()
-		if visible < 1 {
-			visible = 1
-		}
-
-		// Clamp logical cursor line/col.
-		if f.cursorLine < 0 {
-			f.cursorLine = 0
-		}
-		if f.cursorLine > len(f.lines)-1 {
-			f.cursorLine = len(f.lines) - 1
-		}
-		line := f.lines[f.cursorLine].Runes
-		if f.cursorCol < 0 {
-			f.cursorCol = 0
-		}
-		if f.cursorCol > len(line) {
-			f.cursorCol = len(line)
-		}
-
-		cursorPos := f.cursorDisplayPos(textWidth)
-		totalDisplay := f.totalDisplayLines(textWidth)
-		maxScroll := totalDisplay - visible
-		if maxScroll < 0 {
-			maxScroll = 0
-		}
-		if f.scroll < 0 {
-			f.scroll = 0
-		}
-		if f.scroll > maxScroll {
-			f.scroll = maxScroll
-		}
-		if cursorPos.displayLineIdx < f.scroll {
-			f.scroll = cursorPos.displayLineIdx
-		} else if cursorPos.displayLineIdx >= f.scroll+visible {
-			f.scroll = cursorPos.displayLineIdx - visible + 1
-		}
-		if f.scroll < 0 {
-			f.scroll = 0
-		}
-		if f.scroll > maxScroll {
-			f.scroll = maxScroll
-		}
-
-		return
-	}
-
+	// Frames now wrap at render time for both editable and read-only views.
+	// That means scroll/cursor visibility must be tracked in terms of display
+	// rows rather than logical lines.
+	textWidth := f.contentTextWidth()
 	visible := f.visibleContentHeight()
 	if visible < 1 {
 		visible = 1
 	}
-	total := len(f.lines)
+
+	// Clamp logical cursor line/col.
 	if f.cursorLine < 0 {
 		f.cursorLine = 0
 	}
-	if f.cursorLine > total-1 {
-		f.cursorLine = total - 1
+	if f.cursorLine > len(f.lines)-1 {
+		f.cursorLine = len(f.lines) - 1
 	}
-	maxScroll := total - visible
+	line := f.lines[f.cursorLine].Runes
+	if f.cursorCol < 0 {
+		f.cursorCol = 0
+	}
+	if f.cursorCol > len(line) {
+		f.cursorCol = len(line)
+	}
+
+	cursorPos := f.cursorDisplayPos(textWidth)
+	totalDisplay := f.totalDisplayLines(textWidth)
+	maxScroll := totalDisplay - visible
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
@@ -284,25 +246,16 @@ func (f *Frame) EnsureCursorVisible() {
 		f.scroll = maxScroll
 	}
 
-	if f.cursorLine < f.scroll {
-		f.scroll = f.cursorLine
-	} else if f.cursorLine >= f.scroll+visible {
-		f.scroll = f.cursorLine - visible + 1
+	if cursorPos.displayLineIdx < f.scroll {
+		f.scroll = cursorPos.displayLineIdx
+	} else if cursorPos.displayLineIdx >= f.scroll+visible {
+		f.scroll = cursorPos.displayLineIdx - visible + 1
 	}
 	if f.scroll < 0 {
 		f.scroll = 0
 	}
 	if f.scroll > maxScroll {
 		f.scroll = maxScroll
-	}
-
-	// Clamp horizontal position to the current line length.
-	line := f.lines[f.cursorLine].Runes
-	if f.cursorCol < 0 {
-		f.cursorCol = 0
-	}
-	if f.cursorCol > len(line) {
-		f.cursorCol = len(line)
 	}
 }
 
@@ -315,47 +268,22 @@ func (f *Frame) ScrollPageUp() {
 		f.scroll = 0
 		return
 	}
-	if f.HasInput {
-		textWidth := f.contentTextWidth()
-		visible := f.visibleContentHeight()
-		if visible < 1 {
-			visible = 1
-		}
-		pos := f.cursorDisplayPos(textWidth)
-		target := pos.displayLineIdx - visible
-		if target < 0 {
-			target = 0
-		}
-		line, col := f.displayIndexToCursor(textWidth, target, pos.x)
-		f.cursorLine = line
-		f.cursorCol = col
-		f.scroll -= visible
-		if f.scroll < 0 {
-			f.scroll = 0
-		}
-		return
-	}
+	textWidth := f.contentTextWidth()
 	visible := f.visibleContentHeight()
 	if visible < 1 {
 		visible = 1
 	}
-	f.cursorLine -= visible
-	if f.cursorLine < 0 {
-		f.cursorLine = 0
+	pos := f.cursorDisplayPos(textWidth)
+	target := pos.displayLineIdx - visible
+	if target < 0 {
+		target = 0
 	}
+	line, col := f.displayIndexToCursor(textWidth, target, pos.x)
+	f.cursorLine = line
+	f.cursorCol = col
 	f.scroll -= visible
 	if f.scroll < 0 {
 		f.scroll = 0
-	}
-	if f.cursorLine < f.scroll {
-		f.scroll = f.cursorLine
-	}
-	// Clamp horizontal column to the new line length.
-	if f.cursorLine >= 0 && f.cursorLine < len(f.lines) {
-		line := f.lines[f.cursorLine].Runes
-		if f.cursorCol > len(line) {
-			f.cursorCol = len(line)
-		}
 	}
 }
 
@@ -368,63 +296,30 @@ func (f *Frame) ScrollPageDown() {
 		f.scroll = 0
 		return
 	}
-	if f.HasInput {
-		textWidth := f.contentTextWidth()
-		visible := f.visibleContentHeight()
-		if visible < 1 {
-			visible = 1
-		}
-		pos := f.cursorDisplayPos(textWidth)
-		total := f.totalDisplayLines(textWidth)
-		if total <= 0 {
-			return
-		}
-		target := pos.displayLineIdx + visible
-		if target > total-1 {
-			target = total - 1
-		}
-		line, col := f.displayIndexToCursor(textWidth, target, pos.x)
-		f.cursorLine = line
-		f.cursorCol = col
-		maxScroll := total - visible
-		if maxScroll < 0 {
-			maxScroll = 0
-		}
-		f.scroll += visible
-		if f.scroll > maxScroll {
-			f.scroll = maxScroll
-		}
-		return
-	}
+	textWidth := f.contentTextWidth()
 	visible := f.visibleContentHeight()
 	if visible < 1 {
 		visible = 1
 	}
-	f.cursorLine += visible
-	lastIdx := len(f.lines) - 1
-	if lastIdx < 0 {
-		lastIdx = 0
+	pos := f.cursorDisplayPos(textWidth)
+	total := f.totalDisplayLines(textWidth)
+	if total <= 0 {
+		return
 	}
-	if f.cursorLine > lastIdx {
-		f.cursorLine = lastIdx
+	target := pos.displayLineIdx + visible
+	if target > total-1 {
+		target = total - 1
 	}
-	maxScroll := len(f.lines) - visible
+	line, col := f.displayIndexToCursor(textWidth, target, pos.x)
+	f.cursorLine = line
+	f.cursorCol = col
+	maxScroll := total - visible
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
 	f.scroll += visible
 	if f.scroll > maxScroll {
 		f.scroll = maxScroll
-	}
-	if f.cursorLine >= f.scroll+visible {
-		f.scroll = f.cursorLine - visible + 1
-	}
-	// Clamp horizontal column to the new line length.
-	if f.cursorLine >= 0 && f.cursorLine < len(f.lines) {
-		line := f.lines[f.cursorLine].Runes
-		if f.cursorCol > len(line) {
-			f.cursorCol = len(line)
-		}
 	}
 }
 
@@ -438,9 +333,66 @@ func (f *Frame) MoveHome() {
 		f.scroll = 0
 		return
 	}
+
+	// For display-row-based navigation, "home" means the start of the buffer.
 	f.cursorLine = 0
 	f.cursorCol = 0
 	f.scroll = 0
+}
+
+// MoveCursorToDisplayLine moves the cursor to the given display line index,
+// preserving the closest horizontal column. This is used by scrolling helpers
+// so read-only frames (history) and editable frames share the same
+// display-row-based behavior.
+func (f *Frame) MoveCursorToDisplayLine(displayIdx int) {
+	if !f.HasCursor {
+		return
+	}
+	textWidth := f.contentTextWidth()
+	pos := f.cursorDisplayPos(textWidth)
+	line, col := f.displayIndexToCursor(textWidth, displayIdx, pos.x)
+	f.cursorLine = line
+	f.cursorCol = col
+}
+
+// moveCursorToLineStart moves the cursor to the start of the current logical
+// line. It does not attempt to move to the start of a wrapped segment.
+func (f *Frame) moveCursorToLineStart() {
+	if !f.HasCursor {
+		return
+	}
+	if f.cursorLine < 0 {
+		f.cursorLine = 0
+	}
+	if f.cursorLine >= len(f.lines) {
+		f.cursorLine = len(f.lines) - 1
+	}
+	if f.cursorLine < 0 {
+		f.cursorLine = 0
+	}
+	f.cursorCol = 0
+}
+
+// moveCursorToLineEnd moves the cursor to the end of the current logical line.
+func (f *Frame) moveCursorToLineEnd() {
+	if !f.HasCursor {
+		return
+	}
+	if len(f.lines) == 0 {
+		f.cursorLine = 0
+		f.cursorCol = 0
+		return
+	}
+	if f.cursorLine < 0 {
+		f.cursorLine = 0
+	}
+	if f.cursorLine >= len(f.lines) {
+		f.cursorLine = len(f.lines) - 1
+	}
+	if f.cursorLine < 0 {
+		f.cursorLine = 0
+	}
+	f.cursorCol = len(f.lines[f.cursorLine].Runes)
 }
 
 // MoveEnd moves the cursor to the very end of the buffer (last
@@ -453,6 +405,7 @@ func (f *Frame) MoveEnd() {
 		f.scroll = 0
 		return
 	}
+	textWidth := f.contentTextWidth()
 	visible := f.visibleContentHeight()
 	if visible < 1 {
 		visible = 1
@@ -460,19 +413,22 @@ func (f *Frame) MoveEnd() {
 	f.cursorLine = len(f.lines) - 1
 	line := f.lines[f.cursorLine].Runes
 	f.cursorCol = len(line)
-	if f.HasInput {
-		textWidth := f.contentTextWidth()
-		total := f.totalDisplayLines(textWidth)
-		maxScroll := total - visible
-		if maxScroll < 0 {
-			maxScroll = 0
-		}
-		f.scroll = maxScroll
-		return
+	total := f.totalDisplayLines(textWidth)
+	maxScroll := total - visible
+	if maxScroll < 0 {
+		maxScroll = 0
 	}
-	if len(f.lines) > visible {
-		f.scroll = len(f.lines) - visible
-	} else {
-		f.scroll = 0
-	}
+	f.scroll = maxScroll
+}
+
+// MoveLineHome moves the cursor to the start of the current logical line.
+func (f *Frame) MoveLineHome() {
+	f.moveCursorToLineStart()
+	f.EnsureCursorVisible()
+}
+
+// MoveLineEnd moves the cursor to the end of the current logical line.
+func (f *Frame) MoveLineEnd() {
+	f.moveCursorToLineEnd()
+	f.EnsureCursorVisible()
 }

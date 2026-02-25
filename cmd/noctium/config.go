@@ -19,6 +19,7 @@ import (
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/ui"
 )
 
 // First-time setup default: allow file read/write operations within
@@ -54,6 +55,7 @@ func setupDefaultApprovals() error {
 }
 
 func (octiumCtx *CliContext) loadPrefs() error {
+	const defaultWrapMode = ui.WrapModeWord
 	vendor := internal.DefaultVendor
 	vendorInfo := internal.GetVendorInfo(vendor)
 	model := vendorInfo.DefaultModel
@@ -65,6 +67,7 @@ func (octiumCtx *CliContext) loadPrefs() error {
 		Model:          model,
 		RunCmdApproval: false,
 		EnableAuditLog: true,
+		WrapMode:       defaultWrapMode.String(),
 	}
 
 	filePath, err := getPrefsPath()
@@ -84,6 +87,12 @@ func (octiumCtx *CliContext) loadPrefs() error {
 		return err
 	}
 	octiumCtx.toggles.summary = octiumCtx.prefs.SummarizePrior
+	if strings.TrimSpace(octiumCtx.prefs.WrapMode) == "" {
+		octiumCtx.prefs.WrapMode = defaultWrapMode.String()
+	}
+
+	var wrapMode ui.WrapMode
+	octiumCtx.toggles.wrapMode = wrapMode.FromString(octiumCtx.prefs.WrapMode)
 	if octiumCtx.prefs.Vendor == "" {
 		octiumCtx.prefs.Vendor = vendor
 	}
@@ -192,6 +201,7 @@ func configPreferences(cliCtx *CliContext) error {
 	for {
 		choices := []types.UIOption{
 			{Key: "sum", Label: fmt.Sprintf("Summarize dialogue when continuing threads [%s]", onOff(cliCtx.prefs.SummarizePrior))},
+			{Key: "wrap", Label: fmt.Sprintf("Text wrapping in frames [%s]", cliCtx.prefs.WrapMode)},
 			{Key: "back", Label: "Back"},
 		}
 		sel, err := cliCtx.ui.SelectOption("Preferences:", choices)
@@ -215,6 +225,27 @@ func configPreferences(cliCtx *CliContext) error {
 			}
 			cliCtx.prefs.SummarizePrior = summarize
 			cliCtx.toggles.summary = summarize
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "wrap":
+			choices := []types.UIOption{
+				{Key: "hard", Label: "Hard wrap (break at any character)"},
+				{Key: "word", Label: "Word wrap (break at spaces; hang-indent lists)"},
+				{Key: "off", Label: "Off (truncate lines)"},
+			}
+			sel, err := cliCtx.ui.SelectOption("Text wrapping:", choices)
+			if err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				return err
+			}
+			cliCtx.prefs.WrapMode = sel.Key
+			var wrapMode ui.WrapMode
+			cliCtx.toggles.wrapMode = wrapMode.FromString(sel.Key)
+			// Ensure new modals use the updated wrap mode immediately.
+			cliCtx.ui.SetTheme(ui.Theme{UseColors: cliCtx.toggles.useColors, SelectedPair: menuColorSelected, WrapMode: cliCtx.toggles.wrapMode})
 			if err := cliCtx.savePrefs(); err != nil {
 				return err
 			}

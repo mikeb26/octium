@@ -46,12 +46,14 @@ type Prefs struct {
 	Model          string `json:"model"`
 	RunCmdApproval bool   `json:"run_cmd_approval"`
 	EnableAuditLog bool   `json:"enable_audit_log"`
+	WrapMode       string `json:"wrap_mode"`
 }
 
 type Toggles struct {
 	summary    bool
 	useColors  bool
 	needConfig bool
+	wrapMode   ui.WrapMode
 }
 
 type CliContext struct {
@@ -164,6 +166,11 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 		keyText, auditLogPath, approver, policyStore,
 		httpproxy.New(policyStore), cliCtx.Afs)
 	cliCtx.ictx.ASettings.RunCmdNeedsApproval = cliCtx.prefs.RunCmdApproval
+
+	// Apply UI preferences that may not have been available during initial UI
+	// initialization.
+	var wrapMode ui.WrapMode
+	cliCtx.toggles.wrapMode = wrapMode.FromString(cliCtx.prefs.WrapMode)
 
 	err = cliCtx.threadGroupSet.Load(ctx)
 	if err != nil {

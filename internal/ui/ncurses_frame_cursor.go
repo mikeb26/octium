@@ -75,24 +75,19 @@ func (f *Frame) MoveCursorUp() {
 	if !f.HasCursor {
 		return
 	}
-	if f.HasInput {
-		textWidth := f.contentTextWidth()
-		pos := f.cursorDisplayPos(textWidth)
-		if pos.displayLineIdx <= 0 {
-			return
-		}
-		line, col := f.displayIndexToCursor(textWidth, pos.displayLineIdx-1, pos.x)
-		f.cursorLine = line
-		f.cursorCol = col
+
+	// Frames now perform wrapping at render time, which means a single logical
+	// line may occupy multiple display rows (even for read-only frames like the
+	// thread history). Cursor up/down should therefore operate on display rows,
+	// not logical lines.
+	textWidth := f.contentTextWidth()
+	pos := f.cursorDisplayPos(textWidth)
+	if pos.displayLineIdx <= 0 {
 		return
 	}
-	if f.cursorLine == 0 {
-		return
-	}
-	f.cursorLine--
-	if f.cursorLine >= 0 && f.cursorLine < len(f.lines) && f.cursorCol > len(f.lines[f.cursorLine].Runes) {
-		f.cursorCol = len(f.lines[f.cursorLine].Runes)
-	}
+	line, col := f.displayIndexToCursor(textWidth, pos.displayLineIdx-1, pos.x)
+	f.cursorLine = line
+	f.cursorCol = col
 }
 
 // MoveCursorDown moves the cursor one line down, keeping the closest
@@ -101,26 +96,17 @@ func (f *Frame) MoveCursorDown() {
 	if !f.HasCursor {
 		return
 	}
-	if f.HasInput {
-		textWidth := f.contentTextWidth()
-		pos := f.cursorDisplayPos(textWidth)
-		total := f.totalDisplayLines(textWidth)
-		if total <= 0 {
-			return
-		}
-		if pos.displayLineIdx >= total-1 {
-			return
-		}
-		line, col := f.displayIndexToCursor(textWidth, pos.displayLineIdx+1, pos.x)
-		f.cursorLine = line
-		f.cursorCol = col
+
+	textWidth := f.contentTextWidth()
+	pos := f.cursorDisplayPos(textWidth)
+	total := f.totalDisplayLines(textWidth)
+	if total <= 0 {
 		return
 	}
-	if f.cursorLine >= len(f.lines)-1 {
+	if pos.displayLineIdx >= total-1 {
 		return
 	}
-	f.cursorLine++
-	if f.cursorLine >= 0 && f.cursorLine < len(f.lines) && f.cursorCol > len(f.lines[f.cursorLine].Runes) {
-		f.cursorCol = len(f.lines[f.cursorLine].Runes)
-	}
+	line, col := f.displayIndexToCursor(textWidth, pos.displayLineIdx+1, pos.x)
+	f.cursorLine = line
+	f.cursorCol = col
 }
