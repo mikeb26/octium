@@ -182,15 +182,61 @@ ensure_dirs() {
 	chmod 0700 "$home/tmp" 2>/dev/null || true
 }
 
+get_user_home_dir() {
+	u="$1"
+	# shellcheck disable=SC2002
+	getent passwd "$u" 2>/dev/null | cut -d: -f6
+}
+
+sync_sandbox_git_identity_from_end_user() {
+	end_user="$1"
+	sandbox_user="$2"
+	sandbox_group="$3"
+	home="$4"
+
+	sandbox_gitconfig="${home}/.gitconfig"
+	if [ ! -f "$sandbox_gitconfig" ]; then
+		return 0
+	fi
+	if ! command -v git >/dev/null 2>&1; then
+		return 0
+	fi
+
+	end_home="$(get_user_home_dir "$end_user")"
+	if [ -z "$end_home" ]; then
+		return 0
+	fi
+	end_gitconfig="${end_home}/.gitconfig"
+	if [ ! -f "$end_gitconfig" ]; then
+		return 0
+	fi
+
+	end_name="$(git config --file "$end_gitconfig" --get user.name 2>/dev/null || true)"
+	end_email="$(git config --file "$end_gitconfig" --get user.email 2>/dev/null || true)"
+
+	if [ -n "$end_name" ]; then
+		git config --file "$sandbox_gitconfig" user.name "$end_name" 2>/dev/null || true
+	fi
+	if [ -n "$end_email" ]; then
+		git config --file "$sandbox_gitconfig" user.email "$end_email" 2>/dev/null || true
+	fi
+
+	# git config writes via a lock+rename, so ensure ownership/mode are correct.
+	chown "$sandbox_user:$sandbox_group" "$sandbox_gitconfig" 2>/dev/null || true
+	chmod 0644 "$sandbox_gitconfig" 2>/dev/null || true
+}
+
 install_sandbox_dotfiles() {
 	sandbox_user="$1"
 	sandbox_group="$2"
 	home="$3"
+	end_user="$4"
 
 	if [ -f /usr/share/@CLI_TOOL_NAME@/gitconfig ]; then
 		install -o "$sandbox_user" -g "$sandbox_group" -m 0644 \
 			/usr/share/@CLI_TOOL_NAME@/gitconfig \
 			"${home}/.gitconfig" || true
+		sync_sandbox_git_identity_from_end_user "$end_user" "$sandbox_user" "$sandbox_group" "$home"
 	fi
 
 	# Create/update a simple .bash_profile that sources the packaged snippet.
@@ -246,7 +292,7 @@ main() {
 	ensure_usermod_group_membership "$sandbox_user" "$shared_group"
 
 	ensure_dirs "$sandbox_user" "$sandbox_group" "$shared_group" "$home"
-	install_sandbox_dotfiles "$sandbox_user" "$sandbox_group" "$home"
+	install_sandbox_dotfiles "$sandbox_user" "$sandbox_group" "$home" "$end_user"
 
 	install_run_as_wrapper "$sandbox_user" "$shared_group"
 

@@ -21,6 +21,8 @@ const gitCommitBodyWrapWidth = 72
 
 var reNewlines = regexp.MustCompile(`\r\n|\r|\n`)
 
+const octiumAgentCoAuthorTrailer = "Co-authored-by: Octium Agent <agent@octium.dev>"
+
 func (tvUI *threadViewUI) workspaceCommit(ctx context.Context) (needRedraw bool) {
 	ws := tvUI.thread.Workspace()
 	if ws.Sandbox() == "" {
@@ -263,5 +265,30 @@ func (tvUI *threadViewUI) getCommitMessage(ctx context.Context) string {
 		return fallback
 	}
 
+	commitMsg = ensureCommitTrailer(commitMsg, octiumAgentCoAuthorTrailer)
+
 	return commitMsg
+}
+
+func ensureCommitTrailer(commitMsg string, trailerLine string) string {
+	commitMsg = reNewlines.ReplaceAllString(commitMsg, "\n")
+	trailerLine = strings.TrimSpace(trailerLine)
+	if trailerLine == "" {
+		return commitMsg
+	}
+
+	lines := strings.Split(commitMsg, "\n")
+	for _, ln := range lines {
+		if strings.TrimSpace(ln) == trailerLine {
+			return commitMsg
+		}
+	}
+
+	// Ensure there is a blank line between the end of the commit description and
+	// the trailer, per git/GitHub conventions.
+	commitMsg = strings.TrimRight(commitMsg, "\n")
+	for strings.HasSuffix(commitMsg, "\n\n\n") {
+		commitMsg = strings.TrimRight(commitMsg, "\n")
+	}
+	return commitMsg + "\n\n" + trailerLine
 }
