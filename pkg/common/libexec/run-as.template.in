@@ -99,6 +99,51 @@ have_systemd_run() {
 	command -v systemd-run >/dev/null 2>&1
 }
 
+systemd_version_major() {
+	# Extract the systemd major version from `systemd-run --version`.
+	# Example: "systemd 252 (252.19-1~deb12u1)" -> 252
+	ver_line="$(systemd-run --version 2>/dev/null | head -n 1 || true)"
+	set -- $ver_line
+	if [ "${1:-}" != "systemd" ]; then
+		echo ""
+		return
+	fi
+	case "${2:-}" in
+		''|*[!0-9]*)
+			echo ""
+			return
+			;;
+	esac
+	echo "$2"
+}
+
+systemd_supports_sandbox_prop() {
+	# Best-effort feature gating based on systemd version. Unknown transient
+	# unit properties cause systemd-run to fail, so we must only use
+	# properties that exist on the target systemd version.
+	#
+	# Values come from upstream documentation (systemd.exec(5)).
+	prop="$1"
+	major="$(systemd_version_major || true)"
+	case "$prop" in
+		ProtectProc|ProcSubset)
+			# Added in v247.
+			[ -n "${major:-}" ] && [ "$major" -ge 247 ]
+			;;
+		PrivateIPC)
+			# Added in v248.
+			[ -n "${major:-}" ] && [ "$major" -ge 248 ]
+			;;
+		PrivatePIDs)
+			# Added in v257.
+			[ -n "${major:-}" ] && [ "$major" -ge 257 ]
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
 sandbox_home_dir() {
 	# Determine SANDBOX_USER's home directory.
 	# Prefer getent when available; fall back to /home/<SANDBOX_USER>.
@@ -274,6 +319,21 @@ run_via_systemd() {
 		env_proxy_vars="http_proxy=http://$PROXY_ADDR https_proxy=http://$PROXY_ADDR HTTP_PROXY=http://$PROXY_ADDR HTTPS_PROXY=http://$PROXY_ADDR no_proxy=localhost,127.0.0.1,::1 NO_PROXY=localhost,127.0.0.1,::1"
 	fi
 
+	# Additional kernel-namespace isolation (best-effort by systemd version).
+	sandbox_ns_props=""
+	if systemd_supports_sandbox_prop ProtectProc; then
+		sandbox_ns_props="$sandbox_ns_props --property=ProtectProc=invisible"
+	fi
+	if systemd_supports_sandbox_prop ProcSubset; then
+		sandbox_ns_props="$sandbox_ns_props --property=ProcSubset=pid"
+	fi
+	if systemd_supports_sandbox_prop PrivateIPC; then
+		sandbox_ns_props="$sandbox_ns_props --property=PrivateIPC=yes"
+	fi
+	if systemd_supports_sandbox_prop PrivatePIDs; then
+		sandbox_ns_props="$sandbox_ns_props --property=PrivatePIDs=yes"
+	fi
+
 	systemd-run \
 		--wait \
 		--collect \
@@ -290,6 +350,7 @@ run_via_systemd() {
 		--property=PrivateTmp=yes \
 		--property=PrivateDevices=yes \
 		--property=PrivateNetwork=no \
+		$sandbox_ns_props \
 		--property=CapabilityBoundingSet= \
 		--property=AmbientCapabilities= \
 		--property=LockPersonality=yes \
