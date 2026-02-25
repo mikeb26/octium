@@ -34,9 +34,9 @@ func mustMarshal(t *testing.T, v any) []byte {
 
 func TestNew_InitializesScratchDir(t *testing.T) {
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{}
 
 	ws := New(scratchDir, "test", c)
@@ -50,9 +50,9 @@ func TestNew_InitializesScratchDir(t *testing.T) {
 
 func TestWorkspace_Detail_FormatsFields(t *testing.T) {
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{}
 	ws := New(scratchDir, "test", c)
 	ws.persisted.OriginRepo = "/tmp/origin"
@@ -69,9 +69,9 @@ func TestWorkspace_Detail_FormatsFields(t *testing.T) {
 
 func TestWorkspace_String_EmptyOrigin_ReturnsEmpty(t *testing.T) {
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{}
 	ws := New(scratchDir, "test", c)
 
@@ -82,9 +82,9 @@ func TestWorkspace_String_EmptyOrigin_ReturnsEmpty(t *testing.T) {
 func TestWorkspace_String_Statuses(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	origin := filepath.Join(t.TempDir(), "origin")
 	sbox := filepath.Join(t.TempDir(), "sbox")
 
@@ -108,9 +108,9 @@ func TestWorkspace_String_Statuses(t *testing.T) {
 func TestWorkspace_String_UnknownStatusOnError(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	origin := filepath.Join(t.TempDir(), "origin")
 	sbox := filepath.Join(t.TempDir(), "sbox")
 
@@ -133,9 +133,9 @@ func TestWorkspace_String_UnknownStatusOnError(t *testing.T) {
 
 func TestWorkspace_Destroy_RemovesSandboxAndClearsRepos(t *testing.T) {
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	sboxDir := filepath.Join(t.TempDir(), "sbox")
 	mustNoErr(t, os.MkdirAll(sboxDir, 0o700))
 	mustNoErr(t, os.WriteFile(filepath.Join(sboxDir, "file.txt"), []byte("x"), 0o600))
@@ -157,9 +157,9 @@ func TestWorkspace_Destroy_RemovesSandboxAndClearsRepos(t *testing.T) {
 func TestWorkspace_AddOriginAndSandbox_SetsOriginAndClonesSandboxAndSaves(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 
 	originDir := filepath.Join(t.TempDir(), "origin")
 	mustNoErr(t, os.MkdirAll(originDir, 0o700))
@@ -192,9 +192,9 @@ func TestWorkspace_AddOriginAndSandbox_SetsOriginAndClonesSandboxAndSaves(t *tes
 }
 
 func TestWorkspace_SyncSandbox_ErrorsWhenNoSandbox(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	ws := New(t.TempDir(), "test", &fakeSCMClient{})
 	err := ws.SyncSandbox(context.Background(), true)
 	assert.Error(t, err)
@@ -203,9 +203,9 @@ func TestWorkspace_SyncSandbox_ErrorsWhenNoSandbox(t *testing.T) {
 
 func TestWorkspace_SyncSandbox_ErrorsWhenNoUpstreamConfigured(t *testing.T) {
 	sbox := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{
 		syncStatus: map[string]scm.RepoSyncStatus{
 			sbox: {UpstreamRemote: "", UpstreamBranch: ""},
@@ -220,9 +220,9 @@ func TestWorkspace_SyncSandbox_ErrorsWhenNoUpstreamConfigured(t *testing.T) {
 
 func TestWorkspace_SyncSandbox_ErrorsOnDirtyRepo(t *testing.T) {
 	sbox := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{
 		syncStatus: map[string]scm.RepoSyncStatus{
 			sbox: {UpstreamRemote: "origin", UpstreamBranch: "main", HasUncommittedChanges: true, Operation: scm.RepoOperationNormal},
@@ -237,9 +237,9 @@ func TestWorkspace_SyncSandbox_ErrorsOnDirtyRepo(t *testing.T) {
 
 func TestWorkspace_SyncSandbox_ErrorsOnNonNormalOperation(t *testing.T) {
 	sbox := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{
 		syncStatus: map[string]scm.RepoSyncStatus{
 			sbox: {UpstreamRemote: "origin", UpstreamBranch: "main", HasUncommittedChanges: false, Operation: scm.RepoOperationRebasing},
@@ -254,9 +254,9 @@ func TestWorkspace_SyncSandbox_ErrorsOnNonNormalOperation(t *testing.T) {
 
 func TestWorkspace_SyncSandbox_FetchesAndMerges(t *testing.T) {
 	sbox := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{
 		syncStatus: map[string]scm.RepoSyncStatus{
 			sbox: {UpstreamRemote: "origin", UpstreamBranch: "main", HasUncommittedChanges: false, Operation: scm.RepoOperationNormal},
@@ -274,9 +274,9 @@ func TestWorkspace_SyncSandbox_FetchesAndMerges(t *testing.T) {
 
 func TestWorkspace_SyncSandbox_ReportsMergeConflicts(t *testing.T) {
 	sbox := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	c := &fakeSCMClient{
 		syncStatus: map[string]scm.RepoSyncStatus{
 			sbox: {UpstreamRemote: "origin", UpstreamBranch: "main", HasUncommittedChanges: false, Operation: scm.RepoOperationNormal},
@@ -291,9 +291,9 @@ func TestWorkspace_SyncSandbox_ReportsMergeConflicts(t *testing.T) {
 }
 
 func TestWorkspace_GetPwd_ReturnsSandboxWhenSet(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 
 	ws := New(t.TempDir(), "test", &fakeSCMClient{})
 	ws.persisted.SboxRepo = "/tmp/sbox"
@@ -301,9 +301,9 @@ func TestWorkspace_GetPwd_ReturnsSandboxWhenSet(t *testing.T) {
 }
 
 func TestWorkspace_GetPwd_ReturnsSandboxParentWhenSandboxNotSet(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 
 	ws := New(t.TempDir(), "test", &fakeSCMClient{})
 	parent, err := ws.getSandboxDir("")

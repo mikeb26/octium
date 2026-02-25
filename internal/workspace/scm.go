@@ -139,7 +139,7 @@ func (ws *Workspace) getSandboxDir(base string) (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(internal.CliSandboxRepoHome, usrN.Username,
+	return filepath.Join(internal.CliSandboxRepoHome(usrN.Username), usrN.Username,
 		ws.persisted.Id, base), nil
 }
 

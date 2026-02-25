@@ -2,15 +2,19 @@
 set -eu
 
 # Root-run wrapper intended to be invoked via sudoers by members of the
-# @CLI_SANDBOX_GROUPNAME@ group.
+# per-user shared group.
 #
-# It runs an arbitrary command as the dedicated sandbox user "@CLI_SANDBOX_USERNAME@" inside a
+# This file is used as a provisioning-time template. The provisioning script
+# substitutes @RUNTIME_SANDBOX_USERNAME@ and @RUNTIME_SANDBOX_GROUPNAME@ to create a
+# per-end-user wrapper: run-as-<sandboxuser>.
+#
+# It runs an arbitrary command as the dedicated sandbox user "@RUNTIME_SANDBOX_USERNAME@" inside a
 # hardened transient systemd unit.
 #
 # Environment behavior:
 # - Start from an empty environment (env -i).
 # - Seed PATH with a filtered version of the invoker's PATH (best-effort).
-# - Invoke bash as a *login* shell so it can apply @CLI_SANDBOX_USERNAME@'s profile scripts
+# - Invoke bash as a *login* shell so it can apply SANDBOX_USER's profile scripts
 #   (e.g. ~/.bash_profile or ~/.profile), which may further modify PATH and other
 #   env for the final exec.
 
@@ -22,6 +26,10 @@ DEFAULT_PROXY_ADDR="127.0.0.1:8080"
 log() {
 	echo "@CLI_TOOL_NAME@: $*" >&2
 }
+
+# Provisioner replaces these placeholders at provision time.
+SANDBOX_USER="@RUNTIME_SANDBOX_USERNAME@"
+SANDBOX_GROUP="@RUNTIME_SANDBOX_GROUPNAME@"
 
 require_root() {
 	if [ "$(id -u)" -ne 0 ]; then
@@ -92,33 +100,31 @@ have_systemd_run() {
 }
 
 sandbox_home_dir() {
-	# Determine @CLI_SANDBOX_USERNAME@'s home directory.
-	# Prefer getent when available; fall back to /home/@CLI_SANDBOX_USERNAME@.
+	# Determine SANDBOX_USER's home directory.
+	# Prefer getent when available; fall back to /home/<SANDBOX_USER>.
 	if command -v getent >/dev/null 2>&1; then
-		home="$(getent passwd @CLI_SANDBOX_USERNAME@ | cut -d: -f6 || true)"
+		home="$(getent passwd "$SANDBOX_USER" | cut -d: -f6 || true)"
 		if [ -n "${home:-}" ]; then
 			echo "$home"
 			return
 		fi
 	fi
-	echo "/home/@CLI_SANDBOX_USERNAME@"
+	echo "/home/$SANDBOX_USER"
 }
 
 ensure_sandbox_home() {
 	sbhome="$1"
 
 	# systemd-run will fail with a systemd-specific exit status (e.g. 200/CHDIR)
-	# if WorkingDirectory doesn't exist. Be robust in case sysusers/tmpfiles
-	# haven't been applied yet.
-	if ! id @CLI_SANDBOX_USERNAME@ >/dev/null 2>&1; then
-		log "user '@CLI_SANDBOX_USERNAME@' does not exist."
-		log "ensure sysusers was applied (e.g. systemd-sysusers /usr/lib/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf)."
+	# if WorkingDirectory doesn't exist.
+	if ! id "$SANDBOX_USER" >/dev/null 2>&1; then
+		log "user '$SANDBOX_USER' does not exist."
 		exit 1
 	fi
 
 	if [ ! -d "$sbhome" ]; then
 		mkdir -p "$sbhome"
-		chown @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@ "$sbhome" || true
+		chown "$SANDBOX_USER:$SANDBOX_USER" "$sbhome" || true
 		chmod 0750 "$sbhome" || true
 	fi
 }
@@ -158,18 +164,12 @@ validate_cwd() {
 }
 
 invoker_path() {
-	# Best-effort attempt to recover the PATH from the first non-root ancestor
-	# process (typically the user's shell) instead of relying on sudo's sanitized
-	# environment.
-	#
-	# If anything looks off, return empty and let the caller choose a safe default.
 	pid="$$"
 	while [ -r "/proc/$pid/status" ]; do
 		uid="$(awk '/^Uid:/ {print $2; exit}' "/proc/$pid/status" 2>/dev/null || true)"
 		ppid="$(awk '/^PPid:/ {print $2; exit}' "/proc/$pid/status" 2>/dev/null || true)"
 		if [ -n "${uid:-}" ] && [ "$uid" -ne 0 ]; then
 			if [ -r "/proc/$pid/environ" ]; then
-				# NUL-separated env; extract PATH.
 				path_val="$(tr '\000' '\n' < "/proc/$pid/environ" | sed -n 's/^PATH=//p' | head -n 1 || true)"
 				if [ -n "${path_val:-}" ]; then
 					echo "$path_val"
@@ -186,15 +186,6 @@ invoker_path() {
 }
 
 filter_path() {
-	# Filter a PATH-like string down to a conservative allowlist of directories.
-	#
-	# Rules:
-	# - Only absolute paths.
-	# - Only strict subdirs of: /usr, /opt, /bin, /sbin.
-	# - Must exist as a directory.
-	# - Must not be writable by group/other (prevents trivial path hijacking).
-	#
-	# If the result is empty, the caller should fall back to a safe default.
 	in_path="$1"
 	out_path=""
 	old_ifs="$IFS"
@@ -210,8 +201,6 @@ filter_path() {
 		esac
 		[ -d "$d" ] || continue
 
-		# Permissions check (Linux/GNU stat assumed on target distros)
-		# Require: not group-writable and not other-writable.
 		mode="$(stat -c %a "$d" 2>/dev/null || true)"
 		[ -n "${mode:-}" ] || continue
 		g_digit="$(echo "$mode" | awk '{print substr($0,length($0)-1,1)}')"
@@ -241,15 +230,10 @@ require_systemd_run() {
 		return
 	fi
 	log "systemd-run is required but was not found in PATH."
-	log "Install systemd (and systemd-run) or adjust your packaging/configuration."
 	exit 1
 }
 
 half_system_memory_kb() {
-	# Return half of total system memory in KiB (rounded down).
-	# Used for MemoryMax.
-	#
-	# If we fail to detect total memory, return empty and let the caller decide.
 	mem_total_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)"
 	case "$mem_total_kb" in
 		''|*[!0-9]*)
@@ -260,13 +244,9 @@ half_system_memory_kb() {
 }
 
 run_via_systemd() {
-	# Use the system manager so we can apply hardening without needing extra
-	# polkit configuration.
-
 	sbhome="$(sandbox_home_dir)"
 	ensure_sandbox_home "$sbhome"
 
-	# Default to sandbox home unless the caller provided a validated cwd.
 	wd="$sbhome"
 	if [ -n "${CWD:-}" ]; then
 		validate_cwd "$sbhome" "$CWD"
@@ -281,34 +261,6 @@ run_via_systemd() {
 		fpath="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 	fi
 
-	# Execute the user command via a bash *login* shell so that profile scripts can
-	# adjust PATH and other env before the final exec.
-	#
-	# NOTE: bash does not automatically read ~/.bashrc for non-interactive shells.
-	# If you need ~/.bashrc behavior here, ensure @CLI_SANDBOX_USERNAME@'s ~/.bash_profile
-	# sources it.
-        #
-	# Use a tmpfs for /home (hides other users' homes) and then bind-mount
-	# @CLI_SANDBOX_USERNAME@'s real home back in.
-	#
-	# NOTE: ProtectHome=yes makes /home inaccessible and causes CHDIR failures
-	# on some systems even when ReadWritePaths is set.
-	#
-	# Networking model (default):
-	# - Allow loopback TCP/IPv4+IPv6 (for httpproxy on 127.0.0.1/::1).
-	# - Deny all other IP ranges (best-effort, systemd feature-dependent).
-	#
-	# If --full-network was provided, we do not set any IPAddressAllow/Deny rules
-	# and we do not inject proxy environment variables.
-	#
-	# IMPORTANT: This is NOT a cryptographic/airtight guarantee that the process
-	# can only reach the proxy port. systemd can restrict destination IP ranges,
-	# but typically cannot enforce destination ports. A process may still be able
-	# to speak directly to 127.0.0.1 on other ports.
-	#
-	# Additionally, restricting protocol families blocks raw sockets/packet
-	# sockets (ICMP etc), but cannot prevent a process from using TCP to any
-	# allowed destination IP/port.
 	memmax_kb="$(half_system_memory_kb || true)"
 	memmax_prop=""
 	if [ -n "${memmax_kb:-}" ]; then
@@ -326,8 +278,8 @@ run_via_systemd() {
 		--wait \
 		--collect \
 		--pipe \
-		--uid=@CLI_SANDBOX_USERNAME@ \
-                --property=SupplementaryGroups=octium-users \
+		--uid="$SANDBOX_USER" \
+		--property=SupplementaryGroups="$SANDBOX_GROUP" \
 		$memmax_prop \
 		--property=TasksMax=1024 \
 		--property=RuntimeMaxSec=600 \
@@ -352,9 +304,9 @@ run_via_systemd() {
 		--property=ProtectKernelTunables=yes \
 		--property=ProtectKernelModules=yes \
 		--property=ProtectControlGroups=yes \
-		--property=UMask=0077 \
+		--property=UMask=0007 \
 		--property=WorkingDirectory="$wd" \
-			-- /usr/bin/env -i HOME="$sbhome" PATH="$fpath" USER=@CLI_SANDBOX_USERNAME@ LOGNAME=@CLI_SANDBOX_USERNAME@ \
+			-- /usr/bin/env -i HOME="$sbhome" PATH="$fpath" USER="$SANDBOX_USER" LOGNAME="$SANDBOX_USER" \
 				$env_proxy_vars \
 				/bin/bash --login -c 'exec "$@"' -- "$@"
 }

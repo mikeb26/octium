@@ -42,7 +42,7 @@ func setupDefaultApprovals() error {
 		return err
 	}
 
-	domain := filepath.Join(internal.CliSandboxRepoHome, usr.Username)
+	domain := filepath.Join(internal.CliSandboxRepoHome(usr.Username), usr.Username)
 	policyID := am.ApprovalPolicyID(am.ApprovalSubsysTools, am.ApprovalGroupFileIO,
 		am.ApprovalTargetDir, domain)
 

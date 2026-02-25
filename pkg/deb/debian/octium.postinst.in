@@ -6,43 +6,14 @@ case "$1" in
 		# Ensure packaged /etc/sudoers.d drop-ins have correct perms.
 		if [ -x /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
 			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
-			ensure_sudoers_dropin_perms "/etc/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo" || true
-			ensure_root_executable "/usr/libexec/@CLI_TOOL_NAME@/run-as-@CLI_SANDBOX_USERNAME@" || true
+			# No-op in the new per-user design; drop-ins are provisioned per user.
+			:
 		fi
 
-		# Ensure sysusers/tmpfiles artifacts are applied at install/upgrade time.
-		if command -v systemd-sysusers >/dev/null 2>&1; then
-			systemd-sysusers /usr/lib/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf || true
-		fi
-		if command -v systemd-tmpfiles >/dev/null 2>&1; then
-			systemd-tmpfiles --create /usr/lib/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf || true
-		fi
-
-		# Enroll the invoking user into @CLI_SANDBOX_GROUPNAME@ (best-effort).
+		# Provision a dedicated sandbox user+groups for the invoking end user.
 		if [ -x /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
 			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
-			maybe_add_invoker_to_group "@CLI_SANDBOX_GROUPNAME@" || true
-		fi
-
-		# Install the sandbox user's git configuration and bash profile
-		#
-		# We intentionally do this in postinst (instead of shipping directly to
-		# /home) because /home is not owned by the package manager and may not
-		# exist at unpack time.
-		if [ -f /usr/share/@CLI_TOOL_NAME@/gitconfig ]; then
-			install -o @CLI_SANDBOX_USERNAME@ -g @CLI_SANDBOX_USERNAME@ -m 0644 \
-				/usr/share/@CLI_TOOL_NAME@/gitconfig \
-				"/home/@CLI_SANDBOX_USERNAME@/.gitconfig" || true
-		fi
-		# Manage the sandbox user's ~/.bash_profile without overwriting edits.
-		#
-		# We keep a package-managed block inside ~/.bash_profile that sources the
-		# packaged /usr/share/@CLI_TOOL_NAME@/bashprofile and then ~/.bashrc.
-		# This lets upgrades update the package behavior while allowing end-user
-		# customizations to live in ~/.bashrc.
-		if [ -x /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
-			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
-			ensure_sandbox_bash_profile || true
+			provision_invoking_user || true
 		fi
 		;;
 esac

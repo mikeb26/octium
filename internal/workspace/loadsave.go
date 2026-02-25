@@ -12,8 +12,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
 
+	"github.com/mikeb26/octium/internal"
 	"github.com/negrel/assert"
 )
 
@@ -147,14 +150,29 @@ func fixupSharedDirPerms(dir string) error {
 
 func fixupSharedDirPermsTry(dir string, includeSetgid bool) error {
 	var firstErr error
-	dirMode := os.FileMode(0o775)
+	dirMode := os.FileMode(0o770)
 	if includeSetgid {
 		dirMode |= os.ModeSetgid
 	}
-	filMode := os.FileMode(0o664)
+	filMode := os.FileMode(0o660)
+
+	gid, gidErr := sandboxSharedGID()
+	if gidErr != nil {
+		// Best effort: if we can't resolve the group (e.g. in certain tests),
+		// keep going with chmod-only behavior.
+		gid = -1
+	}
+
+	if gid >= 0 {
+		if err := os.Chown(dir, -1, gid); err != nil {
+			firstErr = fmt.Errorf("failed to chgrp dir %v: %w", dir, err)
+		}
+	}
 
 	if err := os.Chmod(dir, dirMode); err != nil {
-		firstErr = fmt.Errorf("failed to chmod dir %v: %w", dir, err)
+		if firstErr == nil {
+			firstErr = fmt.Errorf("failed to chmod dir %v: %w", dir, err)
+		}
 	}
 	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry,
 		walkErr error) error {
@@ -166,12 +184,26 @@ func fixupSharedDirPermsTry(dir string, includeSetgid bool) error {
 			return nil
 		}
 		if d.Type().IsRegular() {
+			if gid >= 0 {
+				if err := os.Chown(path, -1, gid); err != nil {
+					if firstErr == nil {
+						firstErr = fmt.Errorf("chgrp %q: %w", path, err)
+					}
+				}
+			}
 			if err := os.Chmod(path, filMode); err != nil {
 				if firstErr == nil {
 					firstErr = fmt.Errorf("chmod %q: %w", path, err)
 				}
 			}
 		} else if d.IsDir() {
+			if gid >= 0 {
+				if err := os.Chown(path, -1, gid); err != nil {
+					if firstErr == nil {
+						firstErr = fmt.Errorf("chgrp %q: %w", path, err)
+					}
+				}
+			}
 			if err := os.Chmod(path, dirMode); err != nil {
 				if firstErr == nil {
 					firstErr = fmt.Errorf("chmod %q: %w", path, err)
@@ -188,4 +220,20 @@ func fixupSharedDirPermsTry(dir string, includeSetgid bool) error {
 	}
 
 	return firstErr
+}
+
+func sandboxSharedGID() (int, error) {
+	endUser := internal.CliEndUsername()
+	groupName := internal.CliSandboxGroupname(endUser)
+
+	g, err := user.LookupGroup(groupName)
+	if err != nil {
+		return -1, err
+	}
+	gid, err := strconv.Atoi(g.Gid)
+	if err != nil {
+		return -1, err
+	}
+
+	return gid, nil
 }

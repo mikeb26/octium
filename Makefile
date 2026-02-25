@@ -3,8 +3,6 @@ export GOFLAGS=-mod=vendor
 
 # Packaging / sandbox parameters.
 CLI_TOOL_NAME ?= octium
-CLI_SANDBOX_USERNAME ?= octium
-CLI_SANDBOX_GROUPNAME ?= octium-users
 NCLI_TOOL_NAME ?= n$(CLI_TOOL_NAME)
 
 # Build/test tags. Defaults to enabling github.com/negrel/assert assertions.
@@ -23,8 +21,6 @@ endif
 # `go build -ldflags "-X pkgpath.Name=value"`.
 GO_LDFLAGS := \
 	-X github.com/mikeb26/octium/internal.CliToolName=$(CLI_TOOL_NAME) \
-	-X github.com/mikeb26/octium/internal.CliSandboxUsername=$(CLI_SANDBOX_USERNAME) \
-	-X github.com/mikeb26/octium/internal.CliSandboxGroupname=$(CLI_SANDBOX_GROUPNAME)
 
 # Versioning.
 #
@@ -83,19 +79,19 @@ unit-tests.xml: vendor mocks FORCE
 lint:
 	golangci-lint run ./...
 
-PKG_COMMON_SYSUSERS_OUT := pkg/common/sysusers.d/$(CLI_TOOL_NAME)-$(CLI_SANDBOX_USERNAME).conf
-PKG_COMMON_TMPFILES_OUT := pkg/common/tmpfiles.d/$(CLI_TOOL_NAME)-$(CLI_SANDBOX_USERNAME).conf
-PKG_COMMON_SUDOERS_OUT := pkg/common/sudoers.d/$(CLI_SANDBOX_GROUPNAME)-$(CLI_SANDBOX_USERNAME)-echo
 PKG_COMMON_POSTINSTALL_OUT := pkg/common/libexec/$(CLI_TOOL_NAME)-postinstall-common.sh
-PKG_COMMON_RUN_AS_OUT := pkg/common/libexec/run-as-$(CLI_SANDBOX_USERNAME)
+# Installed as /usr/libexec/<tool>/octium-provision-user (no .sh extension).
+# debhelper's dh_install does not support renaming individual files via
+# debian/*.install; if we try, it will create a directory named
+# "octium-provision-user" and place the file inside.
+PKG_COMMON_PROVISION_USER_OUT := pkg/common/libexec/$(CLI_TOOL_NAME)-provision-user
+PKG_COMMON_RUN_AS_TEMPLATE_OUT := pkg/common/libexec/run-as.template
 PKG_COMMON_GITCONFIG_OUT := pkg/common/share/gitconfig
 
 PKG_RENDERED_FILES := \
-	$(PKG_COMMON_SYSUSERS_OUT) \
-	$(PKG_COMMON_TMPFILES_OUT) \
-	$(PKG_COMMON_SUDOERS_OUT) \
 	$(PKG_COMMON_POSTINSTALL_OUT) \
-	$(PKG_COMMON_RUN_AS_OUT) \
+	$(PKG_COMMON_PROVISION_USER_OUT) \
+	$(PKG_COMMON_RUN_AS_TEMPLATE_OUT) \
 	$(PKG_COMMON_GITCONFIG_OUT) \
 	pkg/deb/debian/changelog \
 	pkg/deb/debian/octium.install \
@@ -112,11 +108,9 @@ pkg-generate: $(PKG_RENDERED_FILES)
 deb: cmd/$(NCLI_TOOL_NAME)/version.txt pkg-generate
 	cd pkg/deb && ./build.sh -d
 
-$(PKG_COMMON_SYSUSERS_OUT): pkg/common/sysusers.d/octium-aiagent.conf.in
-$(PKG_COMMON_TMPFILES_OUT): pkg/common/tmpfiles.d/octium-aiagent.conf.in
-$(PKG_COMMON_SUDOERS_OUT): pkg/common/sudoers.d/octium-share-aiagent-echo.in
 $(PKG_COMMON_POSTINSTALL_OUT): pkg/common/libexec/octium-postinstall-common.sh.in
-$(PKG_COMMON_RUN_AS_OUT): pkg/common/libexec/run-as-aiagent.in
+$(PKG_COMMON_PROVISION_USER_OUT): pkg/common/libexec/octium-provision-user.sh.in
+$(PKG_COMMON_RUN_AS_TEMPLATE_OUT): pkg/common/libexec/run-as.template.in
 $(PKG_COMMON_GITCONFIG_OUT): pkg/common/share/gitconfig.in
 
 pkg/deb/debian/changelog: pkg/deb/debian/changelog.in cmd/$(NCLI_TOOL_NAME)/version.txt
@@ -131,8 +125,6 @@ $(PKG_RENDERED_FILES):
 	@mkdir -p $(dir $@)
 	@sed \
 		-e 's|@CLI_TOOL_NAME@|$(CLI_TOOL_NAME)|g' \
-		-e 's|@CLI_SANDBOX_USERNAME@|$(CLI_SANDBOX_USERNAME)|g' \
-		-e 's|@CLI_SANDBOX_GROUPNAME@|$(CLI_SANDBOX_GROUPNAME)|g' \
 		-e 's|@CLI_DEB_VERSION@|$(CLI_DEB_VERSION)|g' \
 		"$<" > "$@"
 	@chmod --reference="$<" "$@"
@@ -144,6 +136,8 @@ clean:
 .PHONY: pkg-clean
 pkg-clean:
 	rm -f $(PKG_RENDERED_FILES)
+	# Back-compat cleanup: older pkg-generate created an extra .sh file.
+	rm -f pkg/common/libexec/$(CLI_TOOL_NAME)-provision-user.sh
 
 .PHONY: deps
 deps:

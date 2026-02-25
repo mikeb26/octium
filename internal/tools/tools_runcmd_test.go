@@ -121,7 +121,7 @@ func Test_RunCommandTool_Invoke_ExecutesCommand_CapturesOutputAndExitError(t *te
 	ctx := types.WithIctx(context.Background(), &types.InternalContext{HttpProxy: proxy})
 
 	internal.CliLibexecDir = t.TempDir()
-	runAsPath := internal.CliLibexecDir + "/" + internal.CliToolName + "/run-as-" + internal.CliSandboxUsername
+	runAsPath := internal.CliRunAsScriptPath()
 	if err := os.MkdirAll(internal.CliLibexecDir+"/"+internal.CliToolName, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -169,7 +169,7 @@ func Test_RunCommandTool_Invoke_TruncatesStdoutAndStderr(t *testing.T) {
 	ctx := types.WithIctx(context.Background(), &types.InternalContext{HttpProxy: proxy})
 
 	internal.CliLibexecDir = t.TempDir()
-	runAsPath := internal.CliLibexecDir + "/" + internal.CliToolName + "/run-as-" + internal.CliSandboxUsername
+	runAsPath := internal.CliRunAsScriptPath()
 	if err := os.MkdirAll(internal.CliLibexecDir+"/"+internal.CliToolName, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}

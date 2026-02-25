@@ -2,7 +2,7 @@
 
 Debian/Ubuntu packaging templates for building a `.deb` that includes:
 - `@CLI_TOOL_NAME@` binary
-- install-time @CLI_SANDBOX_USERNAME@ artifacts (sysusers/tmpfiles, sudoers wrapper)
+- provisioning scripts for per-user sandbox accounts (sudoers wrapper, /home setup)
 
 ## Runtime dependencies
 

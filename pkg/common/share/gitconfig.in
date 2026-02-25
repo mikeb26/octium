@@ -1,4 +1,4 @@
-# Installed by packaging into: /home/@CLI_SANDBOX_USERNAME@/.gitconfig
+# Installed by provisioning into: /home/@CLI_TOOL_NAME@-<enduser>/.gitconfig
 #
 # This file is deployed into the sandbox user's home directory to ensure
 # consistent git defaults for the @CLI_TOOL_NAME@ environment.

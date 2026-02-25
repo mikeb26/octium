@@ -16,8 +16,7 @@ override_dh_auto_build:
 	# operate reliably across distros/tooling versions.
 	go build -tags "$(TAGS)" -ldflags "-compressdwarf=false \
 		-X github.com/mikeb26/octium/internal.CliToolName=@CLI_TOOL_NAME@ \
-		-X github.com/mikeb26/octium/internal.CliSandboxUsername=@CLI_SANDBOX_USERNAME@ \
-		-X github.com/mikeb26/octium/internal.CliSandboxGroupname=@CLI_SANDBOX_GROUPNAME@" \
+		" \
 		-o n@CLI_TOOL_NAME@ ./cmd/n@CLI_TOOL_NAME@
 
 override_dh_dwz:

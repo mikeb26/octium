@@ -198,9 +198,9 @@ func (f *fakeSCMClient) Commit(ctx context.Context, dir string, opts scm.CommitO
 
 func TestWorkspace_MergeSandbox_AddsRemoteFetchesAndMergesIntoOriginBranch(t *testing.T) {
 	ctx := context.Background()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	origin := t.TempDir()
 	sbox := t.TempDir()
 
@@ -231,9 +231,9 @@ func TestWorkspace_MergeSandbox_AddsRemoteFetchesAndMergesIntoOriginBranch(t *te
 
 func TestWorkspace_MergeSandbox_ErrorsWhenOriginDirty(t *testing.T) {
 	ctx := context.Background()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	origin := t.TempDir()
 	sbox := t.TempDir()
 
@@ -254,9 +254,9 @@ func TestWorkspace_MergeSandbox_ErrorsWhenOriginDirty(t *testing.T) {
 
 func TestWorkspace_MergeSandbox_ErrorsWhenSandboxDirty(t *testing.T) {
 	ctx := context.Background()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	origin := t.TempDir()
 	sbox := t.TempDir()
 
@@ -278,9 +278,9 @@ func TestWorkspace_MergeSandbox_ErrorsWhenSandboxDirty(t *testing.T) {
 func TestWorkspace_validateScmRepoDir_SucceedsWhenDirAndRepo(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	repoDir := filepath.Join(t.TempDir(), "repo")
 	mustNoErr(t, os.MkdirAll(repoDir, 0o700))
 
@@ -297,9 +297,9 @@ func TestWorkspace_validateScmRepoDir_SucceedsWhenDirAndRepo(t *testing.T) {
 func TestWorkspace_validateSandboxOriginRemote_ErrorsWhenNoOriginRemote(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	originDir := filepath.Join(t.TempDir(), "origin")
 	sboxDir := filepath.Join(t.TempDir(), "sbox")
 	mustNoErr(t, os.MkdirAll(originDir, 0o700))
@@ -323,9 +323,9 @@ func TestWorkspace_validateSandboxOriginRemote_ErrorsWhenNoOriginRemote(t *testi
 func TestWorkspace_validateSandboxOriginRemote_SucceedsOnFetchMatch(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	root := t.TempDir()
 	originDir := filepath.Join(root, "origin")
 	sboxDir := filepath.Join(root, "sbox")
@@ -351,9 +351,9 @@ func TestWorkspace_validateSandboxOriginRemote_SucceedsOnFetchMatch(t *testing.T
 func TestWorkspace_validateSandboxOriginRemote_SucceedsOnPushMatch(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	originDir := filepath.Join(t.TempDir(), "origin")
 	sboxDir := filepath.Join(t.TempDir(), "sbox")
 	mustNoErr(t, os.MkdirAll(originDir, 0o700))
@@ -374,9 +374,9 @@ func TestWorkspace_validateSandboxOriginRemote_SucceedsOnPushMatch(t *testing.T)
 func TestWorkspace_validateSandboxOriginRemote_ErrorsOnNonLocalRemoteURL(t *testing.T) {
 	ctx := context.Background()
 	scratchDir := t.TempDir()
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	originDir := filepath.Join(t.TempDir(), "origin")
 	sboxDir := filepath.Join(t.TempDir(), "sbox")
 	mustNoErr(t, os.MkdirAll(originDir, 0o700))
@@ -398,9 +398,9 @@ func TestWorkspace_validateSandboxOriginRemote_ErrorsOnNonLocalRemoteURL(t *test
 }
 
 func TestRemoteMatchesDir_AbsolutePath(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	root := t.TempDir()
 	src := filepath.Join(root, "src")
 	dst := filepath.Join(root, "dst")
@@ -413,9 +413,9 @@ func TestRemoteMatchesDir_AbsolutePath(t *testing.T) {
 }
 
 func TestRemoteMatchesDir_RelativePathInterpretedFromDst(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	root := t.TempDir()
 	src := filepath.Join(root, "src")
 	dst := filepath.Join(root, "dst")
@@ -431,9 +431,9 @@ func TestRemoteMatchesDir_RelativePathInterpretedFromDst(t *testing.T) {
 }
 
 func TestRemoteMatchesDir_FileURL(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	root := t.TempDir()
 	src := filepath.Join(root, "src")
 	dst := filepath.Join(root, "dst")
@@ -446,9 +446,9 @@ func TestRemoteMatchesDir_FileURL(t *testing.T) {
 }
 
 func TestRemoteMatchesDir_NonFileSchemeErrors(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	root := t.TempDir()
 	src := filepath.Join(root, "src")
 	dst := filepath.Join(root, "dst")
@@ -461,9 +461,9 @@ func TestRemoteMatchesDir_NonFileSchemeErrors(t *testing.T) {
 }
 
 func TestNormalizedDirEqual_NormalizesPaths(t *testing.T) {
-	prevSandboxRepoHome := internal.CliSandboxRepoHome
-	internal.CliSandboxRepoHome = t.TempDir()
-	defer func() { internal.CliSandboxRepoHome = prevSandboxRepoHome }()
+	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
+	internal.CliSandboxRepoHomeBase = t.TempDir()
+	defer func() { internal.CliSandboxRepoHomeBase = prevSandboxRepoHomeBase }()
 	root := t.TempDir()
 	a := filepath.Join(root, "a")
 	mustNoErr(t, os.MkdirAll(a, 0o700))

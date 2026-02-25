@@ -4,41 +4,22 @@ Install-time artifacts intended for packaging on modern systemd-based distros (D
 
 ## What’s included (common)
 
-### sysusers.d
-- `pkg/common/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
-  - Creates:
-    - system group `@CLI_SANDBOX_GROUPNAME@`
-    - system user `@CLI_SANDBOX_USERNAME@` (home: `/home/@CLI_SANDBOX_USERNAME@`, shell defaults to `/usr/sbin/nologin`)
-  - Adds `@CLI_SANDBOX_USERNAME@` to `@CLI_SANDBOX_GROUPNAME@`
+### Provisioning script
 
-**Package install target:** `/usr/lib/sysusers.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
-
-### tmpfiles.d
-- `pkg/common/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
-  - Creates directories:
-    - `/home/@CLI_SANDBOX_USERNAME@` (0755 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
-    - `/home/@CLI_SANDBOX_USERNAME@/shared` (2775 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_GROUPNAME@, setgid)
-    - `/home/@CLI_SANDBOX_USERNAME@/tmp` (0700 @CLI_SANDBOX_USERNAME@:@CLI_SANDBOX_USERNAME@)
-
-**Package install target:** `/usr/lib/tmpfiles.d/@CLI_TOOL_NAME@-@CLI_SANDBOX_USERNAME@.conf`
-
-### sudoers drop-in
-- `pkg/common/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo`
-  - Allows members of `@CLI_SANDBOX_GROUPNAME@` to run `/usr/libexec/@CLI_TOOL_NAME@/run-as-@CLI_SANDBOX_USERNAME@` as root without a password.
-  - The wrapper executes an arbitrary command as user `@CLI_SANDBOX_USERNAME@` inside a hardened transient systemd unit.
-
-**Package install target:** `/etc/sudoers.d/@CLI_SANDBOX_GROUPNAME@-@CLI_SANDBOX_USERNAME@-echo`
-
-## Admin: enrolling end-users
-
-End-users must be added to `@CLI_SANDBOX_GROUPNAME@` to:
-- access `/home/@CLI_SANDBOX_USERNAME@/shared/...` workspaces
-- run the packaged sudoers-authorized wrapper command(s)
+- `/usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user`
+  - Creates, for an end user `<u>`:
+    - system user: `@CLI_TOOL_NAME@-<u>`
+    - private group: `@CLI_TOOL_NAME@-<u>`
+    - shared group: `@CLI_TOOL_NAME@-<u>-shared`
+    - `/home/@CLI_TOOL_NAME@-<u>/shared` (2770, setgid) workspace root
+    - `/home/@CLI_TOOL_NAME@-<u>/tmp` (0700)
+    - sudoers drop-in allowing members of `@CLI_TOOL_NAME@-<u>-shared` to run
+      `/usr/libexec/@CLI_TOOL_NAME@/run-as-@CLI_TOOL_NAME@-<u>`
 
 Example:
 
 ```bash
-sudo usermod -a -G @CLI_SANDBOX_GROUPNAME@ <username>
+sudo /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user <username>
 # log out/in for group membership to take effect
 ```
 

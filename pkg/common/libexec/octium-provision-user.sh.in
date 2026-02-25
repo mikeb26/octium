@@ -1,0 +1,262 @@
+#!/bin/sh
+set -eu
+
+# octium-provision-user
+#
+# Root-run helper to provision a dedicated octium sandbox account for a single
+# end user.
+#
+# Usage:
+#   sudo /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user <end-username>
+#
+# Creates:
+#   - sandbox user:  @CLI_TOOL_NAME@-<enduser>
+#   - private group: same as sandbox user
+#   - shared group:  @CLI_TOOL_NAME@-<enduser>-shared
+#   - /home/<sandbox>/ (0711 sandbox:sandbox)
+#   - /home/<sandbox>/shared (2770 sandbox:<shared>)
+#   - /home/<sandbox>/tmp (0700 sandbox:sandbox)
+#   - sudoers drop-in allowing members of <shared> to run run-as-<sandbox>
+#
+# And enrolls:
+#   - end user into <shared>
+#   - sandbox user into <shared>
+
+# Security note:
+# The sandbox user home directory is set to 0711 (execute-only for others).
+# This prevents directory listing/reading by other users while still allowing
+# traversal to reach the shared directory at /home/<sandbox>/shared.
+
+log() {
+	echo "@CLI_TOOL_NAME@: $*" >&2
+}
+
+die() {
+	log "$*"
+	exit 1
+}
+
+require_root() {
+	if [ "$(id -u)" -ne 0 ]; then
+		die "must be run as root (use sudo)"
+	fi
+}
+
+valid_name() {
+	# Conservative validation for user/group names (POSIX-ish and common distro rules).
+	# Allow [a-zA-Z0-9_-] and require non-empty.
+	case "$1" in
+		"") return 1 ;;
+		*[!a-zA-Z0-9_-]*) return 1 ;;
+		*) return 0 ;;
+	esac
+}
+
+ensure_group() {
+	g="$1"
+	if getent group "$g" >/dev/null 2>&1; then
+		return 0
+	fi
+	if command -v groupadd >/dev/null 2>&1; then
+		groupadd --system "$g" 2>/dev/null || groupadd "$g"
+		return 0
+	fi
+	die "groupadd not available; cannot create group '$g'"
+}
+
+ensure_user() {
+	u="$1"
+	primary_group="$2"
+	home="$3"
+
+	if id "$u" >/dev/null 2>&1; then
+		return 0
+	fi
+	if command -v useradd >/dev/null 2>&1; then
+		# Create a system user with no login shell.
+		useradd \
+			--system \
+			--home-dir "$home" \
+			--create-home \
+			--gid "$primary_group" \
+			--shell /usr/sbin/nologin \
+			--comment "@CLI_TOOL_NAME@ agent" \
+			"$u" 2>/dev/null || {
+			# Some distros reject --system with a home in /home; retry without --system.
+			useradd \
+				--home-dir "$home" \
+				--create-home \
+				--gid "$primary_group" \
+				--shell /usr/sbin/nologin \
+				--comment "@CLI_TOOL_NAME@ agent" \
+				"$u"
+		}
+		return 0
+	fi
+	die "useradd not available; cannot create user '$u'"
+}
+
+ensure_usermod_group_membership() {
+	u="$1"
+	g="$2"
+	if ! id "$u" >/dev/null 2>&1; then
+		return 0
+	fi
+	if id -nG "$u" 2>/dev/null | tr ' ' '\n' | grep -qx "$g"; then
+		return 0
+	fi
+	if command -v usermod >/dev/null 2>&1; then
+		usermod -a -G "$g" "$u"
+		return 0
+	fi
+	die "usermod not available; cannot add '$u' to '$g'"
+}
+
+install_sudoers_dropin() {
+	shared_group="$1"
+	sandbox_user="$2"
+	dropin="/etc/sudoers.d/${shared_group}-${sandbox_user}-echo"
+	script="/usr/libexec/@CLI_TOOL_NAME@/run-as-${sandbox_user}"
+
+	if [ ! -d /etc/sudoers.d ]; then
+		mkdir -p /etc/sudoers.d
+	fi
+	chmod 0750 /etc/sudoers.d 2>/dev/null || chmod 0755 /etc/sudoers.d || true
+	chown root:root /etc/sudoers.d 2>/dev/null || true
+
+	cat >"$dropin" <<EOF
+# Allow users in group "${shared_group}" to run the hardened wrapper as root
+# without a password prompt.
+
+%${shared_group} ALL=(root) NOPASSWD: ${script}
+
+# Defense in depth: never allow the sandbox user itself to invoke the wrapper.
+${sandbox_user} ALL=(root) !${script}
+EOF
+	chown root:root "$dropin" 2>/dev/null || true
+	chmod 0440 "$dropin" 2>/dev/null || true
+}
+
+install_run_as_wrapper() {
+	sandbox_user="$1"
+	shared_group="$2"
+	out="/usr/libexec/@CLI_TOOL_NAME@/run-as-${sandbox_user}"
+
+	if [ ! -d /usr/libexec/@CLI_TOOL_NAME@ ]; then
+		mkdir -p /usr/libexec/@CLI_TOOL_NAME@
+	fi
+
+	# Render from the package-provided template wrapper.
+	# Replace placeholders at runtime so a single packaged template can provision
+	# any number of sandbox users.
+	src="/usr/libexec/@CLI_TOOL_NAME@/run-as.template"
+	if [ ! -f "$src" ]; then
+		die "missing wrapper template: $src"
+	fi
+
+	sed \
+		-e "s|@RUNTIME_SANDBOX_USERNAME@|${sandbox_user}|g" \
+		-e "s|@RUNTIME_SANDBOX_GROUPNAME@|${shared_group}|g" \
+		"$src" >"$out"
+	chown root:root "$out" 2>/dev/null || true
+	chmod 0755 "$out" 2>/dev/null || true
+}
+
+ensure_dirs() {
+	sandbox_user="$1"
+	sandbox_group="$2"
+	shared_group="$3"
+	home="$4"
+
+	mkdir -p "$home" "$home/shared" "$home/tmp"
+	chown "$sandbox_user:$sandbox_group" "$home" 2>/dev/null || true
+	# Allow any user to traverse the sandbox home dir (execute-only) so callers
+	# can access known paths like /home/<sandbox>/shared, while keeping the home
+	# non-readable/non-listable.
+	chmod 0711 "$home" 2>/dev/null || true
+
+	chown "$sandbox_user:$shared_group" "$home/shared" 2>/dev/null || true
+	chmod 2770 "$home/shared" 2>/dev/null || true
+
+	chown "$sandbox_user:$sandbox_group" "$home/tmp" 2>/dev/null || true
+	chmod 0700 "$home/tmp" 2>/dev/null || true
+}
+
+install_sandbox_dotfiles() {
+	sandbox_user="$1"
+	sandbox_group="$2"
+	home="$3"
+
+	if [ -f /usr/share/@CLI_TOOL_NAME@/gitconfig ]; then
+		install -o "$sandbox_user" -g "$sandbox_group" -m 0644 \
+			/usr/share/@CLI_TOOL_NAME@/gitconfig \
+			"${home}/.gitconfig" || true
+	fi
+
+	# Create/update a simple .bash_profile that sources the packaged snippet.
+	profile="${home}/.bash_profile"
+	marker_start="# >>> @CLI_TOOL_NAME@ managed >>>"
+	marker_end="# <<< @CLI_TOOL_NAME@ managed <<<"
+	if [ ! -f "$profile" ]; then
+		cat >"$profile" <<EOF
+${marker_start}
+if [ -f /usr/share/@CLI_TOOL_NAME@/bashprofile ]; then
+	. /usr/share/@CLI_TOOL_NAME@/bashprofile
+fi
+case "\$-" in
+	*i*)
+		if [ -f "\$HOME/.bashrc" ]; then
+			. "\$HOME/.bashrc"
+		fi
+		;;
+esac
+${marker_end}
+EOF
+		chown "$sandbox_user:$sandbox_group" "$profile" 2>/dev/null || true
+		chmod 0644 "$profile" 2>/dev/null || true
+	fi
+}
+
+main() {
+	require_root
+	if [ "$#" -ne 1 ]; then
+		die "usage: $(basename "$0") <end-username>"
+	fi
+
+	end_user="$1"
+	if ! valid_name "$end_user"; then
+		die "invalid end username: '$end_user'"
+	fi
+	if ! id "$end_user" >/dev/null 2>&1; then
+		die "end user '$end_user' does not exist"
+	fi
+
+	sandbox_user="@CLI_TOOL_NAME@-${end_user}"
+	sandbox_group="$sandbox_user"
+	shared_group="${sandbox_user}-shared"
+	home="/home/${sandbox_user}"
+
+	ensure_group "$sandbox_group"
+	ensure_group "$shared_group"
+
+	ensure_user "$sandbox_user" "$sandbox_group" "$home"
+
+	# Enroll both end user and sandbox user into the shared group.
+	ensure_usermod_group_membership "$end_user" "$shared_group"
+	ensure_usermod_group_membership "$sandbox_user" "$shared_group"
+
+	ensure_dirs "$sandbox_user" "$sandbox_group" "$shared_group" "$home"
+	install_sandbox_dotfiles "$sandbox_user" "$sandbox_group" "$home"
+
+	install_run_as_wrapper "$sandbox_user" "$shared_group"
+
+	# Ensure systemd-run reads updated /etc/sudoers.d permissions (best-effort).
+	# (Some distros are strict about sudoers.d modes.)
+	chmod 0750 /etc/sudoers.d 2>/dev/null || chmod 0755 /etc/sudoers.d || true
+	install_sudoers_dropin "$shared_group" "$sandbox_user"
+
+	log "provisioned sandbox user '$sandbox_user' and shared group '$shared_group' for end user '$end_user'"
+	log "note: '$end_user' may need to log out/in for new group membership to apply"
+}
+
+main "$@"

@@ -25,12 +25,14 @@ func friendlyWorkspaceSetupErr(err error) string {
 		return ""
 	}
 	if errors.Is(err, workspace.ErrSandboxParentDirPermission) {
+		endUser := internal.CliEndUsername()
+		group := internal.CliSandboxGroupname(endUser)
 		return fmt.Sprintf(
 			"Workspace setup failed: %v\n\nYour current login session does not have the updated supplementary groups (it was started before you were added to '%s'). Linux determines a process's group list when you start a login session, and running processes don't automatically re-check /etc/group.\n\nFix: log out completely and log back in (or run 'newgrp %s' in your shell) so new processes include the '%s' group, then retry.",
 			err,
-			internal.CliSandboxGroupname,
-			internal.CliSandboxGroupname,
-			internal.CliSandboxGroupname,
+			group,
+			group,
+			group,
 		)
 	}
 

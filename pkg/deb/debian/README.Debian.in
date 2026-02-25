@@ -1,17 +1,22 @@
 @CLI_TOOL_NAME@ for Debian
 
-This package ships install-time artifacts for the @CLI_SANDBOX_USERNAME@ execution boundary:
+This package ships install-time provisioning for per-user @CLI_TOOL_NAME@ sandbox accounts.
 
-- system user: @CLI_SANDBOX_USERNAME@
-- group: @CLI_SANDBOX_GROUPNAME@
-- /home/@CLI_SANDBOX_USERNAME@/shared (setgid) workspace root
-- sudoers wrapper for running a hardened command as @CLI_SANDBOX_USERNAME@
+For an end user <u>, provisioning creates:
+
+- system user: @CLI_TOOL_NAME@-<u>
+- private group: @CLI_TOOL_NAME@-<u>
+- shared group: @CLI_TOOL_NAME@-<u>-shared
+- /home/@CLI_TOOL_NAME@-<u>/shared (setgid) workspace root
+- sudoers wrapper for running a hardened command as @CLI_TOOL_NAME@-<u>
 
 User enrollment
 
-Add your user to the @CLI_SANDBOX_GROUPNAME@ group and re-login:
+Provision your account:
 
-  sudo usermod -a -G @CLI_SANDBOX_GROUPNAME@ <username>
+  sudo /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user <username>
+
+Then re-login (or restart your session) so new processes get the new group membership.
 
 Go toolchain
 
