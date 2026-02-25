@@ -623,6 +623,8 @@ func handleMenuArchiveUnarchive(ctx context.Context, cliCtx *CliContext, ch gc.K
 		return false, nil
 	}
 
+	_ = entry.thread.Workspace().ClearSandbox()
+
 	dstThreadGroup := ArchiveThreadGroupName
 	srcThreadGroup := MainThreadGroupName
 	if entry.isArchived {
@@ -696,10 +698,6 @@ func confirmDiscardThreadWorkspaceIfDirtyOrAhead(
 	)
 	if selErr != nil {
 		return false, selErr
-	}
-
-	if ok {
-		_ = ws.ClearSandbox()
 	}
 
 	return ok, nil
