@@ -8,4 +8,5 @@ import "errors"
 
 var (
 	ErrThreadNotIdle = errors.New("thread is not idle")
+	ErrThreadNameRequired = errors.New("thread name is required")
 )

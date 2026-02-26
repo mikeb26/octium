@@ -379,6 +379,23 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		if isHistory {
 			return false, tvUI.workspaceCommit(ctx)
 		} // else do not return; inputFrame needs to process 'c' as input
+	case 'n':
+		if isHistory {
+			newName, err := promptForThreadNameNCurses(tvUI.cliCtx.ui)
+			if err != nil {
+				_ = tvUI.cliCtx.ui.Confirm(err.Error())
+				return false, true
+			}
+			if newName == "" {
+				// user cancelled
+				return false, true
+			}
+			if err := tvUI.thread.Rename(newName); err != nil {
+				_ = tvUI.cliCtx.ui.Confirm(err.Error())
+				return false, true
+			}
+			return false, true
+		} // else do not return; inputFrame needs to process 'n' as input
 	case 'd':
 		if isHistory {
 			return false, tvUI.workspaceDiff(ctx)

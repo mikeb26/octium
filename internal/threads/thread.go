@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,6 +100,7 @@ type Thread interface {
 	Id() string
 	Name() string
 	Metrics() ThreadMetrics
+	Rename(string) error
 	CreateTime() time.Time
 	AccessTime() time.Time
 	ModTime() time.Time
@@ -299,6 +301,32 @@ func (t *thread) Name() string {
 	defer t.mu.RUnlock()
 
 	return t.persisted.Name
+}
+
+// Rename updates the thread's name and persists it to disk.
+//
+// Thread names are purely metadata: renaming does not change the thread id
+// or its directory name.
+func (t *thread) Rename(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ErrThreadNameRequired
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.state != ThreadStateIdle {
+		return ErrThreadNotIdle
+	}
+
+	if t.persisted.Name == name {
+		return nil
+	}
+
+	t.persisted.Name = name
+	t.persisted.ModTime = time.Now()
+	return t.save()
 }
 
 // save persists the thread's dialogue to a file; callers should already hold
