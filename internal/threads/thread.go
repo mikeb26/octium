@@ -98,6 +98,7 @@ type Thread interface {
 	State() ThreadState
 	Id() string
 	Name() string
+	Metrics() ThreadMetrics
 	CreateTime() time.Time
 	AccessTime() time.Time
 	ModTime() time.Time
@@ -246,6 +247,17 @@ func (t *thread) Id() string {
 	defer t.mu.RUnlock()
 
 	return t.persisted.Id
+}
+
+// Metrics returns the thread's cumulative persisted metrics.
+//
+// The returned struct is a copy; callers may mutate it without affecting the
+// thread.
+func (t *thread) Metrics() ThreadMetrics {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	return t.persisted.Metrics
 }
 
 // CreateTime returns the thread creation timestamp.

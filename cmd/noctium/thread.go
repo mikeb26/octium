@@ -256,7 +256,7 @@ func (tvUI *threadViewUI) redrawThreadView(ctx context.Context) {
 	curY, curX := gc.StdScr().CursorYX()
 	tvUI.drawThreadHeader(ctx)
 	drawThreadInputLabel(tvUI)
-	drawNavbar(tvUI.cliCtx, tvUI.getFocus(), tvUI.isArchived)
+	drawNavbar(tvUI.cliCtx, tvUI.getFocus(), tvUI.isArchived, tvUI.thread)
 	gc.StdScr().Move(curY, curX)
 
 	// Stage stdscr last (so its cursor position wins), then flush once.

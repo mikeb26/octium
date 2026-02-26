@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mikeb26/octium/internal/threads"
 	gc "github.com/rthornton128/goncurses"
 )
 
@@ -42,7 +43,7 @@ func (tvUI *threadViewUI) drawThreadHeader(ctx context.Context) {
 
 // drawNavbar renders a simple status line at the bottom of the
 // screen, including mode information and key hints.
-func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool) {
+func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool, thread threads.Thread) {
 	maxY, maxX := cliCtx.rootWin.MaxYX()
 	statusY := maxY - 1
 	if statusY < 0 {
@@ -88,6 +89,16 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool) {
 		{text: " Back:", bold: false},
 		{text: "ESC", bold: true},
 	}...)
+
+	if thread != nil {
+		m := thread.Metrics()
+		segments = append(segments, []statusSegment{
+			{text: " Tokens:", bold: false},
+			{text: fmt.Sprintf("in:%d", m.TokenUsage.PromptTokens), bold: true},
+			{text: " ", bold: false},
+			{text: fmt.Sprintf("out:%d", m.TokenUsage.CompletionTokens), bold: true},
+		}...)
+	}
 	drawStatusSegments(cliCtx.rootWin, statusY, maxX, segments,
 		cliCtx.toggles.useColors)
 
