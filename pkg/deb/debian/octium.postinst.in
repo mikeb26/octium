@@ -10,6 +10,13 @@ case "$1" in
 			:
 		fi
 
+		# During upgrades, ensure any previously provisioned per-user wrappers are
+		# re-rendered from the current template.
+		if [ -x /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
+			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
+			upgrade_provisioned_users || true
+		fi
+
 		# Provision a dedicated sandbox user+groups for the invoking end user.
 		if [ -x /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
 			. /usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh

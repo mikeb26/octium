@@ -80,6 +80,18 @@ provision_invoking_user() {
 		return 0
 	fi
 
+	sandbox_user="@CLI_TOOL_NAME@-${user}"
+	if id "${sandbox_user}" >/dev/null 2>&1; then
+		# The most important signal that provisioning already happened is the
+		# existence of the per-end-user sandbox account.
+		#
+		# Note: wrapper and sudoers drop-in regeneration (for upgrades) is handled
+		# separately by upgrade_provisioned_users().
+		log "sandbox user '${sandbox_user}' already exists; skipping provisioning prompt."
+		log "to reprovision/update: sudo /usr/libexec/@CLI_TOOL_NAME@/octium-provision-user ${user}"
+		return 0
+	fi
+
 	# Some packaging flows may install libexec scripts without the executable bit.
 	# Ensure the provisioning script is root-owned and executable before we try to
 	# run it from a maintainer script.
@@ -111,4 +123,68 @@ provision_invoking_user() {
 	fi
 
 	/usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user "${user}" || true
+}
+
+list_existing_sandbox_users() {
+	# Output one sandbox username per line.
+	# Best-effort: prefer getent, fall back to /etc/passwd.
+	if command -v getent >/dev/null 2>&1; then
+		getent passwd 2>/dev/null | cut -d: -f1
+		return 0
+	fi
+	if [ -r /etc/passwd ]; then
+		cut -d: -f1 /etc/passwd
+		return 0
+	fi
+	return 1
+}
+
+upgrade_provisioned_users() {
+	# During upgrades, there may be N previously provisioned end users.
+	# Re-run the provisioning logic for each existing sandbox user so that any
+	# install-time artifacts are updated holistically:
+	# - wrapper hardening changes (run-as-<sandbox>)
+	# - sudoers drop-ins
+	# - sandbox $HOME directory layout/permissions
+	# - packaged dotfiles (e.g. .gitconfig, managed .bash_profile block)
+	#
+	# This intentionally reuses the provisioning script itself instead of
+	# duplicating its logic here.
+
+	prov="/usr/libexec/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user"
+	if [ ! -f "${prov}" ]; then
+		return 0
+	fi
+	ensure_root_executable "${prov}"
+	if [ ! -x "${prov}" ]; then
+		return 0
+	fi
+
+	users="$(list_existing_sandbox_users 2>/dev/null || true)"
+	if [ -z "${users}" ]; then
+		return 0
+	fi
+
+	echo "${users}" | while IFS= read -r sandbox_user; do
+		case "${sandbox_user}" in
+			@CLI_TOOL_NAME@-*) ;;
+			*) continue ;;
+		esac
+
+		# The provisioning script takes the end-user name.
+		end_user="${sandbox_user#@CLI_TOOL_NAME@-}"
+		if [ -z "${end_user}" ]; then
+			continue
+		fi
+
+		# If the end user no longer exists, we can't safely reprovision/update.
+		if ! id "${end_user}" >/dev/null 2>&1; then
+			log "end user '${end_user}' not found; skipping upgrade for '${sandbox_user}'."
+			continue
+		fi
+
+		# Best-effort: upgrade in-place. The provisioner is idempotent and will
+		# update existing artifacts.
+		@CLI_TOOL_NAME@_UPGRADE=1 "${prov}" "${end_user}" || true
+	done
 }

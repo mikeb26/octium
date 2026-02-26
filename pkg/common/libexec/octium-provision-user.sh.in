@@ -243,6 +243,35 @@ install_sandbox_dotfiles() {
 	profile="${home}/.bash_profile"
 	marker_start="# >>> @CLI_TOOL_NAME@ managed >>>"
 	marker_end="# <<< @CLI_TOOL_NAME@ managed <<<"
+	# Keep this idempotent and upgrade-friendly:
+	# - If the profile doesn't exist, create it.
+	# - If it exists but lacks our managed block, append it.
+	# - If it exists and already has our managed block, do nothing.
+	if [ -f "$profile" ]; then
+		if grep -Fqx "$marker_start" "$profile" 2>/dev/null; then
+			return 0
+		fi
+		# If the profile exists but doesn't contain our managed block, append.
+		cat >>"$profile" <<EOF
+
+${marker_start}
+if [ -f /usr/share/@CLI_TOOL_NAME@/bashprofile ]; then
+	. /usr/share/@CLI_TOOL_NAME@/bashprofile
+fi
+case "\$-" in
+	*i*)
+		if [ -f "\$HOME/.bashrc" ]; then
+			. "\$HOME/.bashrc"
+		fi
+		;;
+esac
+${marker_end}
+EOF
+		chown "$sandbox_user:$sandbox_group" "$profile" 2>/dev/null || true
+		chmod 0644 "$profile" 2>/dev/null || true
+		return 0
+	fi
+
 	if [ ! -f "$profile" ]; then
 		cat >"$profile" <<EOF
 ${marker_start}
@@ -265,6 +294,15 @@ EOF
 
 main() {
 	require_root
+
+	# When set, we are being called from a package upgrade flow (postinst)
+	# to ensure existing provisioned users get updated scripts/dotfiles/etc.
+	# The provisioner is intended to be safe/idempotent in both modes.
+	UPGRADE_ONLY=0
+	if [ "${@CLI_TOOL_NAME@_UPGRADE:-0}" = "1" ]; then
+		UPGRADE_ONLY=1
+	fi
+
 	if [ "$#" -ne 1 ]; then
 		die "usage: $(basename "$0") <end-username>"
 	fi
@@ -288,7 +326,12 @@ main() {
 	ensure_user "$sandbox_user" "$sandbox_group" "$home"
 
 	# Enroll both end user and sandbox user into the shared group.
-	ensure_usermod_group_membership "$end_user" "$shared_group"
+	# On upgrades, do not modify the end user's groups automatically. This avoids
+	# surprising privilege changes if the admin removed the user from the shared
+	# group intentionally.
+	if [ "$UPGRADE_ONLY" -eq 0 ]; then
+		ensure_usermod_group_membership "$end_user" "$shared_group"
+	fi
 	ensure_usermod_group_membership "$sandbox_user" "$shared_group"
 
 	ensure_dirs "$sandbox_user" "$sandbox_group" "$shared_group" "$home"
