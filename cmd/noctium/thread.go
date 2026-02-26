@@ -279,6 +279,7 @@ func (tvUI *threadViewUI) processThreadViewKey(
 	}
 
 	isHistory := tvUI.getFocus() == focusHistory
+	isRunning := tvUI.running.state != nil
 	// Exit keys.
 	if ch == gc.Key(27) { // ESC
 		return true, false
@@ -287,35 +288,91 @@ func (tvUI *threadViewUI) processThreadViewKey(
 	// Navigation keys (shared by both history and input frames).
 	switch ch {
 	case gc.KEY_LEFT:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.MoveCursorLeft()
 		return false, true
 	case gc.KEY_RIGHT:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.MoveCursorRight()
 		return false, true
 	case gc.KEY_UP:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.MoveCursorUp()
 		tvUI.focusedFrame.EnsureCursorVisible()
 		return false, true
 	case gc.KEY_DOWN:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.MoveCursorDown()
 		tvUI.focusedFrame.EnsureCursorVisible()
 		return false, true
 	case gc.KEY_PAGEUP:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.ScrollPageUp()
 		if isHistory {
 			tvUI.focusedFrame.EnsureCursorVisible()
 		}
 		return false, true
 	case gc.KEY_PAGEDOWN:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.ScrollPageDown()
 		if isHistory {
 			tvUI.focusedFrame.EnsureCursorVisible()
 		}
 		return false, true
 	case gc.KEY_HOME:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = false
+			} else {
+				tvUI.running.followReasoning = false
+			}
+		}
 		tvUI.focusedFrame.MoveHome()
 		return false, true
 	case gc.KEY_END:
+		if isRunning {
+			if isHistory {
+				tvUI.running.followHistory = true
+			} else {
+				tvUI.running.followReasoning = true
+			}
+		}
 		tvUI.focusedFrame.MoveEnd()
 		return false, true
 	case 'c':
@@ -376,9 +433,8 @@ func (tvUI *threadViewUI) processThreadViewKey(
 			tvUI.clearInputDraft()
 			state := tvUI.running.state
 			blocks := threadViewDisplayBlocks(tvUI.thread, prompt)
-			tvUI.setHistoryFrameFromBlocks(blocks, state.ContentSoFar())
-			tvUI.inputFrame.ResetInput()
-			tvUI.inputFrame.EnsureCursorVisible()
+			tvUI.setHistoryFrameFromBlocks(blocks, state.ContentSoFar(), tvUI.running.followHistory)
+			tvUI.setInputFrameFromReasoning(state.ReasoningSoFar(), tvUI.running.followReasoning)
 			// Do not block waiting for completion; the UI loop will
 			// continue processing async events and the user can detach.
 		}

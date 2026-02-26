@@ -33,7 +33,15 @@ type threadViewAsyncChatState struct {
 	resultCh   <-chan threads.RunningThreadResult
 	approvalCh <-chan threads.AsyncApprovalRequest
 
-	lastContentLen int
+	lastContentLen   int
+	lastReasoningLen int
+
+	// followHistory controls whether the history pane auto-scrolls to the end as
+	// new content is appended during a running thread.
+	followHistory bool
+	// followReasoning controls whether the input/reasoning pane auto-scrolls to
+	// the end as new reasoning content is appended during a running thread.
+	followReasoning bool
 
 	startedAt     time.Time
 	stepStartedAt time.Time
@@ -118,6 +126,9 @@ func (tvUI *threadViewUI) setRunningState(state *threads.RunningThreadState) {
 	tvUI.running.resultCh = state.Result
 	tvUI.running.approvalCh = state.ApprovalRequests
 	tvUI.running.lastContentLen = -1
+	tvUI.running.lastReasoningLen = -1
+	tvUI.running.followHistory = true
+	tvUI.running.followReasoning = true
 	tvUI.running.startedAt = now
 	tvUI.running.stepStartedAt = now
 	tvUI.running.lastStatusUpdate = now
@@ -211,16 +222,24 @@ func (tvUI *threadViewUI) processAsyncChat(ctx context.Context) bool {
 	content := state.ContentSoFar()
 	if len(content) != tvUI.running.lastContentLen {
 		blocks := threadViewDisplayBlocks(tvUI.thread, state.Prompt)
-		tvUI.setHistoryFrameFromBlocks(blocks, content)
+		tvUI.setHistoryFrameFromBlocks(blocks, content, tvUI.running.followHistory)
 		tvUI.running.lastContentLen = len(content)
 		contentRedraw = true
+	}
+
+	reasoningRedraw := false
+	reasoning := state.ReasoningSoFar()
+	if len(reasoning) != tvUI.running.lastReasoningLen {
+		tvUI.setInputFrameFromReasoning(reasoning, tvUI.running.followReasoning)
+		tvUI.running.lastReasoningLen = len(reasoning)
+		reasoningRedraw = true
 	}
 	_, stepRedraw := tvUI.processAsyncChatEvents(ctx)
 
 	// Keep status durations ticking even if no new progress events arrive.
 	statusRedraw := tvUI.tickStatus()
 
-	return (contentRedraw || statusRedraw || stepRedraw)
+	return (contentRedraw || reasoningRedraw || statusRedraw || stepRedraw)
 }
 
 // processAsyncChatEvents drains any currently-available async events
@@ -273,7 +292,8 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 					tvUI.clearRunningState()
 					if tvUI.retryAsyncChat(ctx, prompt) {
 						blocks := threadViewDisplayBlocks(tvUI.thread, prompt)
-						tvUI.setHistoryFrameFromBlocks(blocks, "")
+						tvUI.setHistoryFrameFromBlocks(blocks, "", tvUI.running.followHistory)
+						tvUI.setInputFrameFromReasoning("", tvUI.running.followReasoning)
 						needRedraw = true
 						return false, true
 					}
@@ -283,6 +303,8 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 				// User declined retry (or retry failed to start): clear the pending
 				// prompt and return to idle.
 				tvUI.setHistoryFrameForThread()
+				tvUI.inputFrame.ResetInput()
+				tvUI.inputFrame.EnsureCursorVisible()
 				needRedraw = true
 				tvUI.clearRunningState()
 				return true, true
@@ -291,6 +313,8 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 			// Success: the thread is now persisted, so rebuild from the thread's
 			// current dialogue.
 			tvUI.setHistoryFrameForThread()
+			tvUI.inputFrame.ResetInput()
+			tvUI.inputFrame.EnsureCursorVisible()
 			needRedraw = true
 			tvUI.clearRunningState()
 			return true, true

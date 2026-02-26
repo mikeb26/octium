@@ -11,6 +11,7 @@ import (
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/mikeb26/octium/internal/ui"
+	"github.com/negrel/assert"
 	gc "github.com/rthornton128/goncurses"
 )
 
@@ -147,7 +148,12 @@ func buildHistoryLinesForThread(cliCtx *CliContext, thread threads.Thread,
 func (tvUI *threadViewUI) setHistoryFrameFromBlocks(
 	blocks []threads.RenderBlock,
 	extraAssistantText string,
+	follow bool,
 ) {
+	assert.NotNil(tvUI.historyFrame, "nil history frame setting history")
+
+	cursorLine, cursorCol := tvUI.historyFrame.Cursor()
+
 	fullBlocks := append([]threads.RenderBlock(nil), blocks...)
 	if extraAssistantText != "" {
 		extraBlocks := threads.RenderBlocksFromDialogue([]*types.ThreadMessage{{
@@ -159,7 +165,21 @@ func (tvUI *threadViewUI) setHistoryFrameFromBlocks(
 	_, maxX := tvUI.cliCtx.rootWin.MaxYX()
 	lines := buildHistoryLines(tvUI.cliCtx, fullBlocks, maxX)
 	tvUI.historyFrame.SetLines(lines)
-	tvUI.historyFrame.MoveEnd()
+	if follow {
+		tvUI.historyFrame.MoveEnd()
+		return
+	}
+
+	// Restore cursor position best-effort.
+	// Clamp by letting EnsureCursorVisible fix bounds.
+	tvUI.historyFrame.MoveHome()
+	for i := 0; i < cursorLine; i++ {
+		tvUI.historyFrame.MoveCursorDown()
+	}
+	for i := 0; i < cursorCol; i++ {
+		tvUI.historyFrame.MoveCursorRight()
+	}
+	tvUI.historyFrame.EnsureCursorVisible()
 }
 
 func (tvUI *threadViewUI) setHistoryFrameForThread() {
@@ -180,7 +200,7 @@ func (tvUI *threadViewUI) syncHistoryFrameWithCurrentThreadState() {
 		state := tvUI.running.state
 		blocks := threadViewDisplayBlocks(tvUI.thread, state.Prompt)
 		content := state.ContentSoFar()
-		tvUI.setHistoryFrameFromBlocks(blocks, content)
+		tvUI.setHistoryFrameFromBlocks(blocks, content, tvUI.running.followHistory)
 		// Keep async refresh bookkeeping consistent with what we've rendered.
 		tvUI.running.lastContentLen = len(content)
 		return

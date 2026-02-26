@@ -6,6 +6,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"github.com/mikeb26/octium/internal/ui"
@@ -175,4 +176,44 @@ func (tvUI *threadViewUI) clearInputDraft() {
 	tvUI.inputDraft = ""
 	tvUI.inputDraftCursorLine = 0
 	tvUI.inputDraftCursorCol = 0
+}
+
+// setInputFrameFromReasoning replaces the input frame's buffer with the current
+// reasoning content. This is used while a thread is running to show streamed
+// reasoning output in the input pane.
+//
+// When follow is true, the cursor/viewport is pinned to the end as new content
+// arrives. When false, the caller's current cursor/scroll position is preserved
+// best-effort so the user can scroll through prior reasoning.
+func (tvUI *threadViewUI) setInputFrameFromReasoning(reasoning string, follow bool) {
+	assert.NotNil(tvUI.inputFrame, "null input frame when setting for reasoning")
+
+	cursorLine, cursorCol := tvUI.inputFrame.Cursor()
+
+	parts := strings.Split(reasoning, "\n")
+	if len(parts) == 0 {
+		parts = []string{""}
+	}
+	lines := make([]ui.FrameLine, 0, len(parts))
+	for _, part := range parts {
+		lines = append(lines, ui.FrameLine{Runes: []rune(part), Attr: gc.A_NORMAL})
+	}
+	// Replace the frame content. We intentionally do not use ResetInput here so
+	// that the frame behaves like a read-only scrollable pane while running.
+	tvUI.inputFrame.SetLines(lines)
+
+	if follow {
+		tvUI.inputFrame.MoveEnd()
+		return
+	}
+
+	// Restore prior cursor position best-effort.
+	tvUI.inputFrame.MoveHome()
+	for i := 0; i < cursorLine; i++ {
+		tvUI.inputFrame.MoveCursorDown()
+	}
+	for i := 0; i < cursorCol; i++ {
+		tvUI.inputFrame.MoveCursorRight()
+	}
+	tvUI.inputFrame.EnsureCursorVisible()
 }
