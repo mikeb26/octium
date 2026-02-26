@@ -228,11 +228,13 @@ func (tvUI *threadViewUI) processAsyncChat(ctx context.Context) bool {
 	}
 
 	reasoningRedraw := false
-	reasoning := state.ReasoningSoFar()
-	if len(reasoning) != tvUI.running.lastReasoningLen {
-		tvUI.setInputFrameFromReasoning(reasoning, tvUI.running.followReasoning)
-		tvUI.running.lastReasoningLen = len(reasoning)
-		reasoningRedraw = true
+	if tvUI.cliCtx.prefs.ShowReasoningInInput {
+		reasoning := state.ReasoningSoFar()
+		if len(reasoning) != tvUI.running.lastReasoningLen {
+			tvUI.setInputFrameFromReasoning(reasoning, tvUI.running.followReasoning)
+			tvUI.running.lastReasoningLen = len(reasoning)
+			reasoningRedraw = true
+		}
 	}
 	_, stepRedraw := tvUI.processAsyncChatEvents(ctx)
 
@@ -293,7 +295,9 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 					if tvUI.retryAsyncChat(ctx, prompt) {
 						blocks := threadViewDisplayBlocks(tvUI.thread, prompt)
 						tvUI.setHistoryFrameFromBlocks(blocks, "", tvUI.running.followHistory)
-						tvUI.setInputFrameFromReasoning("", tvUI.running.followReasoning)
+						if tvUI.cliCtx.prefs.ShowReasoningInInput {
+							tvUI.setInputFrameFromReasoning("", tvUI.running.followReasoning)
+						}
 						needRedraw = true
 						return false, true
 					}
@@ -303,7 +307,9 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 				// User declined retry (or retry failed to start): clear the pending
 				// prompt and return to idle.
 				tvUI.setHistoryFrameForThread()
-				tvUI.inputFrame.ResetInput()
+				if tvUI.cliCtx.prefs.ShowReasoningInInput {
+					tvUI.inputFrame.ResetInput()
+				}
 				tvUI.inputFrame.EnsureCursorVisible()
 				needRedraw = true
 				tvUI.clearRunningState()
@@ -313,7 +319,9 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 			// Success: the thread is now persisted, so rebuild from the thread's
 			// current dialogue.
 			tvUI.setHistoryFrameForThread()
-			tvUI.inputFrame.ResetInput()
+			if tvUI.cliCtx.prefs.ShowReasoningInInput {
+				tvUI.inputFrame.ResetInput()
+			}
 			tvUI.inputFrame.EnsureCursorVisible()
 			needRedraw = true
 			tvUI.clearRunningState()

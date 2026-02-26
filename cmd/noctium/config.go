@@ -63,13 +63,14 @@ func (octiumCtx *CliContext) loadPrefs() error {
 	// Establish defaults so newly added prefs fields take the intended defaults
 	// even when loading older prefs.json files that don't include them.
 	octiumCtx.prefs = Prefs{
-		SummarizePrior: false,
-		Vendor:         vendor,
-		Model:          model,
-		Reasoning:      types.ReasoningEffortMedium.String(),
-		RunCmdApproval: false,
-		EnableAuditLog: true,
-		WrapMode:       defaultWrapMode.String(),
+		SummarizePrior:       false,
+		Vendor:               vendor,
+		Model:                model,
+		Reasoning:            types.ReasoningEffortMedium.String(),
+		ShowReasoningInInput: false,
+		RunCmdApproval:       false,
+		EnableAuditLog:       true,
+		WrapMode:             defaultWrapMode.String(),
 	}
 
 	filePath, err := getPrefsPath()
@@ -281,6 +282,7 @@ func configPreferences(cliCtx *CliContext) error {
 		choices := []types.UIOption{
 			{Key: "sum", Label: fmt.Sprintf("Summarize dialogue when continuing threads [%s]", onOff(cliCtx.prefs.SummarizePrior))},
 			{Key: "reason", Label: fmt.Sprintf("Reasoning effort (low/medium/high) [%s]", cliCtx.prefs.Reasoning)},
+			{Key: "reasonInput", Label: fmt.Sprintf("Show reasoning in input pane while running [%s]", onOff(cliCtx.prefs.ShowReasoningInInput))},
 			{Key: "wrap", Label: fmt.Sprintf("Text wrapping in frames [%s]", cliCtx.prefs.WrapMode)},
 			{Key: "back", Label: "Back"},
 		}
@@ -328,6 +330,19 @@ func configPreferences(cliCtx *CliContext) error {
 			if cliCtx.llmClient != nil {
 				cliCtx.llmClient.SetReasoning(types.ReasoningEffort(sel.Key))
 			}
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "reasonInput":
+			prompt := "Show reasoning content in the input pane while a thread is running?\n\nNote: Currently for most models the delay before reasoning text is returned makes this mostly unhelpful, hence the default of No."
+			trueOpt := types.UIOption{Key: "y", Label: "Yes"}
+			falseOpt := types.UIOption{Key: "n", Label: "No"}
+			defaultVal := cliCtx.prefs.ShowReasoningInInput
+			show, err := cliCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultVal)
+			if err != nil {
+				return err
+			}
+			cliCtx.prefs.ShowReasoningInInput = show
 			if err := cliCtx.savePrefs(); err != nil {
 				return err
 			}

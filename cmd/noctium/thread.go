@@ -451,7 +451,14 @@ func (tvUI *threadViewUI) processThreadViewKey(
 			state := tvUI.running.state
 			blocks := threadViewDisplayBlocks(tvUI.thread, prompt)
 			tvUI.setHistoryFrameFromBlocks(blocks, state.ContentSoFar(), tvUI.running.followHistory)
-			tvUI.setInputFrameFromReasoning(state.ReasoningSoFar(), tvUI.running.followReasoning)
+			if tvUI.cliCtx.prefs.ShowReasoningInInput {
+				tvUI.setInputFrameFromReasoning(state.ReasoningSoFar(), tvUI.running.followReasoning)
+			} else {
+				// Preserve the historical behavior: once a prompt is sent, clear the
+				// input pane while the thread is running.
+				tvUI.inputFrame.ResetInput()
+				tvUI.inputFrame.EnsureCursorVisible()
+			}
 			// Do not block waiting for completion; the UI loop will
 			// continue processing async events and the user can detach.
 		}

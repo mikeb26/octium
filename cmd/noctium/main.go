@@ -45,9 +45,13 @@ type Prefs struct {
 	Vendor         string `json:"vendor"`
 	Model          string `json:"model"`
 	Reasoning      string `json:"reasoning_effort"`
-	RunCmdApproval bool   `json:"run_cmd_approval"`
-	EnableAuditLog bool   `json:"enable_audit_log"`
-	WrapMode       string `json:"wrap_mode"`
+	// ShowReasoningInInput controls whether reasoning content (if provided by the
+	// active model/vendor) is displayed in the thread input pane while a thread is
+	// running.
+	ShowReasoningInInput bool   `json:"show_reasoning_in_input"`
+	RunCmdApproval       bool   `json:"run_cmd_approval"`
+	EnableAuditLog       bool   `json:"enable_audit_log"`
+	WrapMode             string `json:"wrap_mode"`
 }
 
 type Toggles struct {
@@ -97,12 +101,13 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 			useColors:  false,
 		},
 		prefs: Prefs{
-			SummarizePrior: false,
-			Vendor:         internal.DefaultVendor,
-			Model:          model,
-			Reasoning:      types.ReasoningEffortMedium.String(),
-			RunCmdApproval: false,
-			EnableAuditLog: true,
+			SummarizePrior:       false,
+			Vendor:               internal.DefaultVendor,
+			Model:                model,
+			Reasoning:            types.ReasoningEffortMedium.String(),
+			ShowReasoningInInput: false,
+			RunCmdApproval:       false,
+			EnableAuditLog:       true,
 		},
 		threadGroupSet: nil,
 		threadViews:    make(map[string]*threadViewUI),
