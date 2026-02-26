@@ -145,8 +145,10 @@ func (running *threadViewAsyncChatState) formatStatusSuffix(now time.Time) strin
 	}
 
 	totalSec := int(now.Sub(running.startedAt).Seconds())
-	return fmt.Sprintf("[totaltime:%v requests:%v toolcalls:%v] ",
-		formatSecondsMinSec(totalSec), running.requestCount, running.toolCalls)
+	return fmt.Sprintf("[time:%v req:%v tools:%v] ",
+		formatSecondsMinSec(totalSec),
+		running.requestCount,
+		running.toolCalls)
 }
 
 func (running *threadViewAsyncChatState) formatStatus(now time.Time) string {

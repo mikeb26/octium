@@ -48,6 +48,17 @@ type RunningThreadState struct {
 	// contentSoFarBuf accumulates the streamed content so far so that background
 	// runs can continue even when no UI is actively consuming progress events.
 	contentSoFarBuf []byte
+	// reasoningSoFarBuf accumulates the streamed reasoning content so far.
+	reasoningSoFarBuf []byte
+	// promptTokens holds the most recently observed prompt token count for this
+	// invocation.
+	promptTokens int
+	// completionTokens holds the most recently observed completion token count for
+	// this invocation.
+	completionTokens int
+	// reasoningTokens holds the most recently observed reasoning token count for
+	// this invocation.
+	reasoningTokens int
 }
 
 // ContentSoFar returns the accumulated content so far.
@@ -59,9 +70,62 @@ func (s *RunningThreadState) ContentSoFar() string {
 	return string(s.contentSoFarBuf)
 }
 
+// ReasoningSoFar returns the accumulated reasoning content so far.
+//
+// This is safe to call concurrently with the background streaming goroutine.
+func (s *RunningThreadState) ReasoningSoFar() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return string(s.reasoningSoFarBuf)
+}
+
 func (s *RunningThreadState) appendContentSoFar(delta string) {
 	s.mu.Lock()
 	s.contentSoFarBuf = append(s.contentSoFarBuf, delta...)
+	s.mu.Unlock()
+}
+
+func (s *RunningThreadState) appendReasoningSoFar(delta string) {
+	s.mu.Lock()
+	s.reasoningSoFarBuf = append(s.reasoningSoFarBuf, delta...)
+	s.mu.Unlock()
+}
+
+func (s *RunningThreadState) setReasoningTokens(tokens int) {
+	if tokens <= 0 {
+		return
+	}
+
+	s.mu.Lock()
+	// Some adapters may emit usage multiple times; treat this as a best-effort
+	// "latest/max seen" value so we avoid double-counting.
+	if tokens > s.reasoningTokens {
+		s.reasoningTokens = tokens
+	}
+	s.mu.Unlock()
+}
+
+func (s *RunningThreadState) setPromptTokens(tokens int) {
+	if tokens <= 0 {
+		return
+	}
+
+	s.mu.Lock()
+	if tokens > s.promptTokens {
+		s.promptTokens = tokens
+	}
+	s.mu.Unlock()
+}
+
+func (s *RunningThreadState) setCompletionTokens(tokens int) {
+	if tokens <= 0 {
+		return
+	}
+
+	s.mu.Lock()
+	if tokens > s.completionTokens {
+		s.completionTokens = tokens
+	}
 	s.mu.Unlock()
 }
 
@@ -228,11 +292,18 @@ func runChatOnceAsync(
 			continue
 		}
 		state.appendContentSoFar(msg.Content)
+		state.appendReasoningSoFar(msg.ReasoningContent)
+		if msg.ResponseMeta != nil && msg.ResponseMeta.Usage != nil {
+			state.setPromptTokens(msg.ResponseMeta.Usage.PromptTokens)
+			state.setCompletionTokens(msg.ResponseMeta.Usage.CompletionTokens)
+			state.setReasoningTokens(msg.ResponseMeta.Usage.CompletionTokensDetails.ReasoningTokens)
+		}
 	}
 
 	replyMsg := &types.ThreadMessage{
-		Role:    types.LlmRoleAssistant,
-		Content: state.ContentSoFar(),
+		Role:             types.LlmRoleAssistant,
+		Content:          state.ContentSoFar(),
+		ReasoningContent: state.ReasoningSoFar(),
 	}
 	finalDialogue := append(fullDialogue, replyMsg)
 	if err := finalizeChatOnce(thread, finalDialogue); err != nil {
