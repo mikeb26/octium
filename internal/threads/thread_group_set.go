@@ -47,6 +47,22 @@ type ThreadGroupSet struct {
 	mu sync.RWMutex
 }
 
+// ResetLLMClients marks all threads in the set for lazy per-thread llmClient
+// reinitialization.
+//
+// This is intended to be called when the user changes global LLM settings
+// (vendor/model/key/audit). We do not disrupt any currently running or blocked
+// thread; instead, the next time a thread transitions from idle->running, it
+// will recreate its per-thread llmClient and async approver.
+func (tgs *ThreadGroupSet) ResetLLMClients() {
+	tgs.mu.RLock()
+	defer tgs.mu.RUnlock()
+
+	for _, tg := range tgs.threadGrps {
+		tg.resetLLMClients()
+	}
+}
+
 func NewThreadGroupSet(dirIn string, thrGroupNames []string,
 	afsIn fsatomic.AtomicFS, scmClientIn scm.Client) *ThreadGroupSet {
 

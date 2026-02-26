@@ -33,8 +33,15 @@ func (thr *thread) setRunning(ctx context.Context,
 	thr.persisted.InvocationCount++
 	thr.state = ThreadStateRunning
 
-	// Create the async approver and LLM client per-thread (and only once per
-	// thread).
+	// Create the async approver and LLM client per-thread.
+	if thr.needLLMReinit {
+		if thr.asyncApprover != nil {
+			thr.asyncApprover.Close()
+		}
+		thr.asyncApprover = nil
+		thr.llmClient = nil
+		thr.needLLMReinit = false
+	}
 	if thr.asyncApprover == nil {
 		thr.asyncApprover = NewAsyncApprover(ictx.ASettings.BaseApprover)
 	}

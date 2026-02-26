@@ -18,6 +18,7 @@ import (
 
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
+	"github.com/mikeb26/octium/internal/llmclient"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/mikeb26/octium/internal/ui"
 )
@@ -211,7 +212,68 @@ done:
 		// Not configured enough to load the full runtime (no API key).
 		return nil
 	}
-	return octiumCtx.load(ctx)
+
+	// If we already have a live runtime (ictx/proxy/threads), prefer an in-place
+	// update of LLM settings rather than a full reload.
+	//
+	// Full reloads can fail when there are non-idle threads (running/blocked), and
+	// can also restart long-lived components like the HTTP proxy.
+	if octiumCtx.ictx == nil || octiumCtx.toggles.needConfig {
+		return octiumCtx.load(ctx)
+	}
+	return octiumCtx.reloadLLMSettingsFromPrefs(ctx)
+}
+
+// reloadLLMSettingsFromPrefs applies the current prefs.json LLM-related settings
+// (vendor/model/key/audit-log) to the live runtime without reloading threads
+// from disk or restarting long-lived services.
+//
+// It recreates the CLI's fast 1-shot llmClient and clears per-thread cached
+// llmclients so the next invocation in any thread uses the updated vendor/model.
+func (cliCtx *CliContext) reloadLLMSettingsFromPrefs(ctx context.Context) error {
+	if cliCtx.ictx == nil {
+		return nil
+	}
+
+	keyText, err := loadKey(cliCtx.prefs.Vendor)
+	if err != nil {
+		return err
+	}
+
+	auditLogPath := ""
+	if cliCtx.prefs.EnableAuditLog {
+		auditLogsDir, err := getLogsDir()
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(auditLogsDir, 0700); err != nil {
+			return fmt.Errorf("%w %v: %w", ErrCouldNotCreateLogsDir, auditLogsDir, err)
+		}
+		auditLogPath, err = getAuditLogPath()
+		if err != nil {
+			return err
+		}
+	}
+
+	cliCtx.ictx.LlmSettings.Vendor = cliCtx.prefs.Vendor
+	cliCtx.ictx.LlmSettings.Model = cliCtx.prefs.Model
+	cliCtx.ictx.LlmSettings.ApiKey = keyText
+	cliCtx.ictx.LlmSettings.AuditLogPath = auditLogPath
+	cliCtx.ictx.LlmSettings.ReasoningEffort = types.ReasoningEffort(cliCtx.prefs.Reasoning)
+
+	// Rebuild the non-persistent quick client so 1-shot flows pick up the new
+	// vendor/model immediately.
+	approver := cliCtx.ictx.ASettings.BaseApprover
+	cliCtx.llmClient = llmclient.NewEINOClient(ctx, cliCtx.ictx, approver, 0)
+	cliCtx.llmClient.SetReasoning(types.ReasoningEffortLow)
+
+	// Drop any cached per-thread clients so subsequent runs use the updated
+	// vendor/model/key/audit settings.
+	if cliCtx.threadGroupSet != nil {
+		cliCtx.threadGroupSet.ResetLLMClients()
+	}
+
+	return nil
 }
 
 func configPreferences(cliCtx *CliContext) error {

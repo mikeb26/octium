@@ -89,6 +89,13 @@ type thread struct {
 
 	// llmClient is created per-thread (and may be recreated as needed).
 	llmClient aiclient.AIClient
+	// needLLMReinit marks that this thread should recreate its per-thread
+	// llmClient/approver on the next invocation.
+	//
+	// This is set when global LLM settings are changed (vendor/model/api-key/
+	// audit-log), but we intentionally do not disrupt any currently running or
+	// blocked invocation.
+	needLLMReinit bool
 	// asyncApprover is per-thread and is used to route approvals back to the UI
 	// goroutine servicing this thread.
 	asyncApprover *AsyncApprover

@@ -30,6 +30,20 @@ type ThreadGroup struct {
 	parent     *ThreadGroupSet
 }
 
+func (thrGrp *ThreadGroup) resetLLMClients() {
+	thrGrp.mu.RLock()
+	defer thrGrp.mu.RUnlock()
+
+	for _, thr := range thrGrp.threads {
+		if thr == nil {
+			continue
+		}
+		thr.mu.Lock()
+		thr.needLLMReinit = true
+		thr.mu.Unlock()
+	}
+}
+
 func newThreadGroup(parentIn *ThreadGroupSet, nameIn string,
 	dirIn string) *ThreadGroup {
 
