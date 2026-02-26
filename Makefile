@@ -96,6 +96,7 @@ PKG_RENDERED_FILES := \
 	pkg/deb/debian/changelog \
 	pkg/deb/debian/octium.install \
 	pkg/deb/debian/octium.postinst \
+	pkg/deb/debian/octium.postrm \
 	pkg/deb/debian/rules \
 	pkg/deb/debian/README.Debian \
 	pkg/README.md \
@@ -116,6 +117,7 @@ $(PKG_COMMON_GITCONFIG_OUT): pkg/common/share/gitconfig.in
 pkg/deb/debian/changelog: pkg/deb/debian/changelog.in cmd/$(NCLI_TOOL_NAME)/version.txt
 pkg/deb/debian/octium.install: pkg/deb/debian/octium.install.in
 pkg/deb/debian/octium.postinst: pkg/deb/debian/octium.postinst.in
+pkg/deb/debian/octium.postrm: pkg/deb/debian/octium.postrm.in
 pkg/deb/debian/rules: pkg/deb/debian/rules.in
 pkg/deb/debian/README.Debian: pkg/deb/debian/README.Debian.in
 pkg/README.md: pkg/README.md.in
@@ -128,6 +130,10 @@ $(PKG_RENDERED_FILES):
 		-e 's|@CLI_DEB_VERSION@|$(CLI_DEB_VERSION)|g' \
 		"$<" > "$@"
 	@chmod --reference="$<" "$@"
+	@case "$@" in \
+		pkg/common/libexec/*-postinstall-common.sh|pkg/common/libexec/*-provision-user|pkg/deb/debian/*.postinst|pkg/deb/debian/*.postrm) \
+			chmod 0755 "$@" ;; \
+		esac
 
 .PHONY: clean
 clean:

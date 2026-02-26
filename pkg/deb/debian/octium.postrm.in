@@ -1,0 +1,130 @@
+#!/bin/sh
+set -e
+
+# Debian maintainer script.
+#
+# Best practice:
+# - On remove: remove sudoers drop-ins and wrapper scripts (to avoid stale sudo
+#   config / missing-command warnings), but keep accounts and home dirs.
+# - On purge: additionally delete provisioned sandbox users, groups, and homes.
+
+log() {
+	echo "@CLI_TOOL_NAME@: $*" >&2
+}
+
+list_existing_sandbox_users() {
+	# Output one sandbox username per line.
+	# Best-effort: prefer getent, fall back to /etc/passwd.
+	if command -v getent >/dev/null 2>&1; then
+		getent passwd 2>/dev/null | cut -d: -f1
+		return 0
+	fi
+	if [ -r /etc/passwd ]; then
+		cut -d: -f1 /etc/passwd
+		return 0
+	fi
+	return 1
+}
+
+remove_sudoers_dropin_and_wrapper_for_sandbox_user() {
+	sandbox_user="$1"
+	shared_group="${sandbox_user}-shared"
+	dropin="/etc/sudoers.d/${shared_group}-${sandbox_user}-echo"
+	wrapper="/usr/libexec/@CLI_TOOL_NAME@/run-as-${sandbox_user}"
+
+	rm -f "$dropin" 2>/dev/null || true
+	rm -f "$wrapper" 2>/dev/null || true
+}
+
+remove_user_from_group_best_effort() {
+	u="$1"
+	g="$2"
+
+	if ! id "$u" >/dev/null 2>&1; then
+		return 0
+	fi
+	if ! getent group "$g" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	# Try common tools across distros.
+	if command -v deluser >/dev/null 2>&1; then
+		deluser "$u" "$g" >/dev/null 2>&1 || true
+		return 0
+	fi
+	if command -v gpasswd >/dev/null 2>&1; then
+		gpasswd -d "$u" "$g" >/dev/null 2>&1 || true
+		return 0
+	fi
+}
+
+purge_sandbox_user_and_groups() {
+	sandbox_user="$1"
+	end_user="$2"
+
+	sandbox_group="$sandbox_user"
+	shared_group="${sandbox_user}-shared"
+	home="/home/${sandbox_user}"
+
+	# Remove group memberships before deleting groups (best-effort).
+	remove_user_from_group_best_effort "$end_user" "$shared_group"
+	remove_user_from_group_best_effort "$sandbox_user" "$shared_group"
+
+	# Delete the sandbox user and its home directory.
+	if id "$sandbox_user" >/dev/null 2>&1; then
+		if command -v userdel >/dev/null 2>&1; then
+			userdel -r "$sandbox_user" >/dev/null 2>&1 || userdel "$sandbox_user" >/dev/null 2>&1 || true
+		fi
+	fi
+
+	# Ensure home dir removal even if userdel -r didn't.
+	case "$home" in
+		"/home/@CLI_TOOL_NAME@-"* )
+			rm -rf "$home" 2>/dev/null || true
+			;;
+	esac
+
+	# Delete groups.
+	if command -v groupdel >/dev/null 2>&1; then
+		if getent group "$shared_group" >/dev/null 2>&1; then
+			groupdel "$shared_group" >/dev/null 2>&1 || true
+		fi
+		if getent group "$sandbox_group" >/dev/null 2>&1; then
+			groupdel "$sandbox_group" >/dev/null 2>&1 || true
+		fi
+	fi
+}
+
+main() {
+	case "${1:-}" in
+		remove|purge) ;;
+		*)
+			exit 0
+			;;
+	esac
+
+	users="$(list_existing_sandbox_users 2>/dev/null || true)"
+	if [ -z "${users}" ]; then
+		exit 0
+	fi
+
+	echo "$users" | while IFS= read -r sandbox_user; do
+		case "$sandbox_user" in
+			@CLI_TOOL_NAME@-*) ;;
+			*) continue ;;
+		esac
+
+		remove_sudoers_dropin_and_wrapper_for_sandbox_user "$sandbox_user"
+
+		if [ "${1}" = "purge" ]; then
+			end_user="${sandbox_user#@CLI_TOOL_NAME@-}"
+			if [ -z "${end_user}" ]; then
+				log "unexpected empty end user for sandbox '${sandbox_user}'; skipping purge for this user"
+				continue
+			fi
+			purge_sandbox_user_and_groups "$sandbox_user" "$end_user"
+		fi
+	done
+}
+
+main "$@"
