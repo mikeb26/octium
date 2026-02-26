@@ -58,8 +58,40 @@ type persistedThread struct {
 	AccessTime      time.Time              `json:"atime"`
 	ModTime         time.Time              `json:"mtime"`
 	Dialogue        []*types.ThreadMessage `json:"dialogue"`
+	Metrics         ThreadMetrics          `json:"metrics,omitempty"`
 	Id              string                 `json:"id3"`
 	InvocationCount int                    `json:"inv_count"`
+}
+
+// ThreadMetrics are persisted per thread and accumulate over time.
+//
+// These are best-effort metrics; not all model adapters populate token usage.
+type ThreadMetrics struct {
+	TokenUsage TokenUsageMetrics `json:"token_usage,omitempty"`
+}
+
+// TokenUsageMetrics accumulates token usage across successful chat invocations.
+type TokenUsageMetrics struct {
+	Chats            int `json:"chats"`
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
+	CompletionTokens int `json:"completion_tokens,omitempty"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
+	ReasoningTokens  int `json:"reasoning_tokens,omitempty"`
+}
+
+type tokenUsageSnapshot struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+	ReasoningTokens  int
+}
+
+func (m *TokenUsageMetrics) addInvocation(u tokenUsageSnapshot) {
+	m.Chats++
+	m.PromptTokens += u.PromptTokens
+	m.CompletionTokens += u.CompletionTokens
+	m.TotalTokens += u.TotalTokens
+	m.ReasoningTokens += u.ReasoningTokens
 }
 
 type Thread interface {

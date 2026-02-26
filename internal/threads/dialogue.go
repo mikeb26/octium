@@ -63,12 +63,15 @@ func (thr *thread) setRunning(ctx context.Context,
 }
 
 func finalizeChatOnce(thread *thread,
-	fullDialogue []*types.ThreadMessage) error {
+	fullDialogue []*types.ThreadMessage,
+	state *RunningThreadState,
+) error {
 
 	thread.mu.Lock()
 	defer thread.mu.Unlock()
 
 	thread.persisted.Dialogue = fullDialogue
+	thread.persisted.Metrics.TokenUsage.addInvocation(invocationTokenUsage(state))
 	thread.persisted.ModTime = time.Now()
 	thread.state = ThreadStateIdle
 	thread.runState = nil
@@ -78,6 +81,29 @@ func finalizeChatOnce(thread *thread,
 	}
 
 	return nil
+}
+
+func invocationTokenUsage(state *RunningThreadState) tokenUsageSnapshot {
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+
+	// State tracks "latest/max seen" counts; treat them as final best-effort.
+	prompt := state.promptTokens
+	completion := state.completionTokens
+	reasoning := state.reasoningTokens
+
+	// Total is not currently tracked directly by RunningThreadState.
+	total := 0
+	if prompt > 0 || completion > 0 {
+		total = prompt + completion
+	}
+
+	return tokenUsageSnapshot{
+		PromptTokens:     prompt,
+		CompletionTokens: completion,
+		TotalTokens:      total,
+		ReasoningTokens:  reasoning,
+	}
 }
 
 // abortChatOnce resets a thread back to idle after a failed in-flight chat.

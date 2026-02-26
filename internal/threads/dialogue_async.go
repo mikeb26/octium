@@ -306,7 +306,7 @@ func runChatOnceAsync(
 		ReasoningContent: state.ReasoningSoFar(),
 	}
 	finalDialogue := append(fullDialogue, replyMsg)
-	if err := finalizeChatOnce(thread, finalDialogue); err != nil {
+	if err := finalizeChatOnce(thread, finalDialogue, state); err != nil {
 		abortChatOnce(thread)
 		resultCh <- RunningThreadResult{Reply: nil, Err: err}
 		return

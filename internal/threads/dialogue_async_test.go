@@ -61,7 +61,7 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 	sr, sw := schema.Pipe[*types.ThreadMessage](8)
 	// Simulate streaming chunks.
 	sw.Send(&types.ThreadMessage{Role: types.LlmRoleAssistant, Content: "Hello "}, nil)
-	sw.Send(&types.ThreadMessage{Role: types.LlmRoleAssistant, Content: "world"}, nil)
+	sw.Send(&types.ThreadMessage{Role: types.LlmRoleAssistant, Content: "world", ResponseMeta: &schema.ResponseMeta{Usage: &schema.TokenUsage{PromptTokens: 10, CompletionTokens: 5}}}, nil)
 	sw.Close()
 
 	// Expect the stream call. Validate we at least get system+user messages.
@@ -112,6 +112,14 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 		assert.Equal(t, types.LlmRoleAssistant, d[1].Role)
 		assert.Equal(t, "Hello world", d[1].Content)
 	}
+
+	// Metrics should be accumulated/persisted on the thread.
+	thrImpl.mu.RLock()
+	defer thrImpl.mu.RUnlock()
+	assert.Equal(t, 1, thrImpl.persisted.Metrics.TokenUsage.Chats)
+	assert.Equal(t, 10, thrImpl.persisted.Metrics.TokenUsage.PromptTokens)
+	assert.Equal(t, 5, thrImpl.persisted.Metrics.TokenUsage.CompletionTokens)
+	assert.Equal(t, 15, thrImpl.persisted.Metrics.TokenUsage.TotalTokens)
 }
 
 func TestChatOnceAsyncRequiresSystemMessage(t *testing.T) {
