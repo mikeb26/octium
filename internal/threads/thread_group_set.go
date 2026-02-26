@@ -210,7 +210,8 @@ func (tgs *ThreadGroupSet) reconcileThreadNumFromLoadedThreads(ctx context.Conte
 			}
 			_, ok := found[n]
 			if ok {
-				panic("duplicate thread id")
+				panic(fmt.Sprintf("Thread id %v in both %v and %v", n,
+					found[n].name, tg.name))
 			}
 			found[n] = tg
 			if n > maxID {
