@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/threads"
 	gc "github.com/rthornton128/goncurses"
 )
@@ -92,18 +93,21 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool, thre
 		{text: "ESC", bold: true},
 	}...)
 
-	if thread != nil {
-		m := thread.Metrics()
-		segments = append(segments, []statusSegment{
-			{text: " Tokens:", bold: false},
-			{text: fmt.Sprintf("in:%d", m.TokenUsage.PromptTokens), bold: true},
-			{text: " ", bold: false},
-			{text: fmt.Sprintf("out:%d", m.TokenUsage.CompletionTokens), bold: true},
-		}...)
-	}
-	drawStatusSegments(cliCtx.rootWin, statusY, maxX, segments,
+	// Draw the status segments first; additional metadata (tokens, version)
+	// is rendered into the remaining right-side space when available.
+	x := drawStatusSegments(cliCtx.rootWin, statusY, maxX, segments,
 		cliCtx.toggles.useColors)
 
+	progAndVer := internal.CliToolName + "-" + versionText
+	tail := progAndVer
+	if thread != nil {
+		m := thread.Metrics()
+		tail = fmt.Sprintf("Tokens: in:%d out:%d  %s",
+			m.TokenUsage.PromptTokens,
+			m.TokenUsage.CompletionTokens,
+			progAndVer)
+	}
+	drawStatusTail(cliCtx.rootWin, statusY, maxX, x, cliCtx.toggles.useColors, tail)
 }
 
 func (tvUI *threadViewUI) getFocus() threadViewFocus {

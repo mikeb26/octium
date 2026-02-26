@@ -8,19 +8,17 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/mikeb26/octium/internal/threads"
+	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/ui"
+	gc "github.com/rthornton128/goncurses"
+	"golang.org/x/term"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/mikeb26/octium/internal"
-	"github.com/mikeb26/octium/internal/threads"
-	"github.com/mikeb26/octium/internal/types"
-	"github.com/mikeb26/octium/internal/ui"
-	gc "github.com/rthornton128/goncurses"
-	"golang.org/x/term"
 )
 
 const (
@@ -257,7 +255,9 @@ type statusSegment struct {
 // segments on the given row. It applies a uniform background (reverse
 // video or the menuColorStatus pair) and highlights bold segments using
 // either A_BOLD or the menuColorStatusKey pair when colors are active.
-func drawStatusSegments(scr *gc.Window, y, maxX int, segments []statusSegment, useColors bool) {
+//
+// It returns the x offset immediately after the final rendered segment.
+func drawStatusSegments(scr *gc.Window, y, maxX int, segments []statusSegment, useColors bool) int {
 	var baseAttr gc.Char = gc.A_REVERSE
 	if useColors {
 		baseAttr = gc.ColorPair(menuColorStatus)
@@ -293,6 +293,27 @@ func drawStatusSegments(scr *gc.Window, y, maxX int, segments []statusSegment, u
 		x += len(runes)
 	}
 
+	return x
+}
+
+// drawStatusTail fills the remainder of a status bar row (starting at x)
+// with the base background attributes and, when there is sufficient space,
+// overlays a right-aligned tail string.
+//
+// The tail string is intended for metadata (e.g. program version) that should
+// appear "after" the primary status segments when there is room.
+func drawStatusTail(scr *gc.Window, y, maxX int, x int, useColors bool, tail string) {
+	var baseAttr gc.Char = gc.A_REVERSE
+	if useColors {
+		baseAttr = gc.ColorPair(menuColorStatus)
+	}
+	_ = scr.AttrSet(baseAttr)
+
+	if x >= maxX {
+		_ = scr.TouchLine(y, 1)
+		return
+	}
+
 	// Ensure the remainder of the row keeps the base background attributes.
 	//
 	// Important: simply writing spaces (e.g. mvwaddch(' ')) is often optimized
@@ -302,20 +323,20 @@ func drawStatusSegments(scr *gc.Window, y, maxX int, segments []statusSegment, u
 	// Using clrtoeol after setting the desired attribute forces the remainder of
 	// the line to be repainted/cleared using the current rendition, which keeps
 	// the status bar background stable across incremental redraws.
-	if x < maxX {
-		ii := 0
-		atLeastOnceSpace := false
-		progAndVer := internal.CliToolName + "-" + versionText
-		progStartX := maxX - len(progAndVer)
-		_ = scr.AttrSet(baseAttr)
-		for ; x < maxX; x++ {
-			if atLeastOnceSpace && x >= progStartX {
-				scr.MoveAddChar(y, x, gc.Char(progAndVer[ii])|baseAttr)
-				ii++
-			} else {
-				scr.MoveAddChar(y, x, gc.Char(' ')|baseAttr)
-				atLeastOnceSpace = true
-			}
+	if len(tail) > maxX {
+		tail = tail[len(tail)-maxX:]
+	}
+
+	ii := 0
+	atLeastOnceSpace := false
+	tailStartX := maxX - len(tail)
+	for ; x < maxX; x++ {
+		if ii < len(tail) && atLeastOnceSpace && x >= tailStartX {
+			scr.MoveAddChar(y, x, gc.Char(tail[ii])|baseAttr)
+			ii++
+		} else {
+			scr.MoveAddChar(y, x, gc.Char(' ')|baseAttr)
+			atLeastOnceSpace = true
 		}
 	}
 	_ = scr.TouchLine(y, 1)

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/famz/SetLocale"
+	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/mikeb26/octium/internal/ui"
@@ -260,7 +261,9 @@ func (ui *threadMenuUI) draw() {
 	statusY := maxY - 1
 	if statusY >= 0 {
 		segments := ui.buildMenuStatusSegments(maxX)
-		drawStatusSegments(scr, statusY, maxX, segments, ui.cliCtx.toggles.useColors)
+		x := drawStatusSegments(scr, statusY, maxX, segments, ui.cliCtx.toggles.useColors)
+		progAndVer := internal.CliToolName + "-" + versionText
+		drawStatusTail(scr, statusY, maxX, x, ui.cliCtx.toggles.useColors, progAndVer)
 	}
 
 	_ = scr.AttrSet(gc.A_NORMAL)
