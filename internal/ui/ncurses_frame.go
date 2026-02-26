@@ -76,7 +76,7 @@ type Frame struct {
 	//
 	// Since frames render-time wrap logical lines into potentially multiple
 	// display rows, scroll is tracked in display coordinates.
-	scroll     int
+	scroll int
 }
 
 // SetLines replaces the frame's backing content with the provided

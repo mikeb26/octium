@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 
-	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	gc "github.com/rthornton128/goncurses"
 
 	"github.com/mikeb26/octium/internal"
@@ -24,6 +23,7 @@ import (
 	"github.com/mikeb26/octium/internal/scm/git"
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/types/aiclient"
 	"github.com/mikeb26/octium/internal/ui"
 )
 
@@ -44,6 +44,7 @@ type Prefs struct {
 	SummarizePrior bool   `json:"summarize_prior"`
 	Vendor         string `json:"vendor"`
 	Model          string `json:"model"`
+	Reasoning      string `json:"reasoning_effort"`
 	RunCmdApproval bool   `json:"run_cmd_approval"`
 	EnableAuditLog bool   `json:"enable_audit_log"`
 	WrapMode       string `json:"wrap_mode"`
@@ -70,7 +71,7 @@ type CliContext struct {
 
 	// llmClient for non-persistent, fast 1-shot low latency completions.
 	// for persistent, slower, long dialogues see internal/threads/thread.llmClient
-	llmClient      types.AIClient
+	llmClient      aiclient.AIClient
 	threadGroupSet *threads.ThreadGroupSet
 	curThreadGroup string
 
@@ -99,6 +100,7 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 			SummarizePrior: false,
 			Vendor:         internal.DefaultVendor,
 			Model:          model,
+			Reasoning:      types.ReasoningEffortMedium.String(),
 			RunCmdApproval: false,
 			EnableAuditLog: true,
 		},
@@ -166,6 +168,7 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 		keyText, auditLogPath, approver, policyStore,
 		httpproxy.New(policyStore), cliCtx.Afs)
 	cliCtx.ictx.ASettings.RunCmdNeedsApproval = cliCtx.prefs.RunCmdApproval
+	cliCtx.ictx.LlmSettings.ReasoningEffort = types.ReasoningEffort(cliCtx.prefs.Reasoning)
 
 	// Apply UI preferences that may not have been available during initial UI
 	// initialization.
@@ -180,8 +183,10 @@ func (cliCtx *CliContext) load(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%v: Failed to start http proxy: %w\n", internal.CliToolName, err)
 	}
+	// cliCtx.llmClient is used for internal quick 1-shot purposes; so
+	// intentionally set low here and ignore prefs.Reasoning
 	cliCtx.llmClient = llmclient.NewEINOClient(ctx, cliCtx.ictx, approver, 0)
-	cliCtx.llmClient.SetReasoning(laclopenai.ReasoningEffortLevelLow)
+	cliCtx.llmClient.SetReasoning(types.ReasoningEffortLow)
 	cliCtx.toggles.needConfig = false
 
 	return nil

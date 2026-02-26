@@ -25,13 +25,14 @@ import (
 	"github.com/mikeb26/octium/internal/am"
 	"github.com/mikeb26/octium/internal/tools"
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/types/aiclient"
 	"google.golang.org/genai"
 )
 
 type EINOAIClient struct {
 	vendor          string
 	reactAgent      *react.Agent
-	reasoningEffort laclopenai.ReasoningEffortLevel
+	reasoningEffort types.ReasoningEffort
 	auditHandler    callbacks.Handler
 	statusHandlers  callbacks.Handler
 
@@ -72,7 +73,7 @@ func SetInvocationID(ctx context.Context, threadId string,
 }
 
 func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
-	approver am.Approver, depth int) types.AIClient {
+	approver am.Approver, depth int) aiclient.AIClient {
 
 	vendor := ictx.LlmSettings.Vendor
 	apiKey := ictx.LlmSettings.ApiKey
@@ -80,7 +81,7 @@ func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
 	enableAuditLog := ictx.LlmSettings.AuditLogPath != ""
 	auditLogPath := ictx.LlmSettings.AuditLogPath
 
-	var client types.AIClient
+	var client aiclient.AIClient
 	switch vendor {
 	case "openai":
 		client = newOpenAIEINOClient(ctx, vendor, approver, apiKey, modelName, depth,
@@ -106,7 +107,7 @@ func NewEINOClient(ctx context.Context, ictx *types.InternalContext,
 func newOpenAIEINOClient(ctx context.Context, vendor string,
 	approver am.Approver, apiKey string, model string,
 	depth int,
-	enableAuditLog bool, auditLogPath string) types.AIClient {
+	enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
 	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
 		Model:  model,
@@ -123,7 +124,7 @@ func newOpenAIEINOClient(ctx context.Context, vendor string,
 func newAnthropicEINOClient(ctx context.Context, vendor string,
 	approver am.Approver, apiKey string, model string,
 	depth int,
-	enableAuditLog bool, auditLogPath string) types.AIClient {
+	enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
 	chatModel, err := claude.NewChatModel(ctx, &claude.Config{
 		Model:  model,
@@ -144,7 +145,7 @@ func newAnthropicEINOClient(ctx context.Context, vendor string,
 func newGoogleEINOClient(ctx context.Context, vendor string,
 	approver am.Approver, apiKey string, model string,
 	depth int,
-	enableAuditLog bool, auditLogPath string) types.AIClient {
+	enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: apiKey,
@@ -168,7 +169,7 @@ func newGoogleEINOClient(ctx context.Context, vendor string,
 func newOpenRouterEINOClient(ctx context.Context, vendor string,
 	approver am.Approver, apiKey string, model string,
 	depth int,
-	enableAuditLog bool, auditLogPath string) types.AIClient {
+	enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
 	chatModel, err := openrouter.NewChatModel(ctx, &openrouter.Config{
 		Model:  model,
@@ -184,7 +185,7 @@ func newOpenRouterEINOClient(ctx context.Context, vendor string,
 
 func newEINOClient(ctx context.Context, vendor string, chatModel model.ToolCallingChatModel,
 	approver am.Approver, apiKey string, model string,
-	depth int, enableAuditLog bool, auditLogPath string) types.AIClient {
+	depth int, enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
 	tools := defineTools(ctx, vendor, approver, apiKey, model, depth)
 	baseTools := make([]tool.BaseTool, len(tools))
@@ -215,7 +216,7 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ToolCalli
 	clientOut := &EINOAIClient{
 		vendor:          vendor,
 		reactAgent:      client,
-		reasoningEffort: laclopenai.ReasoningEffortLevelMedium,
+		reasoningEffort: types.ReasoningEffortMedium,
 		auditHandler:    auditHandler,
 		approver:        approver,
 		subs:            make(map[string][]chan types.ProgressEvent),
@@ -246,7 +247,7 @@ func defineTools(ctx context.Context, vendor string, approver am.Approver,
 }
 
 func (client *EINOAIClient) SetReasoning(
-	reasoningEffort laclopenai.ReasoningEffortLevel) {
+	reasoningEffort types.ReasoningEffort) {
 	client.reasoningEffort = reasoningEffort
 }
 
@@ -256,19 +257,64 @@ func (client *EINOAIClient) reasoningModelOption() model.Option {
 		return openrouter.WithReasoning(&openrouter.Reasoning{
 			Effort: openRouterEffortFromReasoningEffort(client.reasoningEffort),
 		})
+	case "openai":
+		return laclopenai.WithReasoningEffort(openAIEffortFromReasoningEffort(client.reasoningEffort))
+	case "google":
+		return gemini.WithThinkingConfig(&genai.ThinkingConfig{
+			IncludeThoughts: true,
+			ThinkingLevel:   geminiThinkingLevelFromReasoningEffort(client.reasoningEffort),
+		})
+	case "anthropic":
+		return claude.WithThinking(&claude.Thinking{
+			Enable:       true,
+			BudgetTokens: claudeBudgetTokensFromReasoningEffort(client.reasoningEffort),
+		})
 	default:
-		return laclopenai.WithReasoningEffort(client.reasoningEffort)
+		return model.Option{}
 	}
 }
 
-func openRouterEffortFromReasoningEffort(level laclopenai.ReasoningEffortLevel) openrouter.Effort {
+func geminiThinkingLevelFromReasoningEffort(level types.ReasoningEffort) genai.ThinkingLevel {
 	switch level {
-	case laclopenai.ReasoningEffortLevelLow:
+	case types.ReasoningEffortLow:
+		return genai.ThinkingLevelLow
+	case types.ReasoningEffortHigh:
+		return genai.ThinkingLevelHigh
+	default:
+		return genai.ThinkingLevelMedium
+	}
+}
+
+func claudeBudgetTokensFromReasoningEffort(level types.ReasoningEffort) int {
+	switch level {
+	case types.ReasoningEffortLow:
+		return 1024
+	case types.ReasoningEffortHigh:
+		return 8192
+	default:
+		return 4096
+	}
+}
+
+func openRouterEffortFromReasoningEffort(level types.ReasoningEffort) openrouter.Effort {
+	switch level {
+	case types.ReasoningEffortLow:
 		return openrouter.EffortOfLow
-	case laclopenai.ReasoningEffortLevelHigh:
+	case types.ReasoningEffortHigh:
 		return openrouter.EffortOfHigh
 	default:
 		return openrouter.EffortOfMedium
+	}
+}
+
+func openAIEffortFromReasoningEffort(level types.ReasoningEffort) laclopenai.ReasoningEffortLevel {
+	switch level {
+	case types.ReasoningEffortLow:
+		return laclopenai.ReasoningEffortLevelLow
+	case types.ReasoningEffortHigh:
+		return laclopenai.ReasoningEffortLevelHigh
+	default:
+		return laclopenai.ReasoningEffortLevelMedium
 	}
 }
 

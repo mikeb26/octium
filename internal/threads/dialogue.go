@@ -13,6 +13,7 @@ import (
 	"github.com/mikeb26/octium/internal/llmclient"
 	"github.com/mikeb26/octium/internal/prompts"
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/types/aiclient"
 )
 
 // setRunning transitions the thread to ThreadStateRunning.
@@ -37,11 +38,19 @@ func (thr *thread) setRunning(ctx context.Context,
 	if thr.asyncApprover == nil {
 		thr.asyncApprover = NewAsyncApprover(ictx.ASettings.BaseApprover)
 	}
+
+	effort := ictx.LlmSettings.ReasoningEffort
+	if effort == "" {
+		effort = types.ReasoningEffortMedium
+	}
 	if thr.llmClient == nil {
 		approver := am.NewPolicyStoreApprover(thr.asyncApprover,
 			ictx.ASettings.PolicyStore)
 		thr.llmClient = llmclient.NewEINOClient(ctx, ictx, approver, 0)
 	}
+	// Ensure per-thread clients reflect the current runtime reasoning effort
+	// (which can be changed via Preferences).
+	thr.llmClient.SetReasoning(effort)
 
 	return thr, nil
 }
@@ -79,7 +88,7 @@ func abortChatOnce(thread *thread) {
 
 // summarizeDialogue summarizes the entire chat history in order to reduce LLM
 // token costs and refocus the context window.
-func summarizeDialogue(ctx context.Context, llmClient types.AIClient,
+func summarizeDialogue(ctx context.Context, llmClient aiclient.AIClient,
 	sysMsg *types.ThreadMessage,
 	dialogue []*types.ThreadMessage) ([]*types.ThreadMessage, error) {
 

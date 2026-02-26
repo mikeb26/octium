@@ -14,13 +14,14 @@ import (
 	"github.com/mikeb26/octium/internal/am"
 	"github.com/mikeb26/octium/internal/tools"
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/types/aiclient"
 )
 
 // defined here due to recursion with newEINOClient()
 
 type PromptRunTool struct {
 	ctx      context.Context
-	client   types.AIClient
+	client   aiclient.AIClient
 	approver am.Approver
 	depth    int
 }

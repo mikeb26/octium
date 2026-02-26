@@ -65,6 +65,7 @@ func (octiumCtx *CliContext) loadPrefs() error {
 		SummarizePrior: false,
 		Vendor:         vendor,
 		Model:          model,
+		Reasoning:      types.ReasoningEffortMedium.String(),
 		RunCmdApproval: false,
 		EnableAuditLog: true,
 		WrapMode:       defaultWrapMode.String(),
@@ -90,6 +91,9 @@ func (octiumCtx *CliContext) loadPrefs() error {
 	if strings.TrimSpace(octiumCtx.prefs.WrapMode) == "" {
 		octiumCtx.prefs.WrapMode = defaultWrapMode.String()
 	}
+	if strings.TrimSpace(octiumCtx.prefs.Reasoning) == "" {
+		octiumCtx.prefs.Reasoning = types.ReasoningEffortMedium.String()
+	}
 
 	var wrapMode ui.WrapMode
 	octiumCtx.toggles.wrapMode = wrapMode.FromString(octiumCtx.prefs.WrapMode)
@@ -98,6 +102,19 @@ func (octiumCtx *CliContext) loadPrefs() error {
 	}
 	if octiumCtx.prefs.Model == "" {
 		octiumCtx.prefs.Model = model
+	}
+
+	octiumCtx.prefs.Reasoning = strings.ToLower(strings.TrimSpace(octiumCtx.prefs.Reasoning))
+	switch octiumCtx.prefs.Reasoning {
+	case types.ReasoningEffortLow.String(),
+		types.ReasoningEffortMedium.String(),
+		types.ReasoningEffortHigh.String():
+		// ok
+	default:
+		return fmt.Errorf("%w: %q", ErrUnknownReasoningEffort, octiumCtx.prefs.Reasoning)
+	}
+	if octiumCtx.ictx != nil {
+		octiumCtx.ictx.LlmSettings.ReasoningEffort = types.ReasoningEffort(octiumCtx.prefs.Reasoning)
 	}
 	return nil
 }
@@ -201,6 +218,7 @@ func configPreferences(cliCtx *CliContext) error {
 	for {
 		choices := []types.UIOption{
 			{Key: "sum", Label: fmt.Sprintf("Summarize dialogue when continuing threads [%s]", onOff(cliCtx.prefs.SummarizePrior))},
+			{Key: "reason", Label: fmt.Sprintf("Reasoning effort (low/medium/high) [%s]", cliCtx.prefs.Reasoning)},
 			{Key: "wrap", Label: fmt.Sprintf("Text wrapping in frames [%s]", cliCtx.prefs.WrapMode)},
 			{Key: "back", Label: "Back"},
 		}
@@ -225,6 +243,29 @@ func configPreferences(cliCtx *CliContext) error {
 			}
 			cliCtx.prefs.SummarizePrior = summarize
 			cliCtx.toggles.summary = summarize
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "reason":
+			choices := []types.UIOption{
+				{Key: types.ReasoningEffortLow.String(), Label: "Low"},
+				{Key: types.ReasoningEffortMedium.String(), Label: "Medium (default)"},
+				{Key: types.ReasoningEffortHigh.String(), Label: "High"},
+			}
+			sel, err := cliCtx.ui.SelectOption("Reasoning effort:", choices)
+			if err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				return err
+			}
+			cliCtx.prefs.Reasoning = sel.Key
+			if cliCtx.ictx != nil {
+				cliCtx.ictx.LlmSettings.ReasoningEffort = types.ReasoningEffort(sel.Key)
+			}
+			if cliCtx.llmClient != nil {
+				cliCtx.llmClient.SetReasoning(types.ReasoningEffort(sel.Key))
+			}
 			if err := cliCtx.savePrefs(); err != nil {
 				return err
 			}

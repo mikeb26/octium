@@ -8,7 +8,6 @@ import (
 	"context"
 	"reflect"
 
-	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/golang/mock/gomock"
 )
 
@@ -66,7 +65,7 @@ func (mr *MockAIClientMockRecorder) StreamChatCompletion(ctx, msgs interface{}) 
 }
 
 // SetReasoning mocks base method.
-func (m *MockAIClient) SetReasoning(level laclopenai.ReasoningEffortLevel) {
+func (m *MockAIClient) SetReasoning(level ReasoningEffort) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetReasoning", level)
 }

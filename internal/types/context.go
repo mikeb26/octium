@@ -7,7 +7,6 @@ package types
 import (
 	"context"
 
-	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/mikeb26/octium/internal/am"
 	"github.com/mikeb26/octium/internal/fsatomic"
 	"github.com/mikeb26/octium/internal/httpproxy"
@@ -19,12 +18,24 @@ type ApproveSettings struct {
 	RunCmdNeedsApproval bool
 }
 
+type ReasoningEffort string
+
+const (
+	ReasoningEffortLow    ReasoningEffort = "low"
+	ReasoningEffortMedium ReasoningEffort = "medium"
+	ReasoningEffortHigh   ReasoningEffort = "high"
+)
+
+func (r ReasoningEffort) String() string {
+	return string(r)
+}
+
 type LlmSettings struct {
 	Vendor          string
 	Model           string
 	ApiKey          string
 	AuditLogPath    string
-	ReasoningEffort laclopenai.ReasoningEffortLevel
+	ReasoningEffort ReasoningEffort
 }
 
 type InternalContext struct {
@@ -81,7 +92,7 @@ func NewIctx(vendor, model, apiKey, auditPath string, approver am.Approver,
 			Model:           model,
 			ApiKey:          apiKey,
 			AuditLogPath:    auditPath,
-			ReasoningEffort: laclopenai.ReasoningEffortLevelMedium,
+			ReasoningEffort: ReasoningEffortMedium,
 		},
 		ASettings: ApproveSettings{
 			BaseApprover:        approver,

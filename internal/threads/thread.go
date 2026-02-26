@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/mikeb26/octium/internal/types"
+	"github.com/mikeb26/octium/internal/types/aiclient"
 	"github.com/mikeb26/octium/internal/workspace"
 	"github.com/negrel/assert"
 )
@@ -87,7 +88,7 @@ type thread struct {
 	parent     *ThreadGroup
 
 	// llmClient is created per-thread (and may be recreated as needed).
-	llmClient types.AIClient
+	llmClient aiclient.AIClient
 	// asyncApprover is per-thread and is used to route approvals back to the UI
 	// goroutine servicing this thread.
 	asyncApprover *AsyncApprover

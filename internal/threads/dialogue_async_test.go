@@ -54,6 +54,7 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 	mockClient := types.NewMockAIClient(ctrl)
 
 	progressCh := make(chan types.ProgressEvent, 1)
+	mockClient.EXPECT().SetReasoning(types.ReasoningEffortMedium).Times(1)
 	mockClient.EXPECT().SubscribeProgress(invocationID).Return(progressCh).Times(1)
 	mockClient.EXPECT().UnsubscribeProgress(progressCh, invocationID).Times(1)
 
@@ -79,6 +80,7 @@ func TestChatOnceAsyncStreamsAndFinalizes(t *testing.T) {
 	ictx := types.InternalContext{ASettings: types.ApproveSettings{
 		BaseApprover: noopApprover{},
 	}}
+	ictx.LlmSettings.ReasoningEffort = types.ReasoningEffortMedium
 	// Inject a mock client into the active thread so ChatOnceAsync uses it.
 	thrImpl.llmClient = mockClient
 	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
@@ -164,6 +166,7 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 	mockClient := types.NewMockAIClient(ctrl)
 
 	progressCh := make(chan types.ProgressEvent, 1)
+	mockClient.EXPECT().SetReasoning(types.ReasoningEffortMedium).Times(1)
 	mockClient.EXPECT().SubscribeProgress(invocationID).Return(progressCh).Times(1)
 	mockClient.EXPECT().UnsubscribeProgress(progressCh, invocationID).Times(1)
 
@@ -179,6 +182,7 @@ func TestChatOnceAsyncPropagatesStreamError(t *testing.T) {
 	ictx := types.InternalContext{ASettings: types.ApproveSettings{
 		BaseApprover: noopApprover{},
 	}}
+	ictx.LlmSettings.ReasoningEffort = types.ReasoningEffortMedium
 	// Inject a mock client into the active thread so ChatOnceAsync uses it.
 	thrImpl.llmClient = mockClient
 	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
@@ -232,6 +236,7 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 	mockClient := types.NewMockAIClient(ctrl)
 
 	progressCh := make(chan types.ProgressEvent, 1)
+	mockClient.EXPECT().SetReasoning(types.ReasoningEffortMedium).Times(1)
 	mockClient.EXPECT().SubscribeProgress(invocationID).Return(progressCh).Times(1)
 	mockClient.EXPECT().UnsubscribeProgress(progressCh, invocationID).Times(1)
 
@@ -258,6 +263,7 @@ func TestChatOnceAsyncDropsPersistedSystemMessageForBackwardsCompatibility(t *te
 	ictx := types.InternalContext{ASettings: types.ApproveSettings{
 		BaseApprover: noopApprover{},
 	}}
+	ictx.LlmSettings.ReasoningEffort = types.ReasoningEffortMedium
 	thrImpl.llmClient = mockClient
 	state, err := thrImpl.ChatOnceAsync(ctx, &ictx, "hi", false, prompts.SystemMsg)
 	assert.NoError(t, err)
