@@ -8,11 +8,55 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/threads"
 	gc "github.com/rthornton128/goncurses"
 )
+
+func formatCount3SigDigits(n int) string {
+	if n < 0 {
+		return "-" + formatCount3SigDigits(-n)
+	}
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+
+	suffixes := []string{"", "K", "M", "B", "T"}
+	idx := 0
+	scale := 1
+	for idx+1 < len(suffixes) && n >= scale*1000 {
+		scale *= 1000
+		idx++
+	}
+
+	v := float64(n) / float64(scale)
+	rounded, decimals := roundTo3SigDigits(v)
+	if rounded >= 1000 && idx+1 < len(suffixes) {
+		idx++
+		scale *= 1000
+		v = float64(n) / float64(scale)
+		rounded, decimals = roundTo3SigDigits(v)
+	}
+
+	return fmt.Sprintf("%.*f%s", decimals, rounded, suffixes[idx])
+}
+
+func roundTo3SigDigits(v float64) (rounded float64, decimals int) {
+	if v == 0 {
+		return 0, 0
+	}
+
+	exp := int(math.Floor(math.Log10(math.Abs(v))))
+	decimals = 2 - exp
+	if decimals < 0 {
+		decimals = 0
+	}
+
+	factor := math.Pow10(decimals)
+	return math.Round(v*factor) / factor, decimals
+}
 
 // drawThreadHeader renders a single-line header for the thread view.
 func (tvUI *threadViewUI) drawThreadHeader(ctx context.Context) {
@@ -102,10 +146,13 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool, thre
 	tail := progAndVer
 	if thread != nil {
 		m := thread.Metrics()
-		tail = fmt.Sprintf("Tokens: in:%d out:%d  %s",
-			m.TokenUsage.PromptTokens,
-			m.TokenUsage.CompletionTokens,
-			progAndVer)
+		total := m.TokenUsage.PromptTokens + m.TokenUsage.CompletionTokens
+		if total > 0 {
+			tail = fmt.Sprintf("[tokens:{in:%s out:%s}] %s",
+				formatCount3SigDigits(m.TokenUsage.PromptTokens),
+				formatCount3SigDigits(m.TokenUsage.CompletionTokens),
+				progAndVer)
+		}
 	}
 	drawStatusTail(cliCtx.rootWin, statusY, maxX, x, cliCtx.toggles.useColors, tail)
 }
