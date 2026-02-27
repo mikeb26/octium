@@ -24,7 +24,8 @@ func (tvUI *threadViewUI) launchWorkspaceModal(ctx context.Context) error {
 	// NUX: explain what a workspace is before we prompt for linking a repo.
 	tvUI.cliCtx.nuxWorkspaceIntroIfNeeded()
 
-	if !tvUI.ensureWorkspaceReady(ctx) {
+	newlyCreated, ready := tvUI.ensureWorkspaceReady(ctx)
+	if !ready || newlyCreated {
 		return nil
 	}
 
@@ -71,22 +72,22 @@ func (tvUI *threadViewUI) launchWorkspaceModal(ctx context.Context) error {
 //
 // It returns false if the user cancels setup or chooses not to configure a
 // workspace right now.
-func (tvUI *threadViewUI) ensureWorkspaceReady(ctx context.Context) bool {
+func (tvUI *threadViewUI) ensureWorkspaceReady(ctx context.Context) (bool, bool) {
 	ws := tvUI.thread.Workspace()
 	if ws.Origin() != "" {
-		return true
+		return false, true
 	}
 
-	err := tvUI.setupWorkspace(ctx, true)
+	created, err := tvUI.setupWorkspace(ctx, true)
 	if err == nil {
-		return true
+		return created, true
 	}
 	if errors.Is(err, ErrWorkspaceSetupCancelled) || errors.Is(err, ErrWorkspaceNotConfigured) {
-		return false
+		return false, false
 	}
 
 	_ = tvUI.cliCtx.ui.Confirm(friendlyWorkspaceSetupErr(err))
-	return false
+	return false, false
 }
 
 func workspaceSync(ctx context.Context, tvUI *threadViewUI) error {
@@ -182,7 +183,7 @@ func workspaceReset(ctx context.Context, tvUI *threadViewUI) error {
 		_ = tvUI.cliCtx.ui.Confirm(err.Error())
 		return err
 	}
-	_ = tvUI.setupWorkspace(ctx, true)
+	_, _ = tvUI.setupWorkspace(ctx, true)
 
 	return nil
 }

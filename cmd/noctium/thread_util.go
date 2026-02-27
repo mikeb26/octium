@@ -115,14 +115,14 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool, thre
 	}
 	if !isArchived {
 		segments = append(segments, []statusSegment{
-			{text: " OtherWin:", bold: false},
-			{text: "Tab", bold: true},
 			{text: " Send:", bold: false},
 			{text: "Ctrl-d", bold: true},
 		}...)
 	}
 	if focus == focusHistory && !isArchived {
 		segments = append(segments, []statusSegment{
+			{text: " FocusInput:", bold: false},
+			{text: "i", bold: true},
 			{text: " Workspace:", bold: false},
 			{text: "w", bold: true},
 			{text: " Rename:", bold: false},
@@ -132,10 +132,17 @@ func drawNavbar(cliCtx *CliContext, focus threadViewFocus, isArchived bool, thre
 			// menu
 		}...)
 	}
-	segments = append(segments, []statusSegment{
-		{text: " Back:", bold: false},
-		{text: "ESC", bold: true},
-	}...)
+	if focus == focusHistory {
+		segments = append(segments, []statusSegment{
+			{text: " Back:", bold: false},
+			{text: "ESC", bold: true},
+		}...)
+	} else {
+		segments = append(segments, []statusSegment{
+			{text: " FocusHistory:", bold: false},
+			{text: "ESC", bold: true},
+		}...)
+	}
 
 	// Draw the status segments first; additional metadata (tokens, version)
 	// is rendered into the remaining right-side space when available.

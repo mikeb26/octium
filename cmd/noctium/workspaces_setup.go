@@ -46,10 +46,10 @@ var agentsMdTmplText string
 // validate it exists (is a directory and is a git repository)
 // if it doesn't exist, create it
 func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
-	ignoreUnset bool) error {
+	ignoreUnset bool) (bool, error) {
 
 	if tvUI.isArchived {
-		return fmt.Errorf("thread is archived")
+		return false, fmt.Errorf("thread is archived")
 	}
 	ws := tvUI.thread.Workspace()
 	err := ws.Load(ctx)
@@ -67,18 +67,18 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		restoreNCurses()
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// if we have a non-empty origin, that means at this point we've validated
 	// it still exists, the sandbox still exists, and the sandbox points back
 	// to the origin. so the workspace is setup
 	if ws.Origin() != "" {
-		return nil
+		return false, nil
 	}
 
 	if ws.IsUnset() && !ignoreUnset {
-		return ErrWorkspaceNotConfigured
+			return false, ErrWorkspaceNotConfigured
 	}
 
 	// first try pwd; if it's a repo confirm with the user
@@ -87,7 +87,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		if err == nil {
 			err = fmt.Errorf("cannot determine working directory")
 		}
-		return err
+		return false, err
 	}
 	if _, err := tvUI.cliCtx.scmClient.RepoStatusString(ctx, pwd); err == nil {
 		prompt := fmt.Sprintf("A git repository was detected in your current working directory:\n%v\n\nLink this thread's workspace to this repository?", pwd)
@@ -97,11 +97,11 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 				{Key: "n", Label: "No, choose another"},
 				{Key: "x", Label: "No, I will configure the workspace later if needed"}})
 		if err != nil {
-			return err
+			return false, err
 		}
 		if usePwd.Key == "x" {
 			ws.Destroy()
-			return ErrWorkspaceSetupCancelled
+			return false, ErrWorkspaceSetupCancelled
 		}
 		if usePwd.Key == "y" {
 			if !filepath.IsAbs(pwd) {
@@ -114,7 +114,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 			suspendNCurses()
 			err = ws.AddOriginAndSandbox(ctx, pwd)
 			restoreNCurses()
-			return err
+			return true, err
 		}
 	}
 
@@ -127,10 +127,10 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	repoDir, err := tvUI.cliCtx.ui.Get(prompt)
 	repoDir = strings.TrimSpace(repoDir)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if repoDir == "" {
-		return ErrWorkspaceSetupCancelled
+		return false, ErrWorkspaceSetupCancelled
 	}
 
 	// Normalize to an absolute path for persistence.
@@ -146,7 +146,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	repoDir = filepath.Clean(repoDir)
 	repoDirExists, err := dirExists(repoDir)
 	if err != nil {
-		return err
+		return false, err
 	}
 	create := false
 	if !repoDirExists {
@@ -159,13 +159,13 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 			&defaultNo,
 		)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !create {
-			return ErrWorkspaceSetupCancelled
+			return false, ErrWorkspaceSetupCancelled
 		}
 		if err := os.MkdirAll(repoDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create dir %v: %w", repoDir, err)
+			return false, fmt.Errorf("failed to create dir %v: %w", repoDir, err)
 		}
 	}
 
@@ -180,14 +180,14 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 				&defaultNo,
 			)
 			if err != nil {
-				return err
+				return false, err
 			}
 			if !create {
-				return ErrWorkspaceSetupCancelled
+				return false, ErrWorkspaceSetupCancelled
 			}
 		}
 		if err := tvUI.initNewGitRepo(ctx, repoDir); err != nil {
-			return err
+			return false, err
 		}
 	}
 
@@ -195,7 +195,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	err = ws.AddOriginAndSandbox(ctx, repoDir)
 	restoreNCurses()
 
-	return err
+	return true, err
 }
 
 func (tvUI *threadViewUI) initNewGitRepo(ctx context.Context, repoDir string) error {

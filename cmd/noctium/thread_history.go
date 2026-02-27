@@ -136,6 +136,12 @@ func buildHistoryLines(cliCtx *CliContext, blocks []threads.RenderBlock,
 		havePrevSource = true
 	}
 
+	// If the thread is empty, ensure the history frame still has a logical line
+	// so the cursor can be displayed when the history pane is focused.
+	if len(lines) == 0 {
+		lines = []ui.FrameLine{{Runes: []rune{}, Attr: gc.A_NORMAL}}
+	}
+
 	return lines
 }
 

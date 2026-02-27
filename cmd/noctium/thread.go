@@ -267,22 +267,9 @@ func (tvUI *threadViewUI) processThreadViewKey(
 	ctx context.Context,
 	ch gc.Key,
 ) (exit bool, needRedraw bool) {
-	if ch == gc.KEY_TAB {
-		if tvUI.getFocus() == focusInput {
-			tvUI.focusedFrame = tvUI.historyFrame
-		} else if !tvUI.isArchived {
-			tvUI.focusedFrame = tvUI.inputFrame
-		}
-
-		return false, true
-	}
 
 	isHistory := tvUI.getFocus() == focusHistory
 	isRunning := tvUI.running.state != nil
-	// Exit keys.
-	if ch == gc.Key(27) { // ESC
-		return true, false
-	}
 
 	// Navigation keys (shared by both history and input frames).
 	switch ch {
@@ -374,10 +361,18 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		}
 		tvUI.focusedFrame.MoveEnd()
 		return false, true
-	case 'c':
+	case 'i':
 		if isHistory {
-			return false, tvUI.workspaceCommit(ctx)
-		} // else do not return; inputFrame needs to process 'c' as input
+			tvUI.focusedFrame = tvUI.inputFrame
+			return false, true
+		}
+	case gc.Key(27): // ESC
+		if isHistory {
+			return true, false // exit thread view
+		} else {
+			tvUI.focusedFrame = tvUI.historyFrame
+			return false, true
+		}
 	case 'n':
 		if isHistory {
 			newName, err := promptForThreadNameNCurses(tvUI.cliCtx.ui)
@@ -395,45 +390,6 @@ func (tvUI *threadViewUI) processThreadViewKey(
 			}
 			return false, true
 		} // else do not return; inputFrame needs to process 'n' as input
-	case 'd':
-		if isHistory {
-			return false, tvUI.workspaceDiff(ctx)
-		} // else do not return; inputFrame needs to process 'd' as
-	case 'm':
-		if isHistory {
-			if tvUI.ensureWorkspaceReady(ctx) {
-				_ = workspaceMerge(ctx, tvUI)
-			}
-			return false, true
-		}
-	case 'p':
-		if isHistory {
-			if tvUI.ensureWorkspaceReady(ctx) {
-				_ = workspacePush(ctx, tvUI)
-			}
-			return false, true
-		}
-	case 'r':
-		if isHistory {
-			if tvUI.ensureWorkspaceReady(ctx) {
-				_ = workspaceReset(ctx, tvUI)
-			}
-			return false, true
-		}
-	case 's':
-		if isHistory {
-			if tvUI.ensureWorkspaceReady(ctx) {
-				_ = workspaceSync(ctx, tvUI)
-			}
-			return false, true
-		}
-	case 't':
-		if isHistory {
-			if tvUI.ensureWorkspaceReady(ctx) {
-				_ = tvUI.workspaceTerm(ctx)
-			}
-			return false, true
-		}
 	case 'w':
 		if isHistory {
 			_ = tvUI.launchWorkspaceModal(ctx)
@@ -481,6 +437,10 @@ func (tvUI *threadViewUI) processThreadViewKey(
 		return false, true
 	case gc.KEY_ENTER, gc.KEY_RETURN:
 		tvUI.inputFrame.InsertNewline()
+		tvUI.inputFrame.EnsureCursorVisible()
+		return false, true
+	case gc.KEY_TAB:
+		tvUI.inputFrame.InsertTab()
 		tvUI.inputFrame.EnsureCursorVisible()
 		return false, true
 	default:
