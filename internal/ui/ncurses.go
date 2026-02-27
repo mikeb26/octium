@@ -263,6 +263,41 @@ func (n *NcursesUI) Confirm(userPrompt string) error {
 	defer n.mu.Unlock()
 
 	trimmed := strings.TrimRight(userPrompt, "\n")
+
+	// If the prompt includes very long lines or too many lines to fit in a
+	// standard-sized confirm modal, use the scrollable prompt variant so
+	// callers (like workspace setup) can display full error messages.
+	useScrollable := false
+	if n != nil && n.scr != nil {
+		maxY, maxX := n.scr.MaxYX()
+		// Approximate inner content width for our normal confirm modal.
+		// (Border accounts for 2 columns; we allow a bit of padding.)
+		contentTextWidth := maxX - 8
+		if contentTextWidth < 20 {
+			contentTextWidth = 20
+		}
+		// Approximate inner content height for our normal confirm modal.
+		contentTextHeight := maxY - 8
+		if contentTextHeight < 6 {
+			contentTextHeight = 6
+		}
+
+		promptLines := strings.Split(trimmed, "\n")
+		if len(promptLines) > contentTextHeight {
+			useScrollable = true
+		} else {
+			for _, line := range promptLines {
+				if DisplayWidth(line) > contentTextWidth {
+					useScrollable = true
+					break
+				}
+			}
+		}
+	}
+	if useScrollable {
+		return n.confirmScrollablePromptModalFrame(trimmed)
+	}
+
 	promptLines := strings.Split(trimmed, "\n")
 	if len(promptLines) == 0 {
 		promptLines = []string{""}

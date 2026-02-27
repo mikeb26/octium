@@ -665,3 +665,157 @@ func (n *NcursesUI) selectBoolScrollablePromptModalFrame(userPrompt string,
 		}
 	}
 }
+
+// confirmScrollablePromptModalFrame displays a centered modal with a
+// scrollable prompt area (using our vertical scrollbar primitives) and a
+// single "OK" acknowledgement row.
+//
+// The prompt is word-agnostic hard-wrapped to the available width so long
+// single-line error strings are visible instead of being truncated.
+func (n *NcursesUI) confirmScrollablePromptModalFrame(userPrompt string) error {
+	maxY, maxX := n.scr.MaxYX()
+	if maxY < 3 || maxX < 4 {
+		return fmt.Errorf("terminal too small for ncurses window")
+	}
+
+	// Intentionally large since the main use-case is showing potentially long
+	// error messages.
+	desiredHeight := maxY - 4
+	if desiredHeight < 10 {
+		desiredHeight = 10
+	}
+	desiredWidth := maxX - 4
+	if desiredWidth < 40 {
+		desiredWidth = 40
+	}
+
+	modal, err := n.newCenteredModal(desiredHeight, desiredWidth, false /* hasCursor */, false /* hasInput */)
+	if err != nil {
+		return err
+	}
+	defer modal.Close()
+
+	win := modal.Frame.Win
+	cy, cx, ch, cw := modal.ContentArea()
+	if cw < 1 {
+		cw = 1
+	}
+	if ch < 1 {
+		ch = 1
+	}
+
+	SetCursorVisible(false)
+	defer SetCursorVisible(false)
+
+	// Prompt rendering: reserve the last column for the scrollbar when we
+	// have enough width.
+	textWidth := cw
+	scrollbarCol := -1
+	if cw >= 2 {
+		textWidth = cw - 1
+		scrollbarCol = cx + cw - 1
+	}
+
+	trimmed := strings.TrimRight(userPrompt, "\n")
+	promptLines := strings.Split(trimmed, "\n")
+	wrappedPrompt := WrapTextHard(promptLines, textWidth)
+	totalPrompt := len(wrappedPrompt)
+	if totalPrompt == 0 {
+		wrappedPrompt = []string{""}
+		totalPrompt = 1
+	}
+
+	// Keep the OK row always visible and dedicate the remaining rows to the
+	// scrollable prompt.
+	const spacerRows = 1
+	const okRows = 1
+	promptViewHeight := ch - (spacerRows + okRows)
+	if promptViewHeight < 1 {
+		promptViewHeight = 1
+	}
+	maxPromptOffset := totalPrompt - promptViewHeight
+	if maxPromptOffset < 0 {
+		maxPromptOffset = 0
+	}
+	promptOffset := 0
+
+	win.Timeout(50)
+	defer win.Timeout(-1)
+
+	_ = win.Box(0, 0)
+
+	normalAttr := n.theme.NormalAttr()
+
+	for {
+		maxPromptOffset = totalPrompt - promptViewHeight
+		if maxPromptOffset < 0 {
+			maxPromptOffset = 0
+		}
+		if promptOffset < 0 {
+			promptOffset = 0
+		}
+		if promptOffset > maxPromptOffset {
+			promptOffset = maxPromptOffset
+		}
+
+		_ = win.AttrSet(normalAttr)
+		clearRect(win, cy, cx, ch, cw)
+
+		// Prompt area.
+		for row := 0; row < promptViewHeight; row++ {
+			y := cy + row
+			idx := promptOffset + row
+			if idx >= 0 && idx < totalPrompt {
+				printClipped(win, y, cx, textWidth, wrappedPrompt[idx])
+			}
+		}
+		if scrollbarCol >= 0 {
+			DrawScrollbarColumn(win, cy, promptViewHeight, scrollbarCol, totalPrompt, promptOffset)
+		}
+
+		// OK row.
+		okY := cy + promptViewHeight + spacerRows
+		if okY >= cy+ch {
+			okY = cy + ch - 1
+		}
+		win.Move(okY, cx)
+		win.HLine(okY, cx, ' ', cw)
+		printClipped(win, okY, cx, cw, "OK")
+
+		win.Refresh()
+
+		chKey := win.GetChar()
+		if chKey == 0 {
+			continue
+		}
+
+		switch chKey {
+		case gc.Key(27), gc.KEY_ENTER, gc.KEY_RETURN:
+			return nil
+		case gc.KEY_UP:
+			if promptOffset > 0 {
+				promptOffset--
+			}
+		case gc.KEY_DOWN:
+			if promptOffset < maxPromptOffset {
+				promptOffset++
+			}
+		case gc.KEY_HOME:
+			promptOffset = 0
+		case gc.KEY_END:
+			promptOffset = maxPromptOffset
+		case gc.KEY_PAGEUP:
+			promptOffset -= promptViewHeight
+			if promptOffset < 0 {
+				promptOffset = 0
+			}
+		case gc.KEY_PAGEDOWN:
+			promptOffset += promptViewHeight
+			if promptOffset > maxPromptOffset {
+				promptOffset = maxPromptOffset
+			}
+		default:
+			// Ignore other keys.
+		}
+	}
+}
