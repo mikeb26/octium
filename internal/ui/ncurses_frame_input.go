@@ -8,22 +8,13 @@ import gc "github.com/rthornton128/goncurses"
 
 // Input-related helpers for Frame.
 
-// ResetInput clears the internal input buffer and resets cursor/scroll
-// state. It is a no-op for frames without HasInput.
-func (f *Frame) ResetInput() {
+const defaultTabSpaces = 8
+
+func (f *Frame) insertRunesAtCursor(rs []rune) {
 	if !f.HasInput {
 		return
 	}
-	f.lines = []FrameLine{{Runes: []rune{}, Attr: gc.A_NORMAL}}
-	f.cursorLine = 0
-	f.cursorCol = 0
-	f.scroll = 0
-}
-
-// InsertRune inserts r at the current cursor position within the
-// internal input buffer. It is safe to call only when HasInput is true.
-func (f *Frame) InsertRune(r rune) {
-	if !f.HasInput {
+	if len(rs) == 0 {
 		return
 	}
 	if f.cursorLine < 0 || f.cursorLine >= len(f.lines) {
@@ -39,9 +30,40 @@ func (f *Frame) InsertRune(r rune) {
 	if f.cursorCol > len(line) {
 		f.cursorCol = len(line)
 	}
-	line = append(line[:f.cursorCol], append([]rune{r}, line[f.cursorCol:]...)...)
+	line = append(line[:f.cursorCol], append(append([]rune{}, rs...), line[f.cursorCol:]...)...)
 	f.lines[f.cursorLine].Runes = line
-	f.cursorCol++
+	f.cursorCol += len(rs)
+}
+
+// ResetInput clears the internal input buffer and resets cursor/scroll
+// state. It is a no-op for frames without HasInput.
+func (f *Frame) ResetInput() {
+	if !f.HasInput {
+		return
+	}
+	f.lines = []FrameLine{{Runes: []rune{}, Attr: gc.A_NORMAL}}
+	f.cursorLine = 0
+	f.cursorCol = 0
+	f.scroll = 0
+}
+
+// InsertRune inserts r at the current cursor position within the
+// internal input buffer. It is safe to call only when HasInput is true.
+func (f *Frame) InsertRune(r rune) {
+	f.insertRunesAtCursor([]rune{r})
+}
+
+// InsertTab inserts a tab into the internal input buffer.
+//
+// For now, this inserts spaces instead of a literal '\t' rune to avoid
+// display-width assumptions (cursor movement, wrapping) that can vary by
+// terminal/tab-stop settings.
+func (f *Frame) InsertTab() {
+	spaces := make([]rune, defaultTabSpaces)
+	for i := range spaces {
+		spaces[i] = ' '
+	}
+	f.insertRunesAtCursor(spaces)
 }
 
 // InsertNewline splits the current line at the cursor into two lines.
