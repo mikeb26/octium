@@ -345,7 +345,7 @@ main() {
 	install_sudoers_dropin "$shared_group" "$sandbox_user"
 
 	log "provisioned sandbox user '$sandbox_user' and shared group '$shared_group' for end user '$end_user'"
-	log "note: '$end_user' may need to log out/in for new group membership to apply"
+	log "note: '$end_user' may need to log out/in or run 'newgrp $shared_group' for new group membership to apply"
 }
 
 main "$@"
