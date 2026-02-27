@@ -132,6 +132,7 @@ func (t FilePatchTool) BuildApprovalRequest(ctx context.Context, arg any) (am.Ap
 
 	return am.ApprovalRequest{
 		Prompt:          promptBuilder.String(),
+		ToolName:        string(t.GetOp()),
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionWrite},
 		Choices:         choices,
 	}, nil

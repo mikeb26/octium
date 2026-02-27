@@ -71,6 +71,7 @@ func (octiumCtx *CliContext) loadPrefs() error {
 		RunCmdApproval:       false,
 		EnableAuditLog:       true,
 		WrapMode:             defaultWrapMode.String(),
+		NUX:                  DefaultNuxPrefs(),
 	}
 
 	filePath, err := getPrefsPath()
@@ -89,6 +90,10 @@ func (octiumCtx *CliContext) loadPrefs() error {
 	if err != nil {
 		return err
 	}
+	// Backwards compatibility: if older prefs.json doesn't have nux fields,
+	// DefaultNuxPrefs() ensures we still get the intended defaults.
+	// If the user explicitly set nux fields, the JSON unmarshal above already
+	// applied them.
 	octiumCtx.toggles.summary = octiumCtx.prefs.SummarizePrior
 	if strings.TrimSpace(octiumCtx.prefs.WrapMode) == "" {
 		octiumCtx.prefs.WrapMode = defaultWrapMode.String()
@@ -284,6 +289,7 @@ func configPreferences(cliCtx *CliContext) error {
 			{Key: "reason", Label: fmt.Sprintf("Reasoning effort (low/medium/high) [%s]", cliCtx.prefs.Reasoning)},
 			{Key: "reasonInput", Label: fmt.Sprintf("Show reasoning in input pane while running [%s]", onOff(cliCtx.prefs.ShowReasoningInInput))},
 			{Key: "wrap", Label: fmt.Sprintf("Text wrapping in frames [%s]", cliCtx.prefs.WrapMode)},
+			{Key: "nux", Label: "New user experience (help modals)"},
 			{Key: "back", Label: "Back"},
 		}
 		sel, err := cliCtx.ui.SelectOption("Preferences:", choices)
@@ -367,12 +373,79 @@ func configPreferences(cliCtx *CliContext) error {
 			if err := cliCtx.savePrefs(); err != nil {
 				return err
 			}
+		case "nux":
+			if err := configNUXPreferences(cliCtx); err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				return err
+			}
 		case "back":
 			return nil
 		default:
 			_ = cliCtx.ui.Confirm("Invalid selection")
 		}
 	}
+}
+
+func configNUXPreferences(cliCtx *CliContext) error {
+	for {
+		choices := []types.UIOption{
+			{Key: "off", Label: fmt.Sprintf("Disable all help modals [%s]", onOff(cliCtx.allNuxDismissed()))},
+			{Key: "reset", Label: "Re-enable all help modals (reset)"},
+			{Key: "back", Label: "Back"},
+		}
+
+		sel, err := cliCtx.ui.SelectOption("New user experience:", choices)
+		if err != nil {
+			return err
+		}
+
+		switch sel.Key {
+		case "off":
+			// Mark every NUX prompt as dismissed.
+			cliCtx.dismissAllNux()
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "reset":
+			cliCtx.prefs.NUX = DefaultNuxPrefs()
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "back":
+			return nil
+		default:
+			_ = cliCtx.ui.Confirm("Invalid selection")
+		}
+	}
+}
+
+func (cliCtx *CliContext) allNuxDismissed() bool {
+	n := cliCtx.prefs.NUX
+	return n.SeenWelcome &&
+		n.SeenThreadMenuEmpty &&
+		n.SeenThreadMenuHints &&
+		n.SeenThreadViewHelp &&
+		n.SeenWorkspaceIntro &&
+		n.SeenApprovalsIntro &&
+		n.SeenRunCommandIntro &&
+		n.SeenWorkspacePushIntro &&
+		n.SeenWorkspaceMergeIntro &&
+		n.SeenWorkspaceResetIntro
+}
+
+func (cliCtx *CliContext) dismissAllNux() {
+	cliCtx.prefs.NUX.SeenWelcome = true
+	cliCtx.prefs.NUX.SeenThreadMenuEmpty = true
+	cliCtx.prefs.NUX.SeenThreadMenuHints = true
+	cliCtx.prefs.NUX.SeenThreadViewHelp = true
+	cliCtx.prefs.NUX.SeenWorkspaceIntro = true
+	cliCtx.prefs.NUX.SeenApprovalsIntro = true
+	cliCtx.prefs.NUX.SeenRunCommandIntro = true
+	cliCtx.prefs.NUX.SeenWorkspacePushIntro = true
+	cliCtx.prefs.NUX.SeenWorkspaceMergeIntro = true
+	cliCtx.prefs.NUX.SeenWorkspaceResetIntro = true
 }
 
 func configSecurity(cliCtx *CliContext) (needReload bool, err error) {

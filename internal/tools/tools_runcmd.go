@@ -104,6 +104,7 @@ func (t RunCommandTool) BuildApprovalRequest(ctx context.Context, arg any) (am.A
 
 	return am.ApprovalRequest{
 		Prompt:          prompt,
+		ToolName:        string(t.GetOp()),
 		RequiredActions: []am.ApprovalAction{am.ApprovalActionExecute},
 		Choices:         choices,
 	}, nil

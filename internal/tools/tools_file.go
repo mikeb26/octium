@@ -130,6 +130,7 @@ func commonFileBuildApprovalRequest(ctx context.Context, t types.Tool, arg any, 
 	}
 	return am.ApprovalRequest{
 		Prompt:          promptBuilder.String(),
+		ToolName:        string(t.GetOp()),
 		RequiredActions: requiredActions,
 		Choices:         choices,
 	}, nil

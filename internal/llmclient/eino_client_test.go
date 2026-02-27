@@ -43,6 +43,7 @@ func TestProgress_Subscribe_LateSubscriberGetsCurrent(t *testing.T) {
 		Phase:        types.ProgressPhaseStart,
 		Time:         time.Now(),
 		DisplayText:  "hello",
+		ToolName:     "",
 	}
 
 	client.current[invID] = expected

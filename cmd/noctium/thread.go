@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -556,11 +555,11 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	// We still process async events immediately afterwards; this just ensures the
 	// user sees the thread view first.
 	tvUI.redrawThreadView(ctx)
-	err = tvUI.setupWorkspace(ctx, false)
-	if err != nil && !errors.Is(err, ErrWorkspaceNotConfigured) && !errors.Is(err, ErrWorkspaceSetupCancelled) {
-		_ = tvUI.cliCtx.ui.Confirm(friendlyWorkspaceSetupErr(err))
-	}
-	err = nil
+	// NUX: thread view help.
+	//
+	// Workspace setup is intentionally lazy/opt-in now; we do not auto-prompt
+	// when entering the thread view.
+	tvUI.cliCtx.nuxThreadViewHelpIfNeeded()
 	needRedraw := true
 
 	for {

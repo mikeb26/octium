@@ -100,6 +100,12 @@ type ApprovalPolicyStore interface {
 // ApprovalRequest describes an approval interaction.
 type ApprovalRequest struct {
 	Prompt string
+	// ToolName is an optional identifier of the tool that triggered this
+	// approval request (e.g. "cmd_run").
+	//
+	// It is intended for UI/telemetry helpers that want to provide
+	// contextual explanations.
+	ToolName string
 	// RequiredActions is the set of actions that must be permitted by a
 	// cached policy (if any) in order for this request to be
 	// auto-approved without prompting the user.

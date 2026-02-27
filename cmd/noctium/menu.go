@@ -444,6 +444,19 @@ func showMenu(ctx context.Context, cliCtx *CliContext) error {
 	lastRefresh := time.Now()
 
 	for {
+		// NUX: best-effort welcome + empty-state hints.
+		//
+		// We do this inside the loop (instead of once) so it can run after
+		// first-time configuration is completed.
+		cliCtx.nuxWelcomeIfNeeded(ctx)
+		if cliCtx.exitRequested {
+			return nil
+		}
+		cliCtx.nuxMenuEmptyIfNeeded(len(cliCtx.menu.entries))
+		if len(cliCtx.menu.entries) > 0 {
+			cliCtx.nuxMenuHintsIfNeeded()
+		}
+
 		if needErase {
 			cliCtx.rootWin.Erase()
 			needErase = false

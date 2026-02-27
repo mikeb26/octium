@@ -38,7 +38,7 @@ func (ws *Workspace) Detail() string {
 
 func (ws *Workspace) String(ctx context.Context) string {
 	if ws.persisted.OriginRepo == "" {
-		return ""
+		return "(not configured)"
 	}
 	originRepoStatus, err := ws.scmClient.RepoStatusString(ctx,
 		ws.persisted.OriginRepo)

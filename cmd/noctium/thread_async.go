@@ -264,6 +264,12 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 				tvUI.running.approvalCh = nil
 				continue
 			}
+			// NUX: teach approvals model the first time we actually prompt.
+			tvUI.cliCtx.nuxApprovalsIntroIfNeeded()
+			// NUX: cmd_run in particular is often surprising for new users.
+			if req.Request.ToolName == string(types.RunCommand) {
+				tvUI.cliCtx.nuxRunCommandIntroIfNeeded()
+			}
 			state.AsyncApprover.ServeRequest(req)
 			// The modal / approval UI may require an input cursor, but we should not
 			// force the thread view's focus to input. Let the normal redraw loop
@@ -273,6 +279,11 @@ func (tvUI *threadViewUI) processAsyncChatEvents(ctx context.Context) (done bool
 			if !ok {
 				tvUI.running.progressCh = nil
 				continue
+			}
+			// NUX: before the first cmd_run tool executes, explain the sandbox
+			// command environment.
+			if ev.Component == types.ProgressComponentTool && ev.Phase == types.ProgressPhaseStart && ev.ToolName == string(types.RunCommand) {
+				tvUI.cliCtx.nuxRunCommandIntroIfNeeded()
 			}
 			tvUI.running.updateStatusFromProgress(ev)
 			needRedraw = true

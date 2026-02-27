@@ -81,6 +81,7 @@ func buildWebApprovalRequest(t types.Tool, arg any, rawURL, method string) am.Ap
 
 	return am.ApprovalRequest{
 		Prompt:          promptBuilder.String(),
+		ToolName:        string(t.GetOp()),
 		RequiredActions: required,
 		Choices:         choices,
 	}

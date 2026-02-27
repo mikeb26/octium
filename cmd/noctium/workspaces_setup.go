@@ -90,7 +90,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		return err
 	}
 	if _, err := tvUI.cliCtx.scmClient.RepoStatusString(ctx, pwd); err == nil {
-		prompt := fmt.Sprintf("A git repository was detected in your current working directory:\n%v\n\nUse this repository for the thread?", pwd)
+		prompt := fmt.Sprintf("A git repository was detected in your current working directory:\n%v\n\nLink this thread's workspace to this repository?", pwd)
 		usePwd, err := tvUI.cliCtx.ui.SelectOption(
 			prompt,
 			[]types.UIOption{{Key: "y", Label: "Yes, use it"},
@@ -120,7 +120,7 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 
 	// ok here we know we still haven't setup an origin and the user doesn't
 	// want pwd, so ask
-	prompt := "Enter a repository directory for this thread (ESC to cancel):"
+	prompt := "Enter a repository directory to link this thread's workspace (ESC to cancel):"
 	if pwd != "" {
 		prompt = fmt.Sprintf("%v\n(current dir: %v)", prompt, pwd)
 	}

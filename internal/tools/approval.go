@@ -72,7 +72,8 @@ func DefaultApprovalRequest(t types.Tool, arg any) am.ApprovalRequest {
 	}
 
 	return am.ApprovalRequest{
-		Prompt:  prompt,
-		Choices: choices,
+		Prompt:   prompt,
+		ToolName: string(t.GetOp()),
+		Choices:  choices,
 	}
 }

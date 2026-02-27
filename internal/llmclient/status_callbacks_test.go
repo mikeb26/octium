@@ -67,4 +67,5 @@ func TestStatusCallbacks_ToolStartEnd(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, types.ProgressComponentTool, cur.Component)
 	assert.Contains(t, cur.DisplayText, "t")
+	assert.Equal(t, "t", cur.ToolName)
 }

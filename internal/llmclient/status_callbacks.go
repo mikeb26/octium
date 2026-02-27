@@ -106,6 +106,7 @@ func (h *statusToolCallbacks) OnStart(
 		InvocationID: id,
 		Component:    types.ProgressComponentTool,
 		DisplayText:  fmt.Sprintf("->%v(%v)", name, args),
+		ToolName:     name,
 		Phase:        types.ProgressPhaseStart,
 		Time:         time.Now(),
 	})
@@ -132,6 +133,7 @@ func (h *statusToolCallbacks) OnEnd(
 		InvocationID: id,
 		Component:    types.ProgressComponentTool,
 		DisplayText:  fmt.Sprintf("<-%v: %v", name, resp),
+		ToolName:     name,
 		Phase:        types.ProgressPhaseEnd,
 		Time:         time.Now(),
 	})
@@ -153,6 +155,7 @@ func (h *statusToolCallbacks) OnEndWithStreamOutput(
 		InvocationID: id,
 		Component:    types.ProgressComponentTool,
 		DisplayText:  fmt.Sprintf("<-%v: <stream>", name),
+		ToolName:     name,
 		Phase:        types.ProgressPhaseStreamingResp,
 		Time:         time.Now(),
 	})

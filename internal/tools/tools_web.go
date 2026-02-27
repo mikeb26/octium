@@ -87,7 +87,9 @@ func (t RetrieveUrlTool) BuildApprovalRequest(ctx context.Context, arg any) (am.
 		}
 		// Ensure the prompt/policy keys show the canonical absolute path.
 		req.RespBodyFilename = absOut
-		return buildWebApprovalRequestWithFileOutput(t, arg, req.Url, req.Method, absOut), nil
+		reqOut := buildWebApprovalRequestWithFileOutput(t, arg, req.Url, req.Method, absOut)
+		reqOut.ToolName = string(t.GetOp())
+		return reqOut, nil
 	}
 
 	return buildWebApprovalRequest(t, arg, req.Url, req.Method), nil
@@ -122,8 +124,9 @@ func buildWebApprovalRequestWithFileOutput(t types.Tool, arg any, rawURL, method
 	}
 
 	return am.ApprovalRequest{
-		Prompt:  promptBuilder.String(),
-		Choices: choices,
+		Prompt:   promptBuilder.String(),
+		ToolName: string(t.GetOp()),
+		Choices:  choices,
 	}
 }
 func NewRetrieveUrlTool(approver am.Approver) types.LlmTool {

@@ -36,4 +36,7 @@ type ProgressEvent struct {
 	Phase        ProgressPhase
 	Time         time.Time
 	DisplayText  string
+	// ToolName is set for tool progress events.
+	// It is a stable identifier used by the UI for user-friendly messaging.
+	ToolName string
 }

@@ -67,7 +67,7 @@ func TestWorkspace_Detail_FormatsFields(t *testing.T) {
 	assert.Contains(t, d, "/tmp/sbox")
 }
 
-func TestWorkspace_String_EmptyOrigin_ReturnsEmpty(t *testing.T) {
+func TestWorkspace_String_EmptyOrigin_ReturnsUnconfigured(t *testing.T) {
 	scratchDir := t.TempDir()
 	prevSandboxRepoHomeBase := internal.CliSandboxRepoHomeBase
 	internal.CliSandboxRepoHomeBase = t.TempDir()
@@ -76,7 +76,7 @@ func TestWorkspace_String_EmptyOrigin_ReturnsEmpty(t *testing.T) {
 	ws := New(scratchDir, "test", c)
 
 	s := ws.String(context.Background())
-	assert.Equal(t, "", s)
+	assert.Equal(t, "(not configured)", s)
 }
 
 func TestWorkspace_String_Statuses(t *testing.T) {

@@ -21,6 +21,9 @@ import (
 // launchWorkspaceModal opens a selection modal for workspace
 // operations.
 func (tvUI *threadViewUI) launchWorkspaceModal(ctx context.Context) error {
+	// NUX: explain what a workspace is before we prompt for linking a repo.
+	tvUI.cliCtx.nuxWorkspaceIntroIfNeeded()
+
 	if !tvUI.ensureWorkspaceReady(ctx) {
 		return nil
 	}
@@ -98,6 +101,9 @@ func workspaceSync(ctx context.Context, tvUI *threadViewUI) error {
 }
 
 func workspacePush(ctx context.Context, tvUI *threadViewUI) error {
+	// NUX: first time explanation.
+	tvUI.cliCtx.nuxWorkspaceOpIntroIfNeeded(nuxKeyWorkspacePushIntro)
+
 	dstBranch := branchNameFromThread(tvUI.thread)
 	suspendNCurses()
 	err := tvUI.thread.Workspace().PushSandbox(ctx, dstBranch)
@@ -112,6 +118,9 @@ func workspacePush(ctx context.Context, tvUI *threadViewUI) error {
 }
 
 func workspaceMerge(ctx context.Context, tvUI *threadViewUI) error {
+	// NUX: first time explanation.
+	tvUI.cliCtx.nuxWorkspaceOpIntroIfNeeded(nuxKeyWorkspaceMergeIntro)
+
 	suspendNCurses()
 	err := tvUI.thread.Workspace().MergeSandbox(ctx)
 	restoreNCurses()
@@ -144,6 +153,9 @@ func branchNameFromThread(t threads.Thread) string {
 }
 
 func workspaceReset(ctx context.Context, tvUI *threadViewUI) error {
+	// NUX: first time explanation.
+	tvUI.cliCtx.nuxWorkspaceOpIntroIfNeeded(nuxKeyWorkspaceResetIntro)
+
 	prompt := "Reset workspace sandbox only, or also change the origin repository for this thread?"
 	defaultSandboxOnly := true
 	sandboxOnly, err := tvUI.cliCtx.ui.SelectBool(

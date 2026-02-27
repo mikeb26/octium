@@ -52,6 +52,16 @@ type Prefs struct {
 	RunCmdApproval       bool   `json:"run_cmd_approval"`
 	EnableAuditLog       bool   `json:"enable_audit_log"`
 	WrapMode             string `json:"wrap_mode"`
+
+	// NUX contains onboarding / first-use help modal preferences.
+	//
+	// Each Seen* flag is treated as "dismissed" (i.e., if true, we do not show
+	// the corresponding help again). This intentionally differs from the name so
+	// that:
+	//   - defaults are false (show help by default)
+	//   - users can keep help enabled across runs until they explicitly choose
+	//     "Don't show again"
+	NUX NuxPrefs `json:"nux"`
 }
 
 type Toggles struct {
@@ -72,6 +82,20 @@ type CliContext struct {
 
 	prefs   Prefs
 	toggles Toggles
+
+	// nuxSessionShown tracks which NUX prompts have been shown in the current
+	// process, so we don't repeatedly show the same modal on every redraw.
+	//
+	// NUX prompts remain enabled across runs until the user explicitly chooses
+	// "Don't show again" (persisted via Prefs.NUX.Seen* flags).
+	nuxSessionShown map[string]bool
+
+	// exitRequested indicates a NUX/config flow requested quitting the app.
+	//
+	// This is used to support first-time setup flows that must block normal menu
+	// interaction until configuration is complete, while still giving the user a
+	// clear exit path.
+	exitRequested bool
 
 	// llmClient for non-persistent, fast 1-shot low latency completions.
 	// for persistent, slower, long dialogues see internal/threads/thread.llmClient
@@ -108,11 +132,13 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 			ShowReasoningInInput: false,
 			RunCmdApproval:       false,
 			EnableAuditLog:       true,
+			NUX:                  DefaultNuxPrefs(),
 		},
-		threadGroupSet: nil,
-		threadViews:    make(map[string]*threadViewUI),
-		curThreadGroup: MainThreadGroupName,
-		scmClient:      git.NewClient(),
+		threadGroupSet:  nil,
+		threadViews:     make(map[string]*threadViewUI),
+		curThreadGroup:  MainThreadGroupName,
+		scmClient:       git.NewClient(),
+		nuxSessionShown: make(map[string]bool),
 	}
 	cliCtx.menu = newThreadMenuUI(cliCtx)
 
