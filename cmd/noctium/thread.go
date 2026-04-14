@@ -55,6 +55,21 @@ type threadViewUI struct {
 	inputDraftCursorCol  int
 }
 
+func (tvUI *threadViewUI) initialFocusedFrame() *ui.Frame {
+	if tvUI.isArchived {
+		return tvUI.historyFrame
+	}
+
+	switch tvUI.cliCtx.prefs.ThreadViewDefaultFocus {
+	case threadViewDefaultFocusHistory:
+		return tvUI.historyFrame
+	case threadViewDefaultFocusInput:
+		fallthrough
+	default:
+		return tvUI.inputFrame
+	}
+}
+
 // automatically add AGENTS.md to the system prompt when present in the user's
 // repository
 func (tvUI *threadViewUI) getSystemPrompt() string {
@@ -497,10 +512,10 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	// immediately even if the model hasn't streamed any new tokens.
 	tvUI.syncHistoryFrameWithCurrentThreadState()
 
-	tvUI.focusedFrame = tvUI.inputFrame
-	if tvUI.isArchived {
-		tvUI.focusedFrame = tvUI.historyFrame
-	}
+	// Choose the initial focus based on user preference, falling back to the
+	// historical behavior (input focus) when not configured.
+	// Archived threads remain read-only and always enter focused on history.
+	tvUI.focusedFrame = tvUI.initialFocusedFrame()
 
 	// If this thread is currently running, keep the prompt input locked to the
 	// state the run started with.

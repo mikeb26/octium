@@ -57,21 +57,23 @@ func setupDefaultApprovals() error {
 
 func (octiumCtx *CliContext) loadPrefs() error {
 	const defaultWrapMode = ui.WrapModeWord
+	const defaultThreadViewFocus = threadViewDefaultFocusInput
 	vendor := internal.DefaultVendor
 	vendorInfo := internal.GetVendorInfo(vendor)
 	model := vendorInfo.DefaultModel
 	// Establish defaults so newly added prefs fields take the intended defaults
 	// even when loading older prefs.json files that don't include them.
 	octiumCtx.prefs = Prefs{
-		SummarizePrior:       false,
-		Vendor:               vendor,
-		Model:                model,
-		Reasoning:            types.ReasoningEffortMedium.String(),
-		ShowReasoningInInput: false,
-		RunCmdApproval:       false,
-		EnableAuditLog:       true,
-		WrapMode:             defaultWrapMode.String(),
-		NUX:                  DefaultNuxPrefs(),
+		SummarizePrior:         false,
+		Vendor:                 vendor,
+		Model:                  model,
+		Reasoning:              types.ReasoningEffortMedium.String(),
+		ShowReasoningInInput:   false,
+		RunCmdApproval:         false,
+		EnableAuditLog:         true,
+		WrapMode:               defaultWrapMode.String(),
+		ThreadViewDefaultFocus: defaultThreadViewFocus,
+		NUX:                    DefaultNuxPrefs(),
 	}
 
 	filePath, err := getPrefsPath()
@@ -98,8 +100,19 @@ func (octiumCtx *CliContext) loadPrefs() error {
 	if strings.TrimSpace(octiumCtx.prefs.WrapMode) == "" {
 		octiumCtx.prefs.WrapMode = defaultWrapMode.String()
 	}
+	if strings.TrimSpace(octiumCtx.prefs.ThreadViewDefaultFocus) == "" {
+		octiumCtx.prefs.ThreadViewDefaultFocus = defaultThreadViewFocus
+	}
 	if strings.TrimSpace(octiumCtx.prefs.Reasoning) == "" {
 		octiumCtx.prefs.Reasoning = types.ReasoningEffortMedium.String()
+	}
+
+	octiumCtx.prefs.ThreadViewDefaultFocus = strings.ToLower(strings.TrimSpace(octiumCtx.prefs.ThreadViewDefaultFocus))
+	switch octiumCtx.prefs.ThreadViewDefaultFocus {
+	case threadViewDefaultFocusInput, threadViewDefaultFocusHistory:
+		// ok
+	default:
+		return fmt.Errorf("%w: %q", ErrUnknownThreadViewDefaultFocus, octiumCtx.prefs.ThreadViewDefaultFocus)
 	}
 
 	var wrapMode ui.WrapMode
@@ -288,6 +301,7 @@ func configPreferences(cliCtx *CliContext) error {
 			{Key: "sum", Label: fmt.Sprintf("Summarize dialogue when continuing threads [%s]", onOff(cliCtx.prefs.SummarizePrior))},
 			{Key: "reason", Label: fmt.Sprintf("Reasoning effort (low/medium/high) [%s]", cliCtx.prefs.Reasoning)},
 			{Key: "reasonInput", Label: fmt.Sprintf("Show reasoning in input pane while running [%s]", onOff(cliCtx.prefs.ShowReasoningInInput))},
+			{Key: "focus", Label: fmt.Sprintf("Thread view default focus (input/history) [%s]", cliCtx.prefs.ThreadViewDefaultFocus)},
 			{Key: "wrap", Label: fmt.Sprintf("Text wrapping in frames [%s]", cliCtx.prefs.WrapMode)},
 			{Key: "nux", Label: "New user experience (help modals)"},
 			{Key: "back", Label: "Back"},
@@ -349,6 +363,22 @@ func configPreferences(cliCtx *CliContext) error {
 				return err
 			}
 			cliCtx.prefs.ShowReasoningInInput = show
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "focus":
+			choices := []types.UIOption{
+				{Key: threadViewDefaultFocusInput, Label: "Input (default)"},
+				{Key: threadViewDefaultFocusHistory, Label: "History"},
+			}
+			sel, err := cliCtx.ui.SelectOption("Thread view default focus:", choices)
+			if err != nil {
+				if uiWasCancelled(err) {
+					continue
+				}
+				return err
+			}
+			cliCtx.prefs.ThreadViewDefaultFocus = sel.Key
 			if err := cliCtx.savePrefs(); err != nil {
 				return err
 			}

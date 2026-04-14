@@ -38,6 +38,9 @@ const (
 	AuditLogFile           = "audit.log"
 	MainThreadGroupName    = "main"
 	ArchiveThreadGroupName = "archive"
+
+	threadViewDefaultFocusInput   = "input"
+	threadViewDefaultFocusHistory = "history"
 )
 
 type Prefs struct {
@@ -52,6 +55,11 @@ type Prefs struct {
 	RunCmdApproval       bool   `json:"run_cmd_approval"`
 	EnableAuditLog       bool   `json:"enable_audit_log"`
 	WrapMode             string `json:"wrap_mode"`
+	// ThreadViewDefaultFocus controls which pane is focused by default when
+	// entering a thread view.
+	//
+	// Supported values: "input" (default) or "history".
+	ThreadViewDefaultFocus string `json:"thread_view_default_focus"`
 
 	// NUX contains onboarding / first-use help modal preferences.
 	//
@@ -125,14 +133,15 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 			useColors:  false,
 		},
 		prefs: Prefs{
-			SummarizePrior:       false,
-			Vendor:               internal.DefaultVendor,
-			Model:                model,
-			Reasoning:            types.ReasoningEffortMedium.String(),
-			ShowReasoningInInput: false,
-			RunCmdApproval:       false,
-			EnableAuditLog:       true,
-			NUX:                  DefaultNuxPrefs(),
+			SummarizePrior:         false,
+			Vendor:                 internal.DefaultVendor,
+			Model:                  model,
+			Reasoning:              types.ReasoningEffortMedium.String(),
+			ShowReasoningInInput:   false,
+			RunCmdApproval:         false,
+			EnableAuditLog:         true,
+			ThreadViewDefaultFocus: threadViewDefaultFocusInput,
+			NUX:                    DefaultNuxPrefs(),
 		},
 		threadGroupSet:  nil,
 		threadViews:     make(map[string]*threadViewUI),
