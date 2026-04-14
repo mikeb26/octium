@@ -10,6 +10,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,10 +79,13 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	}
 
 	if ws.IsUnset() && !ignoreUnset {
-			return false, ErrWorkspaceNotConfigured
+		return false, ErrWorkspaceNotConfigured
 	}
 
-	// first try pwd; if it's a repo confirm with the user
+	// First try pwd; if it's a repo, confirm with the user.
+	//
+	// Note: pwd may be a subdirectory of the repo; when linking a workspace we
+	// always want the repo root.
 	pwd, err := os.Getwd()
 	if pwd == "" {
 		if err == nil {
@@ -90,7 +94,28 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		return false, err
 	}
 	if _, err := tvUI.cliCtx.scmClient.RepoStatusString(ctx, pwd); err == nil {
-		prompt := fmt.Sprintf("A git repository was detected in your current working directory:\n%v\n\nLink this thread's workspace to this repository?", pwd)
+		pwdAbs, absErr := filepath.Abs(pwd)
+		if absErr == nil {
+			pwd = filepath.Clean(pwdAbs)
+		} else {
+			pwd = filepath.Clean(pwd)
+		}
+
+		repoRoot := pwd
+		if root, ok, rootErr := findNearestGitRepoRoot(pwd); rootErr == nil && ok {
+			// Extra safety: ensure the computed root is still treated as a git repo by
+			// the configured SCM client.
+			if _, stErr := tvUI.cliCtx.scmClient.RepoStatusString(ctx, root); stErr == nil {
+				repoRoot = root
+			}
+		}
+
+		var prompt string
+		if repoRoot == pwd {
+			prompt = fmt.Sprintf("A git repository was detected in your current working directory:\n%v\n\nLink this thread's workspace to this repository?", repoRoot)
+		} else {
+			prompt = fmt.Sprintf("A git repository was detected in a parent directory of your current working directory:\n(current dir: %v)\n(repo root:   %v)\n\nLink this thread's workspace to this repository?", pwd, repoRoot)
+		}
 		usePwd, err := tvUI.cliCtx.ui.SelectOption(
 			prompt,
 			[]types.UIOption{{Key: "y", Label: "Yes, use it"},
@@ -104,15 +129,8 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 			return false, ErrWorkspaceSetupCancelled
 		}
 		if usePwd.Key == "y" {
-			if !filepath.IsAbs(pwd) {
-				pwd2, err := filepath.Abs(pwd)
-				if err != nil {
-					pwd = pwd2
-				}
-			}
-			pwd = filepath.Clean(pwd)
 			suspendNCurses()
-			err = ws.AddOriginAndSandbox(ctx, pwd)
+			err = ws.AddOriginAndSandbox(ctx, repoRoot)
 			restoreNCurses()
 			return true, err
 		}
@@ -189,6 +207,11 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 		if err := tvUI.initNewGitRepo(ctx, repoDir); err != nil {
 			return false, err
 		}
+	} else {
+		// If the user typed a subdirectory of a git repo, normalize to repo root.
+		if root, ok, rootErr := findNearestGitRepoRoot(repoDir); rootErr == nil && ok {
+			repoDir = root
+		}
 	}
 
 	suspendNCurses()
@@ -196,6 +219,40 @@ func (tvUI *threadViewUI) setupWorkspace(ctx context.Context,
 	restoreNCurses()
 
 	return true, err
+}
+
+// findNearestGitRepoRoot walks up from start and returns the nearest ancestor
+// directory that contains a ".git" entry (file or directory).
+//
+// This is used to normalize a working directory (which may be a subdirectory
+// within a repo) into the actual repository root directory.
+func findNearestGitRepoRoot(start string) (string, bool, error) {
+	if strings.TrimSpace(start) == "" {
+		return "", false, nil
+	}
+
+	startAbs, err := filepath.Abs(filepath.Clean(start))
+	if err != nil {
+		return "", false, err
+	}
+
+	dir := startAbs
+	for {
+		gitPath := filepath.Join(dir, ".git")
+		_, err := os.Stat(gitPath)
+		if err == nil {
+			return dir, true, nil
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return "", false, err
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return startAbs, false, nil
+		}
+		dir = parent
+	}
 }
 
 func (tvUI *threadViewUI) initNewGitRepo(ctx context.Context, repoDir string) error {
