@@ -8,6 +8,7 @@ package main
 import (
 	"strings"
 
+	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/threads"
 	"github.com/mikeb26/octium/internal/types"
 	"github.com/mikeb26/octium/internal/ui"
@@ -20,7 +21,7 @@ func historySourceLabel(src threads.RenderBlockSource) string {
 	case threads.RenderBlockSourceUser:
 		return "You:"
 	case threads.RenderBlockSourceAssistant:
-		return "LLM:"
+		return internal.CliToolNameCamel + ":"
 	default:
 		return ""
 	}

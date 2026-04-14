@@ -21,7 +21,8 @@ const MaxDepth = 3
 //
 // They must be vars (not consts) for -ldflags=-X to work.
 var (
-	CliToolName = "octium"
+	CliToolName      = "octium"
+	CliToolNameCamel = "Octium"
 	// should match pkg/common/tmpfiles.d/octium-aiagent.conf.in
 	CliSandboxShared = "shared"
 	// CliLibexecDir is the base directory where octium's privileged helpers
