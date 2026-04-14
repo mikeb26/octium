@@ -61,6 +61,15 @@ type Prefs struct {
 	// Supported values: "input" (default) or "history".
 	ThreadViewDefaultFocus string `json:"thread_view_default_focus"`
 
+	// AutoPromptWorkspaceSetupOnThreadEnter controls whether Octium should
+	// automatically prompt to configure/link a workspace (git repository) when
+	// entering a thread that does not yet have a workspace configured.
+	//
+	// If the user selects "configure later" during setup, the thread's workspace
+	// is marked as explicitly unset and we will not auto-prompt again for that
+	// thread.
+	AutoPromptWorkspaceSetupOnThreadEnter bool `json:"auto_prompt_workspace_setup_on_thread_enter"`
+
 	// NUX contains onboarding / first-use help modal preferences.
 	//
 	// Each Seen* flag is treated as "dismissed" (i.e., if true, we do not show
@@ -141,6 +150,7 @@ func NewCliContext(ctx context.Context) (*CliContext, error) {
 			RunCmdApproval:         false,
 			EnableAuditLog:         true,
 			ThreadViewDefaultFocus: threadViewDefaultFocusInput,
+			AutoPromptWorkspaceSetupOnThreadEnter: false,
 			NUX:                    DefaultNuxPrefs(),
 		},
 		threadGroupSet:  nil,

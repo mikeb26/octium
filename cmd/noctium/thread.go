@@ -530,12 +530,22 @@ func runThreadView(ctx context.Context, cliCtx *CliContext,
 	// We still process async events immediately afterwards; this just ensures the
 	// user sees the thread view first.
 	tvUI.redrawThreadView(ctx)
+	needRedraw := true
 	// NUX: thread view help.
 	//
 	// Workspace setup is intentionally lazy/opt-in now; we do not auto-prompt
-	// when entering the thread view.
+	// when entering the thread view unless the user enables it in prefs.
+	if !isArchived && cliCtx.prefs.AutoPromptWorkspaceSetupOnThreadEnter {
+		ws := thread.Workspace()
+		if ws != nil && ws.Origin() == "" && !ws.IsUnset() {
+			// Best-effort: do not block entering the thread view due to workspace
+			// issues, but do offer setup.
+			_, _ = tvUI.setupWorkspace(ctx, true)
+			// setupWorkspace may have displayed modals; ensure we redraw after.
+			needRedraw = true
+		}
+	}
 	tvUI.cliCtx.nuxThreadViewHelpIfNeeded()
-	needRedraw := true
 
 	for {
 		if runningNeedRedraw := tvUI.processAsyncChat(ctx); runningNeedRedraw {

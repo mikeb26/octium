@@ -73,6 +73,7 @@ func (octiumCtx *CliContext) loadPrefs() error {
 		EnableAuditLog:         true,
 		WrapMode:               defaultWrapMode.String(),
 		ThreadViewDefaultFocus: defaultThreadViewFocus,
+		AutoPromptWorkspaceSetupOnThreadEnter: false,
 		NUX:                    DefaultNuxPrefs(),
 	}
 
@@ -301,6 +302,7 @@ func configPreferences(cliCtx *CliContext) error {
 			{Key: "sum", Label: fmt.Sprintf("Summarize dialogue when continuing threads [%s]", onOff(cliCtx.prefs.SummarizePrior))},
 			{Key: "reason", Label: fmt.Sprintf("Reasoning effort (low/medium/high) [%s]", cliCtx.prefs.Reasoning)},
 			{Key: "reasonInput", Label: fmt.Sprintf("Show reasoning in input pane while running [%s]", onOff(cliCtx.prefs.ShowReasoningInInput))},
+			{Key: "wsAuto", Label: fmt.Sprintf("Auto-prompt workspace setup when entering a thread [%s]", onOff(cliCtx.prefs.AutoPromptWorkspaceSetupOnThreadEnter))},
 			{Key: "focus", Label: fmt.Sprintf("Thread view default focus (input/history) [%s]", cliCtx.prefs.ThreadViewDefaultFocus)},
 			{Key: "wrap", Label: fmt.Sprintf("Text wrapping in frames [%s]", cliCtx.prefs.WrapMode)},
 			{Key: "nux", Label: "New user experience (help modals)"},
@@ -363,6 +365,19 @@ func configPreferences(cliCtx *CliContext) error {
 				return err
 			}
 			cliCtx.prefs.ShowReasoningInInput = show
+			if err := cliCtx.savePrefs(); err != nil {
+				return err
+			}
+		case "wsAuto":
+			prompt := "Auto-prompt to link/configure a workspace when entering a new thread view?\n\nIf enabled, Octium will offer to link the thread to a git repository when you open a thread that does not yet have a workspace configured.\n\nIf you choose 'configure later' during the prompt, Octium will not prompt again for that thread unless you open the workspace menu ('w')."
+			trueOpt := types.UIOption{Key: "y", Label: "Yes"}
+			falseOpt := types.UIOption{Key: "n", Label: "No"}
+			defaultVal := cliCtx.prefs.AutoPromptWorkspaceSetupOnThreadEnter
+			auto, err := cliCtx.ui.SelectBool(prompt, trueOpt, falseOpt, &defaultVal)
+			if err != nil {
+				return err
+			}
+			cliCtx.prefs.AutoPromptWorkspaceSetupOnThreadEnter = auto
 			if err := cliCtx.savePrefs(); err != nil {
 				return err
 			}
