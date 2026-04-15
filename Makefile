@@ -149,6 +149,7 @@ pkg-clean:
 deps:
 	rm -rf go.mod go.sum vendor
 	go mod init github.com/mikeb26/octium
+	go mod edit -go=1.26.2
 	go mod edit -replace=github.com/rthornton128/goncurses=github.com/mikeb26/rthornton128-goncurses@bc9261688f2c003b706dacc3a9437181cb864bbe
 	GOPROXY=direct go mod tidy
 	go mod vendor
