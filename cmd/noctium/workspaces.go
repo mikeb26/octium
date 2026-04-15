@@ -36,7 +36,7 @@ func (tvUI *threadViewUI) launchWorkspaceModal(ctx context.Context) error {
 		{Key: "p", Label: "Push:p Push committed changes in the workspace's sandbox into a branch in your repo"},
 		{Key: "m", Label: "Merge:m Merge committed changes in the workspace's sandbox into your repo's current branch"},
 		{Key: "r", Label: "Reset:r Reset the workspace sandbox and/or change which of your repositories this thread works with"},
-		{Key: "t", Label: "Terminal:t Open a terminal in the workspace sandbox"},
+		{Key: "t", Label: "Terminal:t Open a terminal in the workspace sandbox (full network access)"},
 	}
 	ws := tvUI.thread.Workspace()
 	sel, err := tvUI.cliCtx.ui.SelectOption(ws.Detail(), choices)

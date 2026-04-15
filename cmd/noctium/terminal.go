@@ -6,7 +6,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -47,14 +46,12 @@ func (tvUI *threadViewUI) workspaceTerm(ctx context.Context) error {
 
 	// The run-as wrapper enters the sandbox and then executes the given command.
 	//
-	// Some installations may have an older wrapper that doesn't support newer
-	// flags (like --full-network). Detect support so we can still launch the
-	// terminal instead of failing with a generic exit status.
+	// Workspace terminals are intended for interactive developer work; always
+	// grant full network access so Go toolchain/module downloads and other build
+	// tooling behave as expected.
 	runAsPath := internal.CliRunAsScriptPath()
 	runAsArgs := []string{runAsPath}
-	if fileContainsString(runAsPath, "--full-network") {
-		runAsArgs = append(runAsArgs, "--full-network")
-	}
+	runAsArgs = append(runAsArgs, "--full-network")
 	runAsArgs = append(runAsArgs, "--cwd", ws.Sandbox(), "--")
 	// Use a login shell for a nicer interactive experience.
 	runAsArgs = append(runAsArgs, shellPath, "-l")
@@ -76,14 +73,6 @@ func (tvUI *threadViewUI) workspaceTerm(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func fileContainsString(path string, substr string) bool {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	return bytes.Contains(b, []byte(substr))
 }
 
 func terminalExecArgs(termArgs []string) ([]string, error) {
