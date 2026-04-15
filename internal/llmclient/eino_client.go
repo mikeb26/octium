@@ -7,6 +7,7 @@ package llmclient
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/claude"
@@ -31,6 +32,7 @@ import (
 
 type EINOAIClient struct {
 	vendor          string
+	model           string
 	reactAgent      *react.Agent
 	reasoningEffort types.ReasoningEffort
 	auditHandler    callbacks.Handler
@@ -215,6 +217,7 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ToolCalli
 
 	clientOut := &EINOAIClient{
 		vendor:          vendor,
+		model:           model,
 		reactAgent:      client,
 		reasoningEffort: types.ReasoningEffortMedium,
 		auditHandler:    auditHandler,
@@ -251,26 +254,46 @@ func (client *EINOAIClient) SetReasoning(
 	client.reasoningEffort = reasoningEffort
 }
 
-func (client *EINOAIClient) reasoningModelOption() model.Option {
+func isOpenAIGPT54Model(model string) bool {
+	return strings.HasPrefix(model, "gpt-5.4")
+}
+
+func (client *EINOAIClient) reasoningModelOption() (modelOpt model.Option, include bool, err error) {
 	switch client.vendor {
 	case "openrouter":
 		return openrouter.WithReasoning(&openrouter.Reasoning{
 			Effort: openRouterEffortFromReasoningEffort(client.reasoningEffort),
-		})
+		}), true, nil
 	case "openai":
-		return laclopenai.WithReasoningEffort(openAIEffortFromReasoningEffort(client.reasoningEffort))
+		// The EINO OpenAI bindings currently use the legacy completions interface
+		// rather than the OpenAI Responses API, so setting reasoning effort for
+		// gpt-5.4* models is not supported.
+		if isOpenAIGPT54Model(client.model) {
+			if client.reasoningEffort != types.ReasoningEffortMedium {
+				return model.Option{}, false, fmt.Errorf(
+					"%w: openai model %q does not support reasoning effort %q (only %q is supported due to EINO OpenAI legacy completions bindings)",
+					ErrReasoningEffortNotSupported,
+					client.model,
+					client.reasoningEffort,
+					types.ReasoningEffortMedium,
+				)
+			}
+			// Medium is the default; don't set it explicitly.
+			return model.Option{}, false, nil
+		}
+		return laclopenai.WithReasoningEffort(openAIEffortFromReasoningEffort(client.reasoningEffort)), true, nil
 	case "google":
 		return gemini.WithThinkingConfig(&genai.ThinkingConfig{
 			IncludeThoughts: true,
 			ThinkingLevel:   geminiThinkingLevelFromReasoningEffort(client.reasoningEffort),
-		})
+		}), true, nil
 	case "anthropic":
 		return claude.WithThinking(&claude.Thinking{
 			Enable:       true,
 			BudgetTokens: claudeBudgetTokensFromReasoningEffort(client.reasoningEffort),
-		})
+		}), true, nil
 	default:
-		return model.Option{}
+		return model.Option{}, false, nil
 	}
 }
 
@@ -326,9 +349,15 @@ func (client *EINOAIClient) CreateChatCompletion(ctx context.Context,
 		dialogue[ii] = (*schema.Message)(msg)
 	}
 
-	modelOpt := client.reasoningModelOption()
-	composeOpt := compose.WithChatModelOption(modelOpt)
-	agentOpt := agent.WithComposeOptions(composeOpt)
+	modelOpt, includeModelOpt, err := client.reasoningModelOption()
+	if err != nil {
+		return nil, err
+	}
+	composeOpts := make([]compose.Option, 0)
+	if includeModelOpt {
+		composeOpts = append(composeOpts, compose.WithChatModelOption(modelOpt))
+	}
+	agentOpt := agent.WithComposeOptions(composeOpts...)
 
 	// attach callbacks for model and tool invocations
 	var cbComposeOpt compose.Option
@@ -357,9 +386,15 @@ func (client *EINOAIClient) StreamChatCompletion(ctx context.Context,
 		dialogue[ii] = (*schema.Message)(msg)
 	}
 
-	modelOpt := client.reasoningModelOption()
-	composeOpt := compose.WithChatModelOption(modelOpt)
-	agentOpt := agent.WithComposeOptions(composeOpt)
+	modelOpt, includeModelOpt, err := client.reasoningModelOption()
+	if err != nil {
+		return nil, err
+	}
+	composeOpts := make([]compose.Option, 0)
+	if includeModelOpt {
+		composeOpts = append(composeOpts, compose.WithChatModelOption(modelOpt))
+	}
+	agentOpt := agent.WithComposeOptions(composeOpts...)
 
 	// attach callbacks for model and tool invocations
 	var cbComposeOpt compose.Option
