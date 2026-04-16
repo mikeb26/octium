@@ -91,6 +91,7 @@ func (tvUI *threadViewUI) beginAsyncChat(
 	}
 
 	tvUI.setRunningState(state)
+	tvUI.cliCtx.nuxThreadDetachHelpIfNeeded()
 
 	return prompt, true
 }

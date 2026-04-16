@@ -472,6 +472,7 @@ func (cliCtx *CliContext) allNuxDismissed() bool {
 		n.SeenThreadMenuEmpty &&
 		n.SeenThreadMenuHints &&
 		n.SeenThreadViewHelp &&
+		n.SeenThreadDetachHelp &&
 		n.SeenWorkspaceIntro &&
 		n.SeenApprovalsIntro &&
 		n.SeenRunCommandIntro &&
@@ -485,6 +486,7 @@ func (cliCtx *CliContext) dismissAllNux() {
 	cliCtx.prefs.NUX.SeenThreadMenuEmpty = true
 	cliCtx.prefs.NUX.SeenThreadMenuHints = true
 	cliCtx.prefs.NUX.SeenThreadViewHelp = true
+	cliCtx.prefs.NUX.SeenThreadDetachHelp = true
 	cliCtx.prefs.NUX.SeenWorkspaceIntro = true
 	cliCtx.prefs.NUX.SeenApprovalsIntro = true
 	cliCtx.prefs.NUX.SeenRunCommandIntro = true

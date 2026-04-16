@@ -27,6 +27,7 @@ type NuxPrefs struct {
 	SeenThreadMenuEmpty     bool `json:"seen_thread_menu_empty"`
 	SeenThreadMenuHints     bool `json:"seen_thread_menu_hints"`
 	SeenThreadViewHelp      bool `json:"seen_thread_view_help"`
+	SeenThreadDetachHelp    bool `json:"seen_thread_detach_help"`
 	SeenWorkspaceIntro      bool `json:"seen_workspace_intro"`
 	SeenApprovalsIntro      bool `json:"seen_approvals_intro"`
 	SeenRunCommandIntro     bool `json:"seen_run_command_intro"`
@@ -44,6 +45,7 @@ func DefaultNuxPrefs() NuxPrefs {
 const (
 	nuxKeyWelcome         = "welcome"
 	nuxKeyThreadViewHelp  = "thread_view_help"
+	nuxKeyThreadDetachHelp = "thread_detach_help"
 	nuxKeyMenuEmpty       = "menu_empty"
 	nuxKeyMenuHints       = "menu_hints"
 	nuxKeyWorkspaceIntro  = "workspace_intro"
@@ -291,6 +293,34 @@ Tips:
 	}
 	if dna {
 		cliCtx.prefs.NUX.SeenThreadViewHelp = true
+		_ = cliCtx.savePrefs()
+	}
+}
+
+func (cliCtx *CliContext) nuxThreadDetachHelpIfNeeded() {
+	if cliCtx.prefs.NUX.SeenThreadDetachHelp {
+		return
+	}
+	if cliCtx.nuxWasShownThisSession(nuxKeyThreadDetachHelp) {
+		return
+	}
+	cliCtx.markNuxShownThisSession(nuxKeyThreadDetachHelp)
+
+	prompt := strings.TrimSpace(`Thread started.
+
+You can return to the main menu at any time while this thread is working.
+
+- Press 'ESC' from the history pane to leave the thread view
+- The thread will keep running in the background
+- You can open the thread again later without losing your place
+`)
+
+	dna, err := cliCtx.showNuxConfirmDontShowAgain(prompt)
+	if err != nil {
+		return
+	}
+	if dna {
+		cliCtx.prefs.NUX.SeenThreadDetachHelp = true
 		_ = cliCtx.savePrefs()
 	}
 }
