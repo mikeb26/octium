@@ -32,7 +32,6 @@ func TestInvocationID_GetAndEnsure(t *testing.T) {
 
 func TestProgress_Subscribe_LateSubscriberGetsCurrent(t *testing.T) {
 	client := &EINOAIClient{
-		model:   "",
 		subs:    make(map[string][]chan types.ProgressEvent),
 		current: make(map[string]types.ProgressEvent),
 	}
@@ -70,7 +69,6 @@ func TestProgress_Subscribe_LateSubscriberGetsCurrent(t *testing.T) {
 
 func TestProgress_Subscribe_EmptyInvocationIDReturnsNil(t *testing.T) {
 	client := &EINOAIClient{
-		model:   "",
 		subs:    make(map[string][]chan types.ProgressEvent),
 		current: make(map[string]types.ProgressEvent),
 	}
@@ -81,7 +79,6 @@ func TestProgress_Subscribe_EmptyInvocationIDReturnsNil(t *testing.T) {
 
 func TestProgress_Publish_DoesNotBlockOnSlowSubscriber(t *testing.T) {
 	client := &EINOAIClient{
-		model:   "",
 		subs:    make(map[string][]chan types.ProgressEvent),
 		current: make(map[string]types.ProgressEvent),
 	}
@@ -115,7 +112,6 @@ func TestProgress_Publish_DoesNotBlockOnSlowSubscriber(t *testing.T) {
 
 func TestProgress_Unsubscribe_ClosesChannel(t *testing.T) {
 	client := &EINOAIClient{
-		model:   "",
 		subs:    make(map[string][]chan types.ProgressEvent),
 		current: make(map[string]types.ProgressEvent),
 	}

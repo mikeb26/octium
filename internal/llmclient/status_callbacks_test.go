@@ -17,7 +17,6 @@ import (
 
 func TestStatusCallbacks_ModelStartEnd(t *testing.T) {
 	client := &EINOAIClient{
-		model:   "",
 		subs:    make(map[string][]chan types.ProgressEvent),
 		current: make(map[string]types.ProgressEvent),
 	}
@@ -45,7 +44,6 @@ func TestStatusCallbacks_ModelStartEnd(t *testing.T) {
 
 func TestStatusCallbacks_ToolStartEnd(t *testing.T) {
 	client := &EINOAIClient{
-		model:   "",
 		subs:    make(map[string][]chan types.ProgressEvent),
 		current: make(map[string]types.ProgressEvent),
 	}
