@@ -101,12 +101,8 @@ var vendorInfos = map[string]VendorInfo{
 			"gpt-5.2",
 			"gpt-5-mini",
 			"gpt-5.2-pro",
-			"gpt-5.4",
-			"gpt-5.4-mini",
-			"gpt-5.4-nano",
-			"gpt-5.4-pro",
 		},
-		DefaultModel: "gpt-5.4",
+		DefaultModel: "gpt-5.2",
 	},
 }
 
