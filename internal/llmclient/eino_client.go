@@ -11,9 +11,8 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/gemini"
-	"github.com/cloudwego/eino-ext/components/model/openai"
+	openaigo "github.com/cloudwego/eino-ext/components/model/openai-go"
 	"github.com/cloudwego/eino-ext/components/model/openrouter"
-	laclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
@@ -21,7 +20,6 @@ import (
 	"github.com/cloudwego/eino/flow/agent"
 	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
-	"github.com/mikeb26/octium/internal"
 	"github.com/mikeb26/octium/internal/am"
 	"github.com/mikeb26/octium/internal/tools"
 	"github.com/mikeb26/octium/internal/types"
@@ -109,10 +107,7 @@ func newOpenAIEINOClient(ctx context.Context, vendor string,
 	depth int,
 	enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
-	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		Model:  model,
-		APIKey: apiKey,
-	})
+	chatModel, err := openaigo.NewChatModel(ctx, &openaigo.Config{Model: model, APIKey: apiKey})
 	if err != nil {
 		panic(err)
 	}
@@ -238,10 +233,10 @@ func defineTools(ctx context.Context, vendor string, approver am.Approver,
 		tools.NewDeleteFileTool(approver),
 		tools.NewRetrieveUrlTool(approver),
 	}
-	if depth <= internal.MaxDepth {
-		tools = append(tools, newPromptRunTool(ctx, vendor, approver, apiKey,
-			model, depth))
-	}
+	//	if depth <= internal.MaxDepth {
+	//		tools = append(tools, newPromptRunTool(ctx, vendor, approver, apiKey,
+	//			model, depth))
+	//	}
 
 	return tools
 }
@@ -258,7 +253,10 @@ func (client *EINOAIClient) reasoningModelOption() model.Option {
 			Effort: openRouterEffortFromReasoningEffort(client.reasoningEffort),
 		})
 	case "openai":
-		return laclopenai.WithReasoningEffort(openAIEffortFromReasoningEffort(client.reasoningEffort))
+		return openaigo.WithReasoning(&openaigo.Reasoning{
+			Effort:  openAIGoEffortFromReasoningEffort(client.reasoningEffort),
+			Summary: openaigo.ReasoningSummaryAuto,
+		})
 	case "google":
 		return gemini.WithThinkingConfig(&genai.ThinkingConfig{
 			IncludeThoughts: true,
@@ -307,14 +305,14 @@ func openRouterEffortFromReasoningEffort(level types.ReasoningEffort) openrouter
 	}
 }
 
-func openAIEffortFromReasoningEffort(level types.ReasoningEffort) laclopenai.ReasoningEffortLevel {
+func openAIGoEffortFromReasoningEffort(level types.ReasoningEffort) openaigo.ReasoningEffort {
 	switch level {
 	case types.ReasoningEffortLow:
-		return laclopenai.ReasoningEffortLevelLow
+		return openaigo.ReasoningEffortLow
 	case types.ReasoningEffortHigh:
-		return laclopenai.ReasoningEffortLevelHigh
+		return openaigo.ReasoningEffortHigh
 	default:
-		return laclopenai.ReasoningEffortLevelMedium
+		return openaigo.ReasoningEffortMedium
 	}
 }
 
