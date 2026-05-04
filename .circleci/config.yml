@@ -7,7 +7,7 @@ jobs:
     working_directory: ~/repo
     # https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
-      - image: cimg/go:1.24.2
+      - image: cimg/go:1.26.2
     # https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
@@ -20,7 +20,7 @@ jobs:
       - run:
           name: Install ncurses
           command: |
-              sudo apt-get update
+#              sudo apt-get update
               sudo apt-get install -y libncurses-dev
 
       - run:
@@ -28,7 +28,7 @@ jobs:
           command: |
               if [ "$CIRCLE_TAG" != "" ]
               then
-                  sudo apt-get update
+#                  sudo apt-get update
                   sudo apt-get install -y \
                     devscripts \
                     debhelper \
