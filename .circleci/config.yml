@@ -20,7 +20,7 @@ jobs:
       - run:
           name: Install ncurses
           command: |
-#              sudo apt-get update
+              sudo apt-get update
               sudo apt-get install -y libncurses-dev
 
       - run:
@@ -28,7 +28,7 @@ jobs:
           command: |
               if [ "$CIRCLE_TAG" != "" ]
               then
-#                  sudo apt-get update
+                  sudo apt-get update
                   sudo apt-get install -y \
                     devscripts \
                     debhelper \
