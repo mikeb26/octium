@@ -32,7 +32,7 @@ Depends:
  ncurses-bin,
  ca-certificates,
  fonts-liberation,
- chromium
+ chromium | chromium-browser
 Description: terminal-based agentic coding assistant (ncurses TUI)
  octium is a terminal-based, agentic coding assistant with an ncurses UI.
  It supports multiple LLM vendors and a curated, approval-gated toolset.
