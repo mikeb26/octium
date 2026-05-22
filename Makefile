@@ -25,9 +25,13 @@ GO_LDFLAGS := \
 # Versioning.
 #
 # cmd/$(NCLI_TOOL_NAME)/version.txt is the source of truth for the build/version.
-# For Debian packaging, we derive the package version from version.txt:
-#   - release tags: vMAJOR.MINOR.PATCH  ->  MAJOR.MINOR.PATCH-1
-#   - otherwise:                         0.0.0+git
+# For packaging, we derive package versions from version.txt:
+#   Debian:
+#     - release tags: vMAJOR.MINOR.PATCH  ->  MAJOR.MINOR.PATCH-1
+#     - otherwise:                         0.0.0+git
+#   RPM:
+#     - release tags: vMAJOR.MINOR.PATCH  ->  Version: MAJOR.MINOR.PATCH, Release: 1
+#     - otherwise:                         Version: 0.0.0, Release: 0.git
 CLI_VERSION_RAW = $(shell cat cmd/$(NCLI_TOOL_NAME)/version.txt 2>/dev/null)
 CLI_DEB_VERSION = $(shell \
 	v="$(CLI_VERSION_RAW)"; \
@@ -35,6 +39,20 @@ CLI_DEB_VERSION = $(shell \
 		printf '%s-1\n' "$${v#v}"; \
 	else \
 		printf '%s\n' '0.0.0+git'; \
+	fi)
+CLI_RPM_VERSION = $(shell \
+	v="$(CLI_VERSION_RAW)"; \
+	if printf '%s' "$$v" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		printf '%s\n' "$${v#v}"; \
+	else \
+		printf '%s\n' '0.0.0'; \
+	fi)
+CLI_RPM_RELEASE = $(shell \
+	v="$(CLI_VERSION_RAW)"; \
+	if printf '%s' "$$v" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		printf '%s\n' '1'; \
+	else \
+		printf '%s\n' '0.git'; \
 	fi)
 
 .PHONY: build
@@ -99,15 +117,26 @@ PKG_RENDERED_FILES := \
 	pkg/deb/debian/octium.postrm \
 	pkg/deb/debian/rules \
 	pkg/deb/debian/README.Debian \
+	pkg/rpm/octium.spec \
 	pkg/README.md \
-	pkg/deb/README.md
+	pkg/deb/README.md \
+	pkg/rpm/README.md
+
+# Match the Debian helper's local-build behavior: skip RPM database build-dep
+# checks by default because developers may install Go/rpmbuild outside dnf/rpm.
+# Override with `make rpm RPMBUILD_FLAGS=` to enforce BuildRequires checks.
+RPMBUILD_FLAGS ?= --nodeps
 
 .PHONY: pkg-generate
 pkg-generate: $(PKG_RENDERED_FILES)
 
 .PHONY: deb
 deb: cmd/$(NCLI_TOOL_NAME)/version.txt pkg-generate
-	cd pkg/deb && ./build.sh -d
+	cd pkg/deb && sh ./build.sh -d
+
+.PHONY: rpm
+rpm: cmd/$(NCLI_TOOL_NAME)/version.txt vendor pkg-generate
+	cd pkg/rpm && sh ./build.sh $(RPMBUILD_FLAGS)
 
 $(PKG_COMMON_POSTINSTALL_OUT): pkg/common/libexec/octium-postinstall-common.sh.in
 $(PKG_COMMON_PROVISION_USER_OUT): pkg/common/libexec/octium-provision-user.sh.in
@@ -120,14 +149,18 @@ pkg/deb/debian/octium.postinst: pkg/deb/debian/octium.postinst.in
 pkg/deb/debian/octium.postrm: pkg/deb/debian/octium.postrm.in
 pkg/deb/debian/rules: pkg/deb/debian/rules.in
 pkg/deb/debian/README.Debian: pkg/deb/debian/README.Debian.in
+pkg/rpm/octium.spec: pkg/rpm/octium.spec.in cmd/$(NCLI_TOOL_NAME)/version.txt
 pkg/README.md: pkg/README.md.in
 pkg/deb/README.md: pkg/deb/README.md.in
+pkg/rpm/README.md: pkg/rpm/README.md.in
 
 $(PKG_RENDERED_FILES):
 	@mkdir -p $(dir $@)
 	@sed \
 		-e 's|@CLI_TOOL_NAME@|$(CLI_TOOL_NAME)|g' \
 		-e 's|@CLI_DEB_VERSION@|$(CLI_DEB_VERSION)|g' \
+		-e 's|@CLI_RPM_VERSION@|$(CLI_RPM_VERSION)|g' \
+		-e 's|@CLI_RPM_RELEASE@|$(CLI_RPM_RELEASE)|g' \
 		"$<" > "$@"
 	@chmod --reference="$<" "$@"
 	@case "$@" in \
@@ -137,7 +170,7 @@ $(PKG_RENDERED_FILES):
 
 .PHONY: clean
 clean:
-	rm -f $(NCLI_TOOL_NAME) unit-tests.xml /tmp/$(CLI_TOOL_NAME)*.deb
+	rm -f $(NCLI_TOOL_NAME) unit-tests.xml /tmp/$(CLI_TOOL_NAME)*.deb /tmp/$(CLI_TOOL_NAME)*.rpm
 
 .PHONY: pkg-clean
 pkg-clean:

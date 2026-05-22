@@ -1,0 +1,123 @@
+# pkg/rpm/
+
+RPM packaging templates for building an `.rpm` that includes:
+- `@CLI_TOOL_NAME@` binary
+- provisioning scripts for per-user sandbox accounts (sudoers wrapper, /home setup)
+
+## Runtime dependencies
+
+The `@CLI_TOOL_NAME@` package declares dependencies on:
+- `systemd`
+- `git`
+- `ripgrep`
+- `ncurses-libs`
+- `ncurses`
+- `sudo`
+- `ca-certificates`
+- `google-noto-sans-fonts`
+- `chromium`
+
+### Amazon Linux 2023 runtime dependency note
+
+On Amazon Linux 2023, `ripgrep` and `chromium` are provided by Supplementary
+Packages for Amazon Linux (SPAL), not by the default core repository. If `dnf`
+cannot find those packages, update the host and enable SPAL before installing
+`@CLI_TOOL_NAME@`:
+
+```bash
+sudo dnf upgrade
+sudo dnf install spal-release
+sudo dnf install ripgrep chromium
+```
+
+SPAL is available for AL2023 release version `2023.9.20251117` or later. You can
+verify the host release with:
+
+```bash
+rpm -qi system-release
+```
+
+AWS documents SPAL as AL2023-compatible packages derived from EPEL9. SPAL
+packages are provided separately from core AL2023 packages: they are not covered
+by AWS Support Plans and do not receive AWS CVE tracking. See the AWS AL2023
+documentation for details:
+
+- https://docs.aws.amazon.com/linux/al2023/ug/spal.html
+- https://docs.aws.amazon.com/linux/al2023/ug/configure-spal-repository.html
+
+### CentOS Stream 10 runtime dependency note
+
+On CentOS Stream 10, `ripgrep` and `chromium` may not be available from the
+default enabled repositories. If `dnf` cannot find those packages, enable EPEL
+before installing `@CLI_TOOL_NAME@`:
+
+```bash
+sudo dnf install epel-release
+sudo dnf install ripgrep chromium
+```
+
+## Build dependencies
+
+The RPM spec declares build dependencies on:
+- `golang`
+- `ncurses-devel`
+- `pkgconfig`
+- `make`
+- `gcc`
+- `git`
+- `ca-certificates`
+- `rpm-build`
+
+### Go toolchain note (go1.26.2+)
+
+This repo's `go.mod` currently requires Go 1.26.2.
+
+- If your host has **Go 1.21+**, `go` can automatically download the required
+  toolchain (when `GOTOOLCHAIN=auto`, which the packaging sets).
+- If your distro `golang` is too old to bootstrap toolchain downloads, install
+  a newer Go directly from https://go.dev/dl/ and rebuild.
+
+Note: Some build environments restrict network access, which can prevent
+automatic toolchain downloads.
+
+## How to build locally
+
+The recommended local build command is:
+
+```bash
+make rpm
+```
+
+This generates packaging templates, vendors Go dependencies, and runs the RPM
+helper with RPM build-dependency checks skipped by default. This matches the
+Debian local-build behavior, where developers may have Go/rpmbuild installed
+outside the RPM package database.
+
+To enforce the RPM `BuildRequires` checks instead:
+
+```bash
+make rpm RPMBUILD_FLAGS=
+```
+
+To run the helper directly, generate templates and vendor dependencies first:
+
+```bash
+make pkg-generate
+make vendor
+sh ./pkg/rpm/build.sh
+```
+
+The helper creates a temporary rpmbuild tree, archives the current source tree,
+and runs `rpmbuild -bb` against `pkg/rpm/octium.spec`.
+
+Built RPMs are copied to `${TMPDIR:-/tmp}` and printed by the helper.
+
+If your build dependencies are installed outside your RPM database, you can skip
+RPM dependency checks:
+
+```bash
+sh ./pkg/rpm/build.sh --nodeps
+```
+
+For CI/official builds, it's recommended to satisfy `BuildRequires` via your RPM
+package manager.

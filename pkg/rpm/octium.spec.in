@@ -1,0 +1,120 @@
+Name:           @CLI_TOOL_NAME@
+Version:        @CLI_RPM_VERSION@
+Release:        @CLI_RPM_RELEASE@%{?dist}
+Summary:        Terminal-based agentic coding assistant (ncurses TUI)
+
+License:        AGPL-3.0-or-later
+URL:            https://github.com/mikeb26/octium
+Source0:        %{name}-%{version}.tar.gz
+
+# The ncurses packages on Amazon Linux 2023 satisfy these runtime libraries but
+# do not advertise the symbol-version provides that rpm generates when this
+# package is built on some hosts. Keep the explicit package-level dependency on
+# ncurses-libs below and suppress only the generated ncurses symbol-version
+# requirements so locally-built RPMs remain installable on AL2023.
+%global __requires_exclude ^(lib(formw|menuw|ncursesw|panelw)[.]so[.]6[(]NCURSESW6_[^)]+[)]|libtinfo[.]so[.]6[(]NCURSES6_TINFO_[^)]+[)])[(]64bit[)]$
+
+BuildRequires:  ca-certificates
+BuildRequires:  gcc
+BuildRequires:  git
+BuildRequires:  golang
+BuildRequires:  make
+BuildRequires:  ncurses-devel
+BuildRequires:  pkgconfig
+BuildRequires:  rpm-build
+
+Requires:       systemd
+Requires:       git
+Requires:       ripgrep
+Requires:       glibc-langpack-en
+Requires:       ncurses-libs
+Requires:       ncurses
+Requires:       sudo
+Requires:       ca-certificates
+Requires:       google-noto-sans-fonts
+Requires:       chromium
+
+%description
+octium is a terminal-based, agentic coding assistant with an ncurses UI.
+It supports multiple LLM vendors and a curated, approval-gated toolset.
+
+%prep
+%autosetup
+
+%build
+export GO111MODULE=on
+export GOFLAGS=-mod=vendor
+# Allow go.mod to fetch the required Go toolchain (go1.26.2+) when the host has
+# a compatible bootstrap Go (1.21+).
+export GOTOOLCHAIN=auto
+
+TAGS="${TAGS:-assert}"
+# Build with uncompressed DWARF for consistency with Debian packaging and to
+# avoid tooling issues on some distro build hosts.
+go build -tags "${TAGS}" -ldflags "-compressdwarf=false \
+	-X github.com/mikeb26/octium/internal.CliToolName=@CLI_TOOL_NAME@ \
+	" \
+	-o n@CLI_TOOL_NAME@ ./cmd/n@CLI_TOOL_NAME@
+
+%install
+rm -rf %{buildroot}
+install -d -m 0755 %{buildroot}%{_bindir}
+install -m 0755 n@CLI_TOOL_NAME@ %{buildroot}%{_bindir}/n@CLI_TOOL_NAME@
+
+install -d -m 0755 %{buildroot}%{_libexecdir}/@CLI_TOOL_NAME@
+install -m 0755 pkg/common/libexec/@CLI_TOOL_NAME@-postinstall-common.sh %{buildroot}%{_libexecdir}/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
+install -m 0755 pkg/common/libexec/@CLI_TOOL_NAME@-provision-user %{buildroot}%{_libexecdir}/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user
+install -m 0644 pkg/common/libexec/run-as.template %{buildroot}%{_libexecdir}/@CLI_TOOL_NAME@/run-as.template
+
+install -d -m 0755 %{buildroot}%{_datadir}/@CLI_TOOL_NAME@
+install -m 0644 pkg/common/share/gitconfig %{buildroot}%{_datadir}/@CLI_TOOL_NAME@/gitconfig
+install -m 0644 pkg/common/share/bashprofile %{buildroot}%{_datadir}/@CLI_TOOL_NAME@/bashprofile
+
+%post
+if [ -x %{_libexecdir}/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh ]; then
+	. %{_libexecdir}/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
+	upgrade_provisioned_users || true
+	provision_invoking_user || true
+fi
+
+%preun
+# On erase, remove sudoers drop-ins and per-user wrapper scripts to avoid stale
+# sudo configuration. Keep accounts and home directories unless the package is
+# being purged manually by an administrator.
+if [ "${1:-1}" -eq 0 ]; then
+	if command -v getent >/dev/null 2>&1; then
+		users="$(getent passwd 2>/dev/null | cut -d: -f1 || true)"
+	elif [ -r /etc/passwd ]; then
+		users="$(cut -d: -f1 /etc/passwd || true)"
+	else
+		users=""
+	fi
+
+	if [ -n "${users}" ]; then
+		echo "${users}" | while IFS= read -r sandbox_user; do
+			case "${sandbox_user}" in
+				@CLI_TOOL_NAME@-*) ;;
+				*) continue ;;
+			esac
+			shared_group="${sandbox_user}-shared"
+			rm -f "/etc/sudoers.d/${shared_group}-${sandbox_user}-echo" 2>/dev/null || true
+			rm -f "%{_libexecdir}/@CLI_TOOL_NAME@/run-as-${sandbox_user}" 2>/dev/null || true
+		done
+	fi
+fi
+
+%files
+%license LICENSE
+%doc README.md
+%{_bindir}/n@CLI_TOOL_NAME@
+%dir %{_libexecdir}/@CLI_TOOL_NAME@
+%{_libexecdir}/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-postinstall-common.sh
+%{_libexecdir}/@CLI_TOOL_NAME@/@CLI_TOOL_NAME@-provision-user
+%{_libexecdir}/@CLI_TOOL_NAME@/run-as.template
+%dir %{_datadir}/@CLI_TOOL_NAME@
+%{_datadir}/@CLI_TOOL_NAME@/gitconfig
+%{_datadir}/@CLI_TOOL_NAME@/bashprofile
+
+%changelog
+* Sat Jan 01 2000 Octium RPM Packaging <rpm@octium.dev> - @CLI_RPM_VERSION@-@CLI_RPM_RELEASE@
+- Initial RPM packaging (per-user provisioning script, sudoers wrapper).
