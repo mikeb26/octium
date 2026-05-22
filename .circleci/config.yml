@@ -68,7 +68,7 @@ jobs:
                 make deb
                 make rpm
                 cp /tmp/octium_*.deb dist/
-                cp /tmp/octium_*.rpm dist/
+                cp /tmp/octium-*.rpm dist/
                 # dbgsym packages are emitted as .ddeb (Debian debug symbol packages)
                 cp /tmp/octium-dbgsym_*.ddeb dist/
             fi
