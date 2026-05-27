@@ -184,6 +184,7 @@ deps:
 	go mod init github.com/mikeb26/octium
 	go mod edit -go=1.26.2
 	go mod edit -replace=github.com/rthornton128/goncurses=github.com/mikeb26/rthornton128-goncurses@bc9261688f2c003b706dacc3a9437181cb864bbe
+	echo "replace github.com/cloudwego/eino-ext/components/model/openai-go => github.com/mikeb26/cloudwego-eino-ext/components/model/openai-go v0.0.0-20260527212500-55db3d75b0fc" >> go.mod
 	GOPROXY=direct go mod tidy
 	go mod vendor
 

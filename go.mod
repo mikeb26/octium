@@ -4,22 +4,23 @@ go 1.26.2
 
 replace github.com/rthornton128/goncurses => github.com/mikeb26/rthornton128-goncurses v0.0.0-20260119184955-bc9261688f2c
 
+replace github.com/cloudwego/eino-ext/components/model/openai-go => github.com/mikeb26/cloudwego-eino-ext/components/model/openai-go v0.0.0-20260527212500-55db3d75b0fc
+
 require (
 	github.com/chromedp/chromedp v0.15.1
-	github.com/cloudwego/eino v0.8.11
-	github.com/cloudwego/eino-ext/components/model/claude v0.1.17
-	github.com/cloudwego/eino-ext/components/model/gemini v0.1.30
+	github.com/cloudwego/eino v0.9.1
+	github.com/cloudwego/eino-ext/components/model/claude v0.1.18
+	github.com/cloudwego/eino-ext/components/model/gemini v0.1.32
 	github.com/cloudwego/eino-ext/components/model/openai-go v0.0.0-00010101000000-000000000000
-	github.com/cloudwego/eino-ext/components/model/openrouter v0.1.9
+	github.com/cloudwego/eino-ext/components/model/openrouter v0.1.10
 	github.com/famz/SetLocale v0.0.0-20140414113655-0457ad1065dd
 	github.com/golang/mock v1.6.0
 	github.com/negrel/assert v0.5.0
-	github.com/openai/openai-go/v3 v3.32.0
 	github.com/rthornton128/goncurses v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/sys v0.43.0
-	golang.org/x/term v0.42.0
-	google.golang.org/genai v1.54.0
+	golang.org/x/sys v0.45.0
+	golang.org/x/term v0.43.0
+	google.golang.org/genai v1.58.0
 )
 
 require (
@@ -50,7 +51,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
-	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.16 // indirect
+	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eino-contrib/jsonschema v1.0.3 // indirect
@@ -76,6 +77,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
+	github.com/openai/openai-go/v3 v3.32.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -108,5 +110,3 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/cloudwego/eino-ext/components/model/openai-go => github.com/mikeb26/cloudwego-eino-ext/components/model/openai-go v0.0.0-20260501162710-f6304a7f3508
