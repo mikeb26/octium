@@ -87,7 +87,7 @@ Octium is built around explicit human control of agent actions.
 
 ## Installation
 
-### Debian / Ubuntu apt repository
+### Debian / Ubuntu / other .deb based distributions
 
 The recommended install path on Debian/Ubuntu is the Octium apt repository:
 
@@ -110,6 +110,22 @@ noctium
 Package install also provisions a dedicated per-user sandbox account when possible. If your user is newly added to the Octium shared sandbox group, you may need to log out and back in, or run `newgrp <octium-user-shared-group>`, before workspace sandbox access is available in the current shell session.
 
 Repository details are available at <https://repo.octium.dev/>.
+
+### RHEL / CentOS / Fedora / other .rpm based distributions
+
+The recommended install path on rpm distributions is the Octium repository:
+
+```bash
+sudo dnf config-manager --add-repo https://repo.octium.dev/rpm/octium.repo
+sudo dnf install octium
+```
+
+Note if you get errors reporting that nothing provides chromium or ripgrep, you may need to enable extended packages on your system first with:
+
+```bash
+sudo dnf install epel-release
+sudo dnf install ripgrep chromium
+```
 
 ### Prebuilt release artifacts
 
