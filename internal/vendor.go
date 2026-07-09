@@ -72,6 +72,9 @@ var vendorInfos = map[string]VendorInfo{
 			"openai/gpt-5.4-pro",
 			"openai/gpt-5.5",
 			"openai/gpt-5.5-pro",
+			"openai/gpt-5.6-sol",
+			"openai/gpt-5.6-terra",
+			"openai/gpt-5.6-luna",
 			"perplexity/sonar",
 			"perplexity/sonar-pro",
 			"qwen/qwen3-235b-a22b",
@@ -79,7 +82,7 @@ var vendorInfos = map[string]VendorInfo{
 			"x-ai/grok-3-mini",
 			"x-ai/grok-4",
 		},
-		DefaultModel: "openai/gpt-5.4",
+		DefaultModel: "openai/gpt-5.6-terra",
 	},
 	"anthropic": {
 		Name:      "anthropic",
@@ -109,8 +112,11 @@ var vendorInfos = map[string]VendorInfo{
 			"gpt-5.4-pro",
 			"gpt-5.5",
 			"gpt-5.5-pro",
+			"gpt-5.6-sol",
+			"gpt-5.6-terra",
+			"gpt-5.6-luna",
 		},
-		DefaultModel: "gpt-5.4",
+		DefaultModel: "gpt-5.6-terra",
 	},
 }
 
