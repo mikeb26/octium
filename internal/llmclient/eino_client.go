@@ -7,8 +7,11 @@ package llmclient
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/gemini"
 	openaigo "github.com/cloudwego/eino-ext/components/model/openai-go"
@@ -29,12 +32,21 @@ import (
 
 type EINOAIClient struct {
 	vendor          string
+	model           string
 	reactAgent      *react.Agent
 	reasoningEffort types.ReasoningEffort
 	auditHandler    callbacks.Handler
 	statusHandlers  callbacks.Handler
 
-	approver am.Approver
+	approver     am.Approver
+	baseTools    []tool.BaseTool
+	// modelFactory rebuilds models whose reasoning effort is set only at model
+	// construction time. Adaptive Claude thinking sends output_config.effort in
+	// the model configuration, so SetReasoning must replace its agent rather
+	// than relying solely on a per-request option.
+	modelFactory func(types.ReasoningEffort) model.ToolCallingChatModel
+
+	agentMu sync.RWMutex
 
 	subsMu sync.RWMutex
 	subs   map[string][]chan types.ProgressEvent //index by invocationID
@@ -117,24 +129,51 @@ func newOpenAIEINOClient(ctx context.Context, vendor string,
 }
 
 func newAnthropicEINOClient(ctx context.Context, vendor string,
-	approver am.Approver, apiKey string, model string,
+	approver am.Approver, apiKey string, modelName string,
 	depth int,
 	enableAuditLog bool, auditLogPath string) aiclient.AIClient {
 
-	chatModel, err := claude.NewChatModel(ctx, &claude.Config{
-		Model:  model,
+	chatModel, err := newAnthropicChatModel(ctx, apiKey, modelName,
+		types.ReasoningEffortMedium)
+	if err != nil {
+		panic(err)
+	}
+
+	client := newEINOClient(ctx, vendor, chatModel, approver, apiKey, modelName, depth,
+		enableAuditLog, auditLogPath).(*EINOAIClient)
+	if usesAdaptiveClaudeThinking(modelName) {
+		client.modelFactory = func(effort types.ReasoningEffort) model.ToolCallingChatModel {
+			chatModel, err := newAnthropicChatModel(ctx, apiKey, modelName, effort)
+			if err != nil {
+				panic(err)
+			}
+			return chatModel
+		}
+	}
+
+	return client
+}
+
+func newAnthropicChatModel(ctx context.Context, apiKey string, modelName string,
+	effort types.ReasoningEffort) (model.ToolCallingChatModel, error) {
+
+	config := &claude.Config{
+		Model:  modelName,
 		APIKey: apiKey,
 		// currently hardcode max tokens to 64k; see
 		// https://platform.claude.com/docs/en/api/go/messages/create
 		// https://platform.claude.com/docs/en/about-claude/models/overview
 		MaxTokens: 64000,
-	})
-	if err != nil {
-		panic(err)
+	}
+	if usesAdaptiveClaudeThinking(modelName) {
+		config.AdditionalRequestFields = map[string]any{
+			"output_config": map[string]any{
+				"effort": effort.String(),
+			},
+		}
 	}
 
-	return newEINOClient(ctx, vendor, chatModel, approver, apiKey, model, depth,
-		enableAuditLog, auditLogPath)
+	return claude.NewChatModel(ctx, config)
 }
 
 func newGoogleEINOClient(ctx context.Context, vendor string,
@@ -187,15 +226,7 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ToolCalli
 	for ii, _ := range tools {
 		baseTools[ii] = tools[ii]
 	}
-	config := &react.AgentConfig{
-		ToolCallingModel: chatModel,
-		MaxStep:          1000,
-		ToolsConfig: compose.ToolsNodeConfig{
-			Tools: baseTools,
-		},
-	}
-
-	client, err := react.NewAgent(ctx, config)
+	client, err := newReactAgent(ctx, chatModel, baseTools)
 	if err != nil {
 		panic(err)
 	}
@@ -210,10 +241,12 @@ func newEINOClient(ctx context.Context, vendor string, chatModel model.ToolCalli
 
 	clientOut := &EINOAIClient{
 		vendor:          vendor,
+		model:           model,
 		reactAgent:      client,
 		reasoningEffort: types.ReasoningEffortMedium,
 		auditHandler:    auditHandler,
 		approver:        approver,
+		baseTools:       baseTools,
 		subs:            make(map[string][]chan types.ProgressEvent),
 		current:         make(map[string]types.ProgressEvent),
 	}
@@ -243,7 +276,20 @@ func defineTools(ctx context.Context, vendor string, approver am.Approver,
 
 func (client *EINOAIClient) SetReasoning(
 	reasoningEffort types.ReasoningEffort) {
+	client.agentMu.Lock()
+	defer client.agentMu.Unlock()
+
 	client.reasoningEffort = reasoningEffort
+	if client.modelFactory == nil {
+		return
+	}
+
+	chatModel := client.modelFactory(reasoningEffort)
+	agent, err := newReactAgent(context.Background(), chatModel, client.baseTools)
+	if err != nil {
+		panic(err)
+	}
+	client.reactAgent = agent
 }
 
 func (client *EINOAIClient) reasoningModelOption() model.Option {
@@ -263,6 +309,11 @@ func (client *EINOAIClient) reasoningModelOption() model.Option {
 			ThinkingLevel:   geminiThinkingLevelFromReasoningEffort(client.reasoningEffort),
 		})
 	case "anthropic":
+		if usesAdaptiveClaudeThinking(client.model) {
+			return claude.WithThinkingConfig(&anthropic.ThinkingConfigParamUnion{
+				OfAdaptive: &anthropic.ThinkingConfigAdaptiveParam{},
+			})
+		}
 		return claude.WithThinking(&claude.Thinking{
 			Enable:       true,
 			BudgetTokens: claudeBudgetTokensFromReasoningEffort(client.reasoningEffort),
@@ -270,6 +321,44 @@ func (client *EINOAIClient) reasoningModelOption() model.Option {
 	default:
 		return model.Option{}
 	}
+}
+
+func newReactAgent(ctx context.Context, chatModel model.ToolCallingChatModel,
+	tools []tool.BaseTool) (*react.Agent, error) {
+
+	return react.NewAgent(ctx, &react.AgentConfig{
+		ToolCallingModel: chatModel,
+		MaxStep:          1000,
+		ToolsConfig: compose.ToolsNodeConfig{
+			Tools: tools,
+		},
+	})
+}
+
+func usesAdaptiveClaudeThinking(modelName string) bool {
+	parts := strings.Split(modelName, "-")
+	for i, part := range parts {
+		majorMinor := strings.SplitN(part, ".", 2)
+		major, err := strconv.Atoi(majorMinor[0])
+		if err != nil {
+			continue
+		}
+		if major > 4 {
+			return true
+		}
+		if major < 4 {
+			return false
+		}
+		minorPart := ""
+		if len(majorMinor) == 2 {
+			minorPart = majorMinor[1]
+		} else if i+1 < len(parts) {
+			minorPart = parts[i+1]
+		}
+		minor, err := strconv.Atoi(minorPart)
+		return err == nil && minor >= 7
+	}
+	return false
 }
 
 func geminiThinkingLevelFromReasoningEffort(level types.ReasoningEffort) genai.ThinkingLevel {
@@ -324,6 +413,9 @@ func (client *EINOAIClient) CreateChatCompletion(ctx context.Context,
 		dialogue[ii] = (*schema.Message)(msg)
 	}
 
+	client.agentMu.RLock()
+	defer client.agentMu.RUnlock()
+
 	modelOpt := client.reasoningModelOption()
 	composeOpt := compose.WithChatModelOption(modelOpt)
 	agentOpt := agent.WithComposeOptions(composeOpt)
@@ -354,6 +446,9 @@ func (client *EINOAIClient) StreamChatCompletion(ctx context.Context,
 	for ii, msg := range dialogueIn {
 		dialogue[ii] = (*schema.Message)(msg)
 	}
+
+	client.agentMu.RLock()
+	defer client.agentMu.RUnlock()
 
 	modelOpt := client.reasoningModelOption()
 	composeOpt := compose.WithChatModelOption(modelOpt)

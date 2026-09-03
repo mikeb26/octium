@@ -9,7 +9,7 @@ replace github.com/cloudwego/eino-ext/components/model/openai-go => github.com/m
 require (
 	github.com/chromedp/chromedp v0.15.1
 	github.com/cloudwego/eino v0.9.1
-	github.com/cloudwego/eino-ext/components/model/claude v0.1.18
+	github.com/cloudwego/eino-ext/components/model/claude v0.1.21
 	github.com/cloudwego/eino-ext/components/model/gemini v0.1.32
 	github.com/cloudwego/eino-ext/components/model/openai-go v0.0.0-00010101000000-000000000000
 	github.com/cloudwego/eino-ext/components/model/openrouter v0.1.10
@@ -28,7 +28,7 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
-	github.com/anthropics/anthropic-sdk-go v1.26.0 // indirect
+	github.com/anthropics/anthropic-sdk-go v1.37.0
 	github.com/aws/aws-sdk-go-v2 v1.33.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.3 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.1 // indirect
@@ -44,7 +44,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.9 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect

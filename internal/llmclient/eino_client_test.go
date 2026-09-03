@@ -30,6 +30,26 @@ func TestInvocationID_GetAndEnsure(t *testing.T) {
 	assert.Equal(t, id3, GetInvocationID(ctx3))
 }
 
+func TestUsesAdaptiveClaudeThinking(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{model: "claude-opus-4-6", want: false},
+		{model: "claude-opus-4-7", want: true},
+		{model: "claude-opus-4.7", want: true},
+		{model: "claude-opus-4-7-20260201", want: true},
+		{model: "claude-sonnet-5", want: true},
+		{model: "claude-fable-5-1", want: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.model, func(t *testing.T) {
+			assert.Equal(t, test.want, usesAdaptiveClaudeThinking(test.model))
+		})
+	}
+}
+
 func TestProgress_Subscribe_LateSubscriberGetsCurrent(t *testing.T) {
 	client := &EINOAIClient{
 		subs:    make(map[string][]chan types.ProgressEvent),
