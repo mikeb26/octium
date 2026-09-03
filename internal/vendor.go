@@ -31,8 +31,9 @@ var vendorInfos = map[string]VendorInfo{
 			"gemini-3.5-flash-lite",
 			"gemini-3.6-flash",
 			"gemini-3.7-flash",
+			"gemini-3.8-flash",
 		},
-		DefaultModel: "gemini-3.7-flash",
+		DefaultModel: "gemini-3.8-flash",
 	},
 	"openrouter": {
 		Name:      "openrouter",
@@ -61,6 +62,7 @@ var vendorInfos = map[string]VendorInfo{
 			"google/gemini-3.5-flash-lite",
 			"google/gemini-3.6-flash",
 			"google/gemini-3.7-flash",
+			"google/gemini-3.8-flash",
 			"meta-llama/llama-3.3-70b-instruct",
 			"mistralai/codestral-2508",
 			"mistralai/mistral-large",
